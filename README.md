@@ -1,136 +1,114 @@
-# Interview Manager
+# Interview Manager (Web)
 
-A **local, server-less interview scheduling & management app**. Candidates
-request interviews; a single admin (the **"caller"**) approves, schedules,
-conducts, and tracks each one. It runs as a **native desktop window** (Python's
-built-in Tkinter) — no web server, no browser. Candidate and Admin modes talk to
-each other through a **shared local SQLite database** on your machine.
+A web application for requesting, scheduling, and managing interviews — built as a
+real browser app deployed to the public internet.
 
-Comes with a **one-click launcher/updater** that installs everything and starts
-the app.
+**Stack:** Next.js 14 (App Router) · TypeScript · Tailwind CSS · Supabase
+(Auth + Postgres + Realtime). Deploy target: **Vercel** (app) + **Supabase Cloud**
+(backend), both free tier.
 
-> Tech stack: **Python · Tkinter (stdlib) · SQLAlchemy 2 · SQLite**. The only
-> installed dependencies are SQLAlchemy and `tzdata`.
+> Phase 1 (this build): the **Candidate dashboard** at `/candidate/dashboard`,
+> plus the email/password auth needed to reach it. Admin, calendar, and payments
+> come in later phases.
 
 ---
 
-## Easiest way to run
+## What's in this phase
 
-**Double-click `Start Interview Manager.bat`** (Windows).
+- **Email/password auth** via Supabase Auth (`/login`, sign in + sign up).
+- **Candidate dashboard** (`/candidate/dashboard`):
+  - Topbar with a Tailwind **segmented role switch** (Candidate / Admin).
+  - **Welcome header** — avatar initials, name, email, timezone (from the
+    authenticated user + their `profiles` row).
+  - **Request an interview** card — a React Hook Form + Zod form (role, preferred
+    date/time in the user's timezone, duration, notes) that writes to
+    `interview_requests`.
+  - **My interviews** card — a styled table of the candidate's own requests, live
+    from Supabase, with colored status and payment **pill badges**.
+  - **Notifications** card — the candidate's notifications with icons and relative
+    timestamps, **live-updating via Supabase Realtime** (no manual refresh).
 
-That opens the **Launcher**, which automatically:
-1. pulls the latest code from GitHub (if this folder is a git clone),
-2. creates a local virtual environment,
-3. installs/updates the requirements,
+---
 
-then enables **Launch App**. Click it and the desktop app opens.
+## Setup
 
-You can re-open the launcher any time to update + relaunch.
+### 1. Create a Supabase project
+At [supabase.com](https://supabase.com) → New project (free tier). Wait for it to
+provision.
 
-## Run it manually
+### 2. Create the schema
+Open **SQL Editor** in your Supabase project, paste the contents of
+[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), and run
+it. This creates the `profiles`, `interview_requests`, and `notifications` tables
+with Row Level Security, a new-user trigger (auto-creates a profile + welcome
+notification), and enables Realtime.
 
+### 3. (Optional) speed up local testing
+**Authentication → Providers → Email**: turn **"Confirm email" off** so sign-up
+gives you a session immediately. (With it on, confirm via the emailed link — the
+app handles the callback at `/auth/callback`.)
+
+### 4. Configure environment
 ```bash
-python -m venv venv
-venv\Scripts\activate        # Windows  (source venv/bin/activate on macOS/Linux)
-pip install -r requirements.txt
-python run_app.py            # opens the desktop window
+cp .env.example .env.local
+```
+Fill in from **Project Settings → API**:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
 ```
 
-Or just `python launcher.py` to get the launcher UI.
-
----
-
-## Using the app
-
-The window has two modes, toggled top-right:
-
-- **Candidate** — sign in by name + email + timezone, request an interview
-  (optionally a preferred time in *your* timezone), watch its status, read
-  notifications, and pay an invoice.
-- **Admin** — enter the admin password (default **`admin`**), then drive each
-  interview: **Approve · Reject · Schedule · Start call · Complete · Cancel**,
-  raise an **Invoice**, and keep private **Notes**.
-
-Both modes share one database, so a request made as a candidate shows up for the
-admin (and approvals/schedules flow back) — the views auto-refresh every few
-seconds. You can even open the app twice (once per role) and they stay in sync.
-
-### How candidate ↔ admin "communicate" without a server
-
-Everything is persisted to a single SQLite file and every action is a short
-transaction against it. There is no network service — the shared file *is* the
-channel. The database lives at (override with the `IM_DATABASE_URL` env var):
-
-```
-%LOCALAPPDATA%\InterviewManager\interview_manager.db   (Windows)
-~/.local/share/InterviewManager/interview_manager.db   (macOS/Linux)
-```
-
-### Interview lifecycle
-
-```
-requested ──approve──► approved ──schedule──► scheduled ──start──► in_progress ──complete──► completed
-    │                     │                       │                     │
-    └─reject─► rejected    └─cancel/reject         └─cancel              └─cancel ─► cancelled
-```
-
-Illegal transitions are refused (enforced in [`app/lifecycle.py`](app/lifecycle.py)).
-
----
-
-## Configuration
-
-All optional — sensible defaults mean it works with zero config. Set env vars to
-override:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `IM_ADMIN_PASSWORD` | `admin` | Password to enter Admin mode |
-| `IM_DATABASE_URL` | per-user SQLite file | SQLAlchemy database URL |
-| `IM_DEFAULT_TIMEZONE` | `UTC` | Prefilled timezone for new candidates |
-| `IM_APP_NAME` | `Interview Manager` | Window title |
-
-## Tests
-
+### 5. Install & run
 ```bash
-pytest
+npm install
+npm run dev
 ```
+Open <http://localhost:3000> → you'll be sent to `/login`. Sign up, then land on
+`/candidate/dashboard`.
 
-Covers candidate registration/validation, the full interview lifecycle,
-illegal-transition guarding, payments, admin auth, and timezone conversion —
-all against the service layer with a throwaway SQLite database.
+---
+
+## Deploy
+
+### Backend
+Already live once you've created the Supabase project and run the SQL.
+
+### App → Vercel
+1. Push this repo to GitHub (done — `vicuvi1/interview_manager`).
+2. On [vercel.com](https://vercel.com): **New Project → import the repo**.
+3. Add the two env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+4. Deploy. Add your Vercel URL to Supabase **Authentication → URL Configuration**
+   (Site URL + redirect URLs) so email links resolve.
+
+---
 
 ## Project layout
 
 ```
-launcher.py                 Launcher/updater mini-app (stdlib only)
-Start Interview Manager.bat  Double-click entry point for the launcher
-run_app.py                  Starts the desktop app
 app/
-  config.py                 Settings + per-user database location
-  database.py               Engine, session_scope(), init_db()
-  models.py                 Candidate, Interview, Payment, Notification
-  service.py                All business operations (the GUI calls these)
-  lifecycle.py              Interview status state machine
-  timezone.py               UTC <-> local helpers
-  notifications.py          In-app notification writer
-  serializers.py            ORM -> plain dicts (with localized times)
-gui/
-  app.py                    Main window + mode toggle + auto-refresh
-  candidate.py              Candidate view
-  admin.py                  Admin view
-  common.py                 Shared widget helpers
-tests/                      pytest suite (service + timezone)
+  layout.tsx                     Root layout (Inter font, globals)
+  page.tsx                       -> redirects to /candidate/dashboard
+  login/page.tsx                 Auth (Suspense-wrapped login form)
+  auth/callback/route.ts         Email-confirm / code exchange
+  candidate/dashboard/page.tsx   The candidate dashboard (server-rendered shell)
+  admin/dashboard/page.tsx       Placeholder (later phase)
+components/
+  topbar.tsx, role-switch.tsx, sign-out-button.tsx, welcome-header.tsx
+  request-interview-card.tsx     RHF + Zod form
+  my-interviews-card.tsx         Live table with badges
+  notifications-card.tsx         Realtime notifications
+  login-form.tsx
+  ui/                            Card, Button, Input/Textarea, Select, Badge, Field, EmptyState
+lib/
+  supabase/{client,server}.ts    Browser + server Supabase clients (@supabase/ssr)
+  env.ts, utils.ts, time.ts, types.ts
+middleware.ts                    Session refresh + route protection
+supabase/migrations/0001_init.sql
 ```
 
----
-
-## Notes & next steps
-
-This is a working local app. Natural next steps: package it into a single `.exe`
-with PyInstaller (the launcher already isolates the runtime), add candidate
-authentication, swap the mock payment step for a real provider (isolated to
-`app/service.py`), and move from `create_all` to Alembic migrations.
-
-> Earlier this project was a FastAPI web app; that version lives in git history
-> at commit `3e89667` if you ever want the browser-based interface back.
+## Notes
+- All styling is Tailwind utility classes; icons are `lucide-react`. No native
+  desktop widgets or unstyled controls.
+- RLS ensures each candidate only sees their own data.
+- The earlier desktop (Tkinter) and FastAPI versions are gone; they remain in git
+  history if ever needed.

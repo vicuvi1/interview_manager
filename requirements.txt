@@ -1,9 +1,0 @@
-# Interview Manager — local desktop app (no server).
-# The GUI uses Python's built-in Tkinter, so the runtime footprint is tiny.
-
-SQLAlchemy>=2.0
-# zoneinfo timezone database (Windows has no system tz DB)
-tzdata>=2024.1
-
-# --- dev / test ---
-pytest>=8.0

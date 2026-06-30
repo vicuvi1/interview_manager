@@ -1,0 +1,120 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  Bell,
+  BellRing,
+  CalendarCheck,
+  CheckCircle2,
+  Info,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
+
+import { SectionCard } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { createClient } from "@/lib/supabase/client";
+import { relativeTime } from "@/lib/time";
+import type { Notification } from "@/lib/types";
+
+function iconFor(type: string): LucideIcon {
+  switch (type) {
+    case "approved":
+      return CalendarCheck;
+    case "rejected":
+      return XCircle;
+    case "success":
+      return CheckCircle2;
+    case "alert":
+      return BellRing;
+    default:
+      return Info;
+  }
+}
+
+export function NotificationsCard({
+  userId,
+  initial,
+}: {
+  userId: string;
+  initial: Notification[];
+}) {
+  const [items, setItems] = useState<Notification[]>(initial);
+
+  const load = useCallback(async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (data) setItems(data as Notification[]);
+  }, [userId]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`notifications-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, load]);
+
+  return (
+    <SectionCard
+      title="Notifications"
+      description="Live updates on your requests."
+      icon={Bell}
+      bodyClassName="p-0 sm:p-0"
+    >
+      {items.length === 0 ? (
+        <div className="p-5 sm:p-6">
+          <EmptyState
+            icon={Bell}
+            title="You're all caught up"
+            description="New notifications appear here in real time."
+          />
+        </div>
+      ) : (
+        <ul className="max-h-[360px] divide-y divide-slate-100 overflow-y-auto scrollbar-thin">
+          {items.map((n) => {
+            const Icon = iconFor(n.type);
+            return (
+              <li key={n.id} className="flex gap-3 px-5 py-3.5 sm:px-6">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-medium text-slate-800">{n.title}</p>
+                    <span className="shrink-0 text-[12px] text-slate-400">
+                      {relativeTime(n.created_at)}
+                    </span>
+                  </div>
+                  {n.detail ? (
+                    <p className="mt-0.5 text-[13px] text-slate-500">{n.detail}</p>
+                  ) : null}
+                </div>
+                {!n.read ? (
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </SectionCard>
+  );
+}
