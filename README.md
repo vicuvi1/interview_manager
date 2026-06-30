@@ -7,9 +7,10 @@ real browser app deployed to the public internet.
 (Auth + Postgres + Realtime). Deploy target: **Vercel** (app) + **Supabase Cloud**
 (backend), both free tier.
 
-> Built so far: **Phase 1 — Candidate dashboard** (`/candidate/dashboard`) and
-> **Phase 2 — Admin workspace** (`/admin/dashboard`), plus the email/password auth
-> needed to reach them. Calendar/scheduling and payments come in later phases.
+> Built so far: **Phase 1 — Candidate dashboard** (`/candidate/dashboard`),
+> **Phase 2 — Admin workspace** (`/admin/dashboard`), and **Phase 3 —
+> Scheduling + Calendar** (`/candidate/calendar`), plus the email/password auth
+> needed to reach them. Payments come in a later phase.
 
 ---
 
@@ -34,7 +35,16 @@ real browser app deployed to the public internet.
     status + payment badges, and a status filter.
   - A **Manage** modal to **Approve / Reject / Complete / Cancel** a request, with
     an optional message — each action **notifies the candidate in real time**.
+  - **Schedule a time** (Phase 3): the admin picks a date/time in *their* timezone
+    with a live preview of what the candidate will see, plus a meeting link. It
+    sets the confirmed time, moves the request to `scheduled`, and notifies the
+    candidate.
   - Admin-aware Row Level Security so admins can see/act on all rows.
+- **Candidate calendar** (`/candidate/calendar`) — a real **month calendar** of the
+  candidate's confirmed interviews (in their timezone) with day-by-day detail, an
+  **Upcoming** list, and Join links; live via Realtime. A secondary nav switches
+  between Dashboard and Calendar. The "My interviews" table shows the confirmed
+  time + Join link once scheduled.
 
 ---
 
@@ -52,6 +62,8 @@ Open **SQL Editor** in your Supabase project and run, in order:
    and Realtime.
 2. [`supabase/migrations/0002_admin.sql`](supabase/migrations/0002_admin.sql) — the
    `is_admin()` helper and admin RLS policies for the admin workspace.
+3. [`supabase/migrations/0003_scheduling.sql`](supabase/migrations/0003_scheduling.sql)
+   — adds `scheduled_at` + `meeting_link` for scheduling.
 
 **To use the Admin workspace,** make your account an admin (after signing up):
 ```sql

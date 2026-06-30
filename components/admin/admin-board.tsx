@@ -15,11 +15,17 @@ import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Textarea } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
+import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/admin/stat-card";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone, relativeTime } from "@/lib/time";
+import {
+  formatInTimeZone,
+  relativeTime,
+  utcToLocalInput,
+  wallTimeToUtcISO,
+} from "@/lib/time";
 import { initials } from "@/lib/utils";
 import type { CandidateLite, InterviewRequest, InterviewStatus } from "@/lib/types";
 
@@ -66,10 +72,12 @@ function defaultDetail(kind: ActionKind, role: string): string {
 }
 
 export function AdminBoard({
+  adminTimezone,
   initialRequests,
   initialCandidates,
 }: {
   adminId: string;
+  adminTimezone: string;
   initialRequests: InterviewRequest[];
   initialCandidates: Record<string, CandidateLite>;
 }) {
@@ -80,6 +88,18 @@ export function AdminBoard({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [schedAt, setSchedAt] = useState("");
+  const [schedDuration, setSchedDuration] = useState(30);
+  const [schedLink, setSchedLink] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+
+  useEffect(() => {
+    if (!selected) return;
+    setSchedAt(selected.scheduled_at ? utcToLocalInput(selected.scheduled_at, adminTimezone) : "");
+    setSchedDuration(selected.duration_minutes);
+    setSchedLink(selected.meeting_link ?? "");
+  }, [selected, adminTimezone]);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -156,8 +176,56 @@ export function AdminBoard({
     load();
   }
 
+  async function schedule() {
+    if (!selected) return;
+    if (!schedAt) {
+      setError("Pick a date and time.");
+      return;
+    }
+    setScheduling(true);
+    setError(null);
+    const supabase = createClient();
+    const scheduledUtc = wallTimeToUtcISO(schedAt, adminTimezone);
+    const candidateTz = candidates[selected.candidate_id]?.timezone ?? "UTC";
+
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({
+        scheduled_at: scheduledUtc,
+        meeting_link: schedLink.trim() || null,
+        duration_minutes: schedDuration,
+        status: "scheduled",
+      })
+      .eq("id", selected.id);
+    if (updateError) {
+      setError(updateError.message);
+      setScheduling(false);
+      return;
+    }
+
+    await supabase.from("notifications").insert({
+      user_id: selected.candidate_id,
+      title: "Interview scheduled",
+      detail: `Your interview for "${selected.role}" is set for ${formatInTimeZone(scheduledUtc, candidateTz)}.`,
+      type: "approved",
+    });
+
+    setScheduling(false);
+    setSelected(null);
+    load();
+  }
+
   const selectedCandidate = selected ? candidates[selected.candidate_id] : undefined;
   const selectedActions = selected ? ACTIONS_BY_STATUS[selected.status] ?? [] : [];
+  const candTz = selectedCandidate?.timezone ?? "UTC";
+  let schedPreview: string | null = null;
+  if (selected && schedAt) {
+    try {
+      schedPreview = formatInTimeZone(wallTimeToUtcISO(schedAt, adminTimezone), candTz);
+    } catch {
+      schedPreview = null;
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -306,6 +374,59 @@ export function AdminBoard({
                 </div>
               ) : null}
             </dl>
+
+            {selected.status === "approved" || selected.status === "scheduled" ? (
+              <div className="space-y-3 border-t border-slate-100 pt-4">
+                <p className="text-[13px] font-medium text-slate-700">
+                  {selected.status === "scheduled" ? "Reschedule" : "Schedule a time"}
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={`Date & time (${adminTimezone})`} htmlFor="schedAt">
+                    <Input
+                      id="schedAt"
+                      type="datetime-local"
+                      value={schedAt}
+                      onChange={(e) => setSchedAt(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Duration" htmlFor="schedDur">
+                    <Select
+                      id="schedDur"
+                      value={schedDuration}
+                      onChange={(e) => setSchedDuration(Number(e.target.value))}
+                    >
+                      <option value={15}>15 minutes</option>
+                      <option value={30}>30 minutes</option>
+                      <option value={45}>45 minutes</option>
+                      <option value={60}>60 minutes</option>
+                      <option value={90}>90 minutes</option>
+                    </Select>
+                  </Field>
+                </div>
+                <Field
+                  label="Meeting link"
+                  htmlFor="schedLink"
+                  hint="Optional — shared with the candidate."
+                >
+                  <Input
+                    id="schedLink"
+                    placeholder="https://meet.google.com/…"
+                    value={schedLink}
+                    onChange={(e) => setSchedLink(e.target.value)}
+                  />
+                </Field>
+                {schedPreview ? (
+                  <p className="text-[13px] text-slate-500">
+                    Candidate ({candTz}) sees:{" "}
+                    <span className="font-medium text-slate-700">{schedPreview}</span>
+                  </p>
+                ) : null}
+                <Button size="sm" loading={scheduling} disabled={scheduling} onClick={schedule}>
+                  <CalendarClock className="h-4 w-4" />
+                  {selected.status === "scheduled" ? "Update time" : "Confirm schedule"}
+                </Button>
+              </div>
+            ) : null}
 
             {selectedActions.length > 0 ? (
               <div className="space-y-3 border-t border-slate-100 pt-4">

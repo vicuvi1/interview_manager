@@ -73,6 +73,7 @@ export default async function AdminDashboardPage() {
         </div>
         <AdminBoard
           adminId={user.id}
+          adminTimezone={me?.timezone ?? "UTC"}
           initialRequests={requests}
           initialCandidates={candidates}
         />

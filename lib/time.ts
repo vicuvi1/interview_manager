@@ -74,6 +74,31 @@ export function wallTimeToUtcISO(local: string, timeZone: string): string {
   return new Date(guessUTC - offset).toISOString();
 }
 
+/**
+ * Convert a UTC ISO timestamp into the value a <input type="datetime-local">
+ * expects ("YYYY-MM-DDTHH:MM"), expressed in `timeZone`.
+ */
+export function utcToLocalInput(iso: string | null | undefined, timeZone: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, p) => {
+      acc[p.type] = p.value;
+      return acc;
+    }, {});
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
 /** The browser's IANA timezone, e.g. "America/New_York". */
 export function browserTimeZone(): string {
   try {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarRange, Inbox } from "lucide-react";
+import { CalendarRange, ExternalLink, Inbox } from "lucide-react";
 
 import { Badge, paymentTone, statusTone } from "@/components/ui/badge";
 import { SectionCard } from "@/components/ui/card";
@@ -72,7 +72,7 @@ export function MyInterviewsCard({
             <thead>
               <tr className="border-b border-slate-100 text-[12px] uppercase tracking-wide text-slate-400">
                 <th className="px-5 py-3 font-medium sm:px-6">Role</th>
-                <th className="px-3 py-3 font-medium">Preferred</th>
+                <th className="px-3 py-3 font-medium">When</th>
                 <th className="px-3 py-3 font-medium">Duration</th>
                 <th className="px-3 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium sm:px-6">Payment</th>
@@ -83,7 +83,28 @@ export function MyInterviewsCard({
                 <tr key={row.id} className="transition-colors hover:bg-slate-50/70">
                   <td className="px-5 py-3 font-medium text-slate-800 sm:px-6">{row.role}</td>
                   <td className="px-3 py-3 text-slate-600">
-                    {formatInTimeZone(row.preferred_at, timezone)}
+                    {row.scheduled_at ? (
+                      <div>
+                        <span className="text-slate-800">
+                          {formatInTimeZone(row.scheduled_at, timezone)}
+                        </span>
+                        {row.meeting_link ? (
+                          <a
+                            href={row.meeting_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ml-2 inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 hover:text-brand-700"
+                          >
+                            Join <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-slate-500">
+                        {formatInTimeZone(row.preferred_at, timezone)}
+                        <span className="ml-1 text-[12px] text-slate-400">(preferred)</span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-slate-600">{row.duration_minutes} min</td>
                   <td className="px-3 py-3">

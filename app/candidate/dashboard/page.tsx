@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { CandidateNav } from "@/components/candidate-nav";
 import { MyInterviewsCard } from "@/components/my-interviews-card";
 import { NotificationsCard } from "@/components/notifications-card";
 import { RequestInterviewCard } from "@/components/request-interview-card";
@@ -49,6 +50,7 @@ export default async function CandidateDashboardPage() {
   return (
     <div className="min-h-screen">
       <Topbar />
+      <CandidateNav />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <WelcomeHeader name={name} email={email} timezone={timezone} />
 
