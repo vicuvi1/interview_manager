@@ -8,9 +8,9 @@ real browser app deployed to the public internet.
 (backend), both free tier.
 
 > Built so far: **Phase 1 — Candidate dashboard** (`/candidate/dashboard`),
-> **Phase 2 — Admin workspace** (`/admin/dashboard`), and **Phase 3 —
-> Scheduling + Calendar** (`/candidate/calendar`), plus the email/password auth
-> needed to reach them. Payments come in a later phase.
+> **Phase 2 — Admin workspace** (`/admin/dashboard`), **Phase 3 — Scheduling +
+> Calendar** (`/candidate/calendar`), and **Phase 4 — Payments** (mock checkout),
+> plus the email/password auth needed to reach them.
 
 ---
 
@@ -45,6 +45,11 @@ real browser app deployed to the public internet.
   **Upcoming** list, and Join links; live via Realtime. A secondary nav switches
   between Dashboard and Calendar. The "My interviews" table shows the confirmed
   time + Join link once scheduled.
+- **Payments** (Phase 4, **mock checkout**) — the admin sends an **invoice**
+  (sets an amount) from the Manage modal; the candidate sees a **Pay $X** button
+  in their table, opens a styled **demo checkout**, and on pay the **payment badge
+  flips to paid** live. No real charge — structured so a real Stripe Checkout +
+  webhook can replace the `pay()` call later.
 
 ---
 
@@ -64,6 +69,8 @@ Open **SQL Editor** in your Supabase project and run, in order:
    `is_admin()` helper and admin RLS policies for the admin workspace.
 3. [`supabase/migrations/0003_scheduling.sql`](supabase/migrations/0003_scheduling.sql)
    — adds `scheduled_at` + `meeting_link` for scheduling.
+4. [`supabase/migrations/0004_payments.sql`](supabase/migrations/0004_payments.sql)
+   — adds `price_cents`, `currency`, `paid_at` for payments.
 
 **To use the Admin workspace,** make your account an admin (after signing up):
 ```sql

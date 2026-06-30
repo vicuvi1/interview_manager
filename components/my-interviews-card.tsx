@@ -3,11 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarRange, ExternalLink, Inbox } from "lucide-react";
 
-import { Badge, paymentTone, statusTone } from "@/components/ui/badge";
+import { CheckoutDialog } from "@/components/checkout-dialog";
+import { Badge, statusTone } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
+import { formatMoney } from "@/lib/utils";
 import type { InterviewRequest } from "@/lib/types";
 
 export function MyInterviewsCard({
@@ -20,6 +23,7 @@ export function MyInterviewsCard({
   initial: InterviewRequest[];
 }) {
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
+  const [payTarget, setPayTarget] = useState<InterviewRequest | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -52,7 +56,8 @@ export function MyInterviewsCard({
   }, [userId, load]);
 
   return (
-    <SectionCard
+    <>
+      <SectionCard
       title="My interviews"
       description="Your requests and their current status."
       icon={CalendarRange}
@@ -111,9 +116,15 @@ export function MyInterviewsCard({
                     <Badge tone={statusTone[row.status] ?? "slate"}>{row.status}</Badge>
                   </td>
                   <td className="px-5 py-3 sm:px-6">
-                    <Badge tone={paymentTone[row.payment_status] ?? "slate"}>
-                      {row.payment_status}
-                    </Badge>
+                    {row.payment_status === "paid" ? (
+                      <Badge tone="green">paid</Badge>
+                    ) : row.price_cents ? (
+                      <Button size="sm" onClick={() => setPayTarget(row)}>
+                        Pay {formatMoney(row.price_cents, row.currency)}
+                      </Button>
+                    ) : (
+                      <span className="text-[13px] text-slate-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -121,6 +132,13 @@ export function MyInterviewsCard({
           </table>
         </div>
       )}
-    </SectionCard>
+      </SectionCard>
+      <CheckoutDialog
+        interview={payTarget}
+        open={payTarget !== null}
+        onClose={() => setPayTarget(null)}
+        onPaid={load}
+      />
+    </>
   );
 }

@@ -28,6 +28,9 @@ export interface InterviewRequest {
   notes: string | null;
   status: InterviewStatus;
   payment_status: PaymentStatus;
+  price_cents: number | null;
+  currency: string;
+  paid_at: string | null;
   created_at: string;
 }
 

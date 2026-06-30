@@ -26,7 +26,7 @@ import {
   utcToLocalInput,
   wallTimeToUtcISO,
 } from "@/lib/time";
-import { initials } from "@/lib/utils";
+import { formatMoney, initials } from "@/lib/utils";
 import type { CandidateLite, InterviewRequest, InterviewStatus } from "@/lib/types";
 
 type ActionKind = "approve" | "reject" | "complete" | "cancel";
@@ -94,11 +94,15 @@ export function AdminBoard({
   const [schedLink, setSchedLink] = useState("");
   const [scheduling, setScheduling] = useState(false);
 
+  const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [invoicing, setInvoicing] = useState(false);
+
   useEffect(() => {
     if (!selected) return;
     setSchedAt(selected.scheduled_at ? utcToLocalInput(selected.scheduled_at, adminTimezone) : "");
     setSchedDuration(selected.duration_minutes);
     setSchedLink(selected.meeting_link ?? "");
+    setInvoiceAmount(selected.price_cents ? (selected.price_cents / 100).toFixed(2) : "");
   }, [selected, adminTimezone]);
 
   const load = useCallback(async () => {
@@ -211,6 +215,39 @@ export function AdminBoard({
     });
 
     setScheduling(false);
+    setSelected(null);
+    load();
+  }
+
+  async function sendInvoice() {
+    if (!selected) return;
+    const cents = Math.round(parseFloat(invoiceAmount) * 100);
+    if (!cents || cents <= 0) {
+      setError("Enter a valid amount.");
+      return;
+    }
+    setInvoicing(true);
+    setError(null);
+    const supabase = createClient();
+
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ price_cents: cents, currency: "USD" })
+      .eq("id", selected.id);
+    if (updateError) {
+      setError(updateError.message);
+      setInvoicing(false);
+      return;
+    }
+
+    await supabase.from("notifications").insert({
+      user_id: selected.candidate_id,
+      title: "Payment requested",
+      detail: `A payment of ${formatMoney(cents, "USD")} is due for "${selected.role}".`,
+      type: "alert",
+    });
+
+    setInvoicing(false);
     setSelected(null);
     load();
   }
@@ -427,6 +464,47 @@ export function AdminBoard({
                 </Button>
               </div>
             ) : null}
+
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <p className="text-[13px] font-medium text-slate-700">Payment</p>
+              {selected.payment_status === "paid" ? (
+                <p className="text-[13px] font-medium text-emerald-600">
+                  Paid {formatMoney(selected.price_cents, selected.currency)}
+                  {selected.paid_at ? ` · ${relativeTime(selected.paid_at)}` : ""}
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Field label="Invoice amount (USD)" htmlFor="invoice">
+                        <Input
+                          id="invoice"
+                          inputMode="decimal"
+                          placeholder="50.00"
+                          value={invoiceAmount}
+                          onChange={(e) => setInvoiceAmount(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      loading={invoicing}
+                      disabled={invoicing}
+                      onClick={sendInvoice}
+                    >
+                      {selected.price_cents ? "Update invoice" : "Send invoice"}
+                    </Button>
+                  </div>
+                  {selected.price_cents ? (
+                    <p className="text-[12px] text-slate-400">
+                      Invoiced {formatMoney(selected.price_cents, selected.currency)} · awaiting
+                      payment
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
 
             {selectedActions.length > 0 ? (
               <div className="space-y-3 border-t border-slate-100 pt-4">
