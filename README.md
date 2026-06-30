@@ -57,6 +57,9 @@ copy .env.example .env       # then edit ADMIN_API_KEY
 python run.py                # or: uvicorn app.main:app --reload
 ```
 
+> For an exact, reproducible install (the versions this app was built and
+> tested against), use the lockfile instead: `pip install -r requirements.lock`.
+
 Then open:
 
 | URL | What |
