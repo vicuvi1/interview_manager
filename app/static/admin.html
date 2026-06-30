@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interview Manager — Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>🛠️ Interview Manager — Admin</h1>
+    <nav class="nav">
+      <a href="/index.html">Candidate Portal</a>
+      <a href="/admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="auth" class="card">
+      <h2>Admin sign in</h2>
+      <p class="muted">Enter your admin key (the <code>ADMIN_API_KEY</code>). It is kept only in this browser.</p>
+      <label>Admin key</label>
+      <input id="admin-key" type="password" placeholder="change-me-admin-key" />
+      <button id="auth-go">Unlock dashboard</button>
+    </section>
+
+    <section id="dash" class="hidden">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="row" style="flex:1;align-items:flex-end;">
+            <div style="max-width:220px;">
+              <label>Filter by status</label>
+              <select id="filter">
+                <option value="">All</option>
+                <option value="requested">Requested</option>
+                <option value="approved">Approved</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <button class="secondary" id="reload">Reload</button>
+          </div>
+          <button class="ghost" id="lock">Lock</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Interviews</h2>
+        <table>
+          <thead>
+            <tr><th>Candidate</th><th>Role</th><th>Status</th><th>Scheduled (their tz)</th><th>Payment</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Admin notifications</h2>
+        <div id="admin-notifs"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/common.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>
