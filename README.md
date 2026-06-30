@@ -61,6 +61,17 @@ real browser app deployed to the public internet.
 
 ---
 
+## Run it (one click) + auto-update
+
+- **Locally:** double-click **`Start Interview Manager.bat`**. It pulls the latest
+  code, installs deps, opens <http://localhost:3000>, and then **auto-updates from
+  GitHub every 60s** (live-reloads on each push). Needs [Node.js](https://nodejs.org)
+  + [Git](https://git-scm.com).
+- **On the web:** deploy to **Vercel** once — it then **auto-deploys on every push
+  to `main`**.
+
+Full instructions for both (and env/Supabase setup) are in **[DEPLOY.md](DEPLOY.md)**.
+
 ## Setup
 
 ### 1. Create a Supabase project
