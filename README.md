@@ -63,10 +63,10 @@ real browser app deployed to the public internet.
 
 ## Run it (one click) + auto-update
 
-- **Locally:** double-click **`Start Interview Manager.bat`**. It pulls the latest
-  code, installs deps, opens <http://localhost:3000>, and then **auto-updates from
-  GitHub every 60s** (live-reloads on each push). Needs [Node.js](https://nodejs.org)
-  + [Git](https://git-scm.com).
+- **Locally:** double-click **`Start Interview Manager.bat`**. It **installs
+  Node.js + Git for you if missing** (via `winget`), installs all dependencies,
+  opens the app in your browser, and then **auto-updates from GitHub every 60s**
+  (live-reloads on each push). On Windows 10/11 there's nothing to install by hand.
 - **On the web:** deploy to **Vercel** once — it then **auto-deploys on every push
   to `main`**.
 

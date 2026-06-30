@@ -9,17 +9,19 @@ Two ways to run Interview Manager. Both auto-update from GitHub.
 **Double-click `Start Interview Manager.bat`.**
 
 It will:
-1. check Node.js (and Git) are installed,
+1. **install Node.js and Git for you** (via `winget`) if they're missing,
 2. create `.env.local` from the template on first run (it opens so you can paste
    your Supabase URL + anon key),
 3. `git pull` the latest code,
-4. install dependencies if needed,
-5. start the app and open <http://localhost:3000>,
+4. **install all dependencies** (`npm install` runs every launch),
+5. start the app, wait until it's ready, and open it in your browser
+   (picks a free port automatically),
 6. then **check GitHub every 60 seconds** and live-reload whenever you push an
    update — no restart needed.
 
-Requirements: [Node.js LTS](https://nodejs.org) and [Git](https://git-scm.com).
-(Without Git it still runs, just without auto-update.)
+No prerequisites to install by hand on Windows 10/11 (which ships `winget`). On
+older systems, install [Node.js LTS](https://nodejs.org) once and re-run. Without
+Git it still runs, just without auto-update.
 
 ---
 
