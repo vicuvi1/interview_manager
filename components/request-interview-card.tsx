@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CalendarPlus, Check, Send } from "lucide-react";
+import { CalendarPlus, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { wallTimeToUtcISO } from "@/lib/time";
 
@@ -30,9 +30,7 @@ export function RequestInterviewCard({
   userId: string;
   timezone: string;
 }) {
-  const [done, setDone] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-
+  const { toast } = useToast();
   const {
     register,
     handleSubmit,
@@ -44,7 +42,6 @@ export function RequestInterviewCard({
   });
 
   async function onSubmit(values: FormValues) {
-    setServerError(null);
     const supabase = createClient();
     const preferred_at = wallTimeToUtcISO(values.preferredAt, timezone);
 
@@ -57,13 +54,16 @@ export function RequestInterviewCard({
     });
 
     if (error) {
-      setServerError(error.message);
+      toast({ title: "Couldn't submit request", description: error.message, variant: "error" });
       return;
     }
 
     reset({ role: "", preferredAt: "", duration: 30, notes: "" });
-    setDone(true);
-    window.setTimeout(() => setDone(false), 2500);
+    toast({
+      title: "Interview requested",
+      description: "We'll review it and confirm a time.",
+      variant: "success",
+    });
   }
 
   return (
@@ -106,19 +106,11 @@ export function RequestInterviewCard({
           <Textarea id="notes" placeholder="Context, links, accommodations…" {...register("notes")} />
         </Field>
 
-        {serverError ? <p className="text-[13px] text-red-600">{serverError}</p> : null}
-
-        <div className="flex items-center gap-3 pt-1">
+        <div className="pt-1">
           <Button type="submit" loading={isSubmitting}>
             <Send className="h-4 w-4" />
             Submit request
           </Button>
-          {done ? (
-            <span className="inline-flex items-center gap-1 text-[13px] font-medium text-emerald-600">
-              <Check className="h-4 w-4" />
-              Request sent
-            </span>
-          ) : null}
         </div>
       </form>
     </SectionCard>

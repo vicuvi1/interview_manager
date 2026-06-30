@@ -153,6 +153,13 @@ middleware.ts                    Session refresh + route protection
 supabase/migrations/0001_init.sql
 ```
 
+## Polish
+
+Toast notifications (success/error + a live toast when a new notification
+arrives), loading skeletons on every route (`loading.tsx`), a mobile-friendly
+bottom-sheet dialog that scrolls, a favicon, a styled 404, and responsive
+layouts throughout.
+
 ## Notes
 - All styling is Tailwind utility classes; icons are `lucide-react`. No native
   desktop widgets or unstyled controls.

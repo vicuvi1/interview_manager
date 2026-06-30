@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 import { StatCard } from "@/components/admin/stat-card";
 import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
@@ -86,6 +87,7 @@ export function AdminBoard({
   initialRequests: InterviewRequest[];
   initialCandidates: Record<string, CandidateLite>;
 }) {
+  const { toast } = useToast();
   const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
   const [candidates, setCandidates] = useState<Record<string, CandidateLite>>(initialCandidates);
   const [filter, setFilter] = useState<string>("all");
@@ -187,6 +189,7 @@ export function AdminBoard({
       .eq("id", selected.id);
     if (updateError) {
       setError(updateError.message);
+      toast({ title: "Action failed", description: updateError.message, variant: "error" });
       setBusy(null);
       return;
     }
@@ -199,6 +202,7 @@ export function AdminBoard({
       type: action.type,
     });
 
+    toast({ title: action.title, variant: "success" });
     setBusy(null);
     setMessage("");
     setSelected(null);
@@ -228,6 +232,7 @@ export function AdminBoard({
       .eq("id", selected.id);
     if (updateError) {
       setError(updateError.message);
+      toast({ title: "Scheduling failed", description: updateError.message, variant: "error" });
       setScheduling(false);
       return;
     }
@@ -239,6 +244,7 @@ export function AdminBoard({
       type: "approved",
     });
 
+    toast({ title: "Interview scheduled", variant: "success" });
     setScheduling(false);
     setSelected(null);
     load();
@@ -261,6 +267,7 @@ export function AdminBoard({
       .eq("id", selected.id);
     if (updateError) {
       setError(updateError.message);
+      toast({ title: "Couldn't send invoice", description: updateError.message, variant: "error" });
       setInvoicing(false);
       return;
     }
@@ -272,6 +279,7 @@ export function AdminBoard({
       type: "alert",
     });
 
+    toast({ title: "Invoice sent", variant: "success" });
     setInvoicing(false);
     setSelected(null);
     load();

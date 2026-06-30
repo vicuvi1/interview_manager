@@ -39,7 +39,7 @@ export function Dialog({
     >
       <div
         className={cn(
-          "w-full max-w-lg animate-fade-in rounded-t-2xl bg-white shadow-pop sm:rounded-2xl",
+          "flex max-h-[90dvh] w-full max-w-lg animate-fade-in flex-col rounded-t-2xl bg-white shadow-pop sm:rounded-2xl",
           className,
         )}
         onClick={(e) => e.stopPropagation()}
@@ -47,7 +47,7 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h3 className="text-[15px] font-medium text-slate-900">{title}</h3>
             {description ? (
@@ -63,7 +63,7 @@ export function Dialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div className="scrollbar-thin overflow-y-auto px-5 py-4">{children}</div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   BellRing,
@@ -13,9 +13,16 @@ import {
 
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { relativeTime } from "@/lib/time";
 import type { Notification } from "@/lib/types";
+
+function variantFor(type: string): "success" | "error" | "info" {
+  if (type === "rejected") return "error";
+  if (type === "success" || type === "approved") return "success";
+  return "info";
+}
 
 function iconFor(type: string): LucideIcon {
   switch (type) {
@@ -39,7 +46,9 @@ export function NotificationsCard({
   userId: string;
   initial: Notification[];
 }) {
+  const { toast } = useToast();
   const [items, setItems] = useState<Notification[]>(initial);
+  const seenRef = useRef<Set<string>>(new Set(initial.map((n) => n.id)));
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -49,8 +58,20 @@ export function NotificationsCard({
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(20);
-    if (data) setItems(data as Notification[]);
-  }, [userId]);
+    if (!data) return;
+    const rows = data as Notification[];
+    for (const n of rows) {
+      if (!seenRef.current.has(n.id)) {
+        seenRef.current.add(n.id);
+        toast({
+          title: n.title,
+          description: n.detail ?? undefined,
+          variant: variantFor(n.type),
+        });
+      }
+    }
+    setItems(rows);
+  }, [userId, toast]);
 
   useEffect(() => {
     const supabase = createClient();
