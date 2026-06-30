@@ -1,0 +1,344 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CalendarCheck,
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Inbox,
+  Users,
+} from "lucide-react";
+
+import { Badge, paymentTone, statusTone } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { SectionCard } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { StatCard } from "@/components/admin/stat-card";
+import { createClient } from "@/lib/supabase/client";
+import { formatInTimeZone, relativeTime } from "@/lib/time";
+import { initials } from "@/lib/utils";
+import type { CandidateLite, InterviewRequest, InterviewStatus } from "@/lib/types";
+
+type ActionKind = "approve" | "reject" | "complete" | "cancel";
+
+const ACTIONS: Record<
+  ActionKind,
+  {
+    target: InterviewStatus;
+    label: string;
+    variant: "primary" | "secondary" | "danger";
+    title: string;
+    type: string;
+  }
+> = {
+  approve: { target: "approved", label: "Approve", variant: "primary", title: "Interview approved", type: "approved" },
+  reject: { target: "rejected", label: "Reject", variant: "danger", title: "Interview not approved", type: "rejected" },
+  complete: { target: "completed", label: "Mark completed", variant: "primary", title: "Interview completed", type: "success" },
+  cancel: { target: "cancelled", label: "Cancel", variant: "secondary", title: "Interview cancelled", type: "alert" },
+};
+
+const ACTIONS_BY_STATUS: Record<string, ActionKind[]> = {
+  pending: ["approve", "reject"],
+  approved: ["complete", "cancel"],
+  scheduled: ["complete", "cancel"],
+  rejected: [],
+  completed: [],
+  cancelled: [],
+};
+
+const FILTERS = ["all", "pending", "approved", "scheduled", "completed", "rejected", "cancelled"];
+
+function defaultDetail(kind: ActionKind, role: string): string {
+  switch (kind) {
+    case "approve":
+      return `Your request for "${role}" was approved. A time will follow shortly.`;
+    case "reject":
+      return `Your request for "${role}" was not approved.`;
+    case "complete":
+      return `Your interview for "${role}" is complete. Thank you!`;
+    case "cancel":
+      return `Your interview for "${role}" was cancelled.`;
+  }
+}
+
+export function AdminBoard({
+  initialRequests,
+  initialCandidates,
+}: {
+  adminId: string;
+  initialRequests: InterviewRequest[];
+  initialCandidates: Record<string, CandidateLite>;
+}) {
+  const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
+  const [candidates, setCandidates] = useState<Record<string, CandidateLite>>(initialCandidates);
+  const [filter, setFilter] = useState<string>("all");
+  const [selected, setSelected] = useState<InterviewRequest | null>(null);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState<ActionKind | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: reqs }, { data: profs }] = await Promise.all([
+      supabase.from("interview_requests").select("*").order("created_at", { ascending: false }),
+      supabase.from("profiles").select("id, full_name, email, timezone"),
+    ]);
+    if (reqs) setRequests(reqs as InterviewRequest[]);
+    if (profs) {
+      const map: Record<string, CandidateLite> = {};
+      for (const p of profs as (CandidateLite & { id: string })[]) {
+        map[p.id] = { full_name: p.full_name, email: p.email, timezone: p.timezone };
+      }
+      setCandidates(map);
+    }
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-interviews")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "interview_requests" },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [load]);
+
+  const counts = useMemo(() => {
+    const c = { pending: 0, approved: 0, scheduled: 0, completed: 0 };
+    for (const r of requests) {
+      if (r.status in c) c[r.status as keyof typeof c] += 1;
+    }
+    return c;
+  }, [requests]);
+
+  const visible = useMemo(
+    () => (filter === "all" ? requests : requests.filter((r) => r.status === filter)),
+    [requests, filter],
+  );
+
+  async function runAction(kind: ActionKind) {
+    if (!selected) return;
+    const action = ACTIONS[kind];
+    setBusy(kind);
+    setError(null);
+    const supabase = createClient();
+
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ status: action.target })
+      .eq("id", selected.id);
+    if (updateError) {
+      setError(updateError.message);
+      setBusy(null);
+      return;
+    }
+
+    const detail = message.trim() || defaultDetail(kind, selected.role);
+    await supabase.from("notifications").insert({
+      user_id: selected.candidate_id,
+      title: action.title,
+      detail,
+      type: action.type,
+    });
+
+    setBusy(null);
+    setMessage("");
+    setSelected(null);
+    load();
+  }
+
+  const selectedCandidate = selected ? candidates[selected.candidate_id] : undefined;
+  const selectedActions = selected ? ACTIONS_BY_STATUS[selected.status] ?? [] : [];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Pending" value={counts.pending} icon={Clock} tone="amber" />
+        <StatCard label="Approved" value={counts.approved} icon={CalendarCheck} tone="green" />
+        <StatCard label="Scheduled" value={counts.scheduled} icon={CalendarClock} tone="blue" />
+        <StatCard label="Completed" value={counts.completed} icon={CheckCircle2} tone="indigo" />
+      </div>
+
+      <SectionCard
+        title="Interview requests"
+        description="Every candidate's request, updating live."
+        icon={Users}
+        bodyClassName="p-0 sm:p-0"
+        action={
+          <div className="w-40">
+            <Select
+              aria-label="Filter by status"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
+              {FILTERS.map((f) => (
+                <option key={f} value={f}>
+                  {f === "all" ? "All statuses" : f}
+                </option>
+              ))}
+            </Select>
+          </div>
+        }
+      >
+        {visible.length === 0 ? (
+          <div className="p-5 sm:p-6">
+            <EmptyState
+              icon={Inbox}
+              title="Nothing here"
+              description="No requests match this filter yet."
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-[12px] uppercase tracking-wide text-slate-400">
+                  <th className="px-5 py-3 font-medium sm:px-6">Candidate</th>
+                  <th className="px-3 py-3 font-medium">Role</th>
+                  <th className="px-3 py-3 font-medium">Preferred</th>
+                  <th className="px-3 py-3 font-medium">Status</th>
+                  <th className="px-3 py-3 font-medium">Payment</th>
+                  <th className="px-5 py-3 font-medium sm:px-6"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {visible.map((r) => {
+                  const c = candidates[r.candidate_id];
+                  const tz = c?.timezone ?? "UTC";
+                  return (
+                    <tr key={r.id} className="transition-colors hover:bg-slate-50/70">
+                      <td className="px-5 py-3 sm:px-6">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[11px] font-semibold text-white">
+                            {initials(c?.full_name, c?.email)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-slate-800">
+                              {c?.full_name || "Unknown"}
+                            </p>
+                            <p className="truncate text-[12px] text-slate-400">{c?.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-slate-700">{r.role}</td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {formatInTimeZone(r.preferred_at, tz)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                      </td>
+                      <td className="px-3 py-3">
+                        <Badge tone={paymentTone[r.payment_status] ?? "slate"}>
+                          {r.payment_status}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3 text-right sm:px-6">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setSelected(r);
+                            setMessage("");
+                            setError(null);
+                          }}
+                        >
+                          Manage
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <Dialog
+        open={selected !== null}
+        onClose={() => setSelected(null)}
+        title="Manage request"
+        description={selected ? selected.role : undefined}
+      >
+        {selected ? (
+          <div className="space-y-4">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div className="col-span-2">
+                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Candidate</dt>
+                <dd className="text-slate-800">
+                  {selectedCandidate?.full_name || "Unknown"}{" "}
+                  <span className="text-slate-400">· {selectedCandidate?.email}</span>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Preferred</dt>
+                <dd className="text-slate-700">
+                  {formatInTimeZone(selected.preferred_at, selectedCandidate?.timezone ?? "UTC")}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Duration</dt>
+                <dd className="text-slate-700">{selected.duration_minutes} min</dd>
+              </div>
+              <div>
+                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Status</dt>
+                <dd>
+                  <Badge tone={statusTone[selected.status] ?? "slate"}>{selected.status}</Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Requested</dt>
+                <dd className="text-slate-700">{relativeTime(selected.created_at)}</dd>
+              </div>
+              {selected.notes ? (
+                <div className="col-span-2">
+                  <dt className="text-[12px] uppercase tracking-wide text-slate-400">Notes</dt>
+                  <dd className="whitespace-pre-wrap text-slate-700">{selected.notes}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {selectedActions.length > 0 ? (
+              <div className="space-y-3 border-t border-slate-100 pt-4">
+                <Textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Optional message to the candidate…"
+                  className="min-h-[64px]"
+                />
+                {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+                <div className="flex flex-wrap gap-2">
+                  {selectedActions.map((kind) => (
+                    <Button
+                      key={kind}
+                      variant={ACTIONS[kind].variant}
+                      size="sm"
+                      loading={busy === kind}
+                      disabled={busy !== null}
+                      onClick={() => runAction(kind)}
+                    >
+                      {ACTIONS[kind].label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="border-t border-slate-100 pt-4 text-[13px] text-slate-500">
+                This request is {selected.status} — no further actions.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </Dialog>
+    </div>
+  );
+}

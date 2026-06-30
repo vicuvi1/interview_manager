@@ -29,6 +29,12 @@ export interface InterviewRequest {
   created_at: string;
 }
 
+export interface CandidateLite {
+  full_name: string | null;
+  email: string | null;
+  timezone: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;

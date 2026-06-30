@@ -7,13 +7,13 @@ real browser app deployed to the public internet.
 (Auth + Postgres + Realtime). Deploy target: **Vercel** (app) + **Supabase Cloud**
 (backend), both free tier.
 
-> Phase 1 (this build): the **Candidate dashboard** at `/candidate/dashboard`,
-> plus the email/password auth needed to reach it. Admin, calendar, and payments
-> come in later phases.
+> Built so far: **Phase 1 — Candidate dashboard** (`/candidate/dashboard`) and
+> **Phase 2 — Admin workspace** (`/admin/dashboard`), plus the email/password auth
+> needed to reach them. Calendar/scheduling and payments come in later phases.
 
 ---
 
-## What's in this phase
+## What's in these phases
 
 - **Email/password auth** via Supabase Auth (`/login`, sign in + sign up).
 - **Candidate dashboard** (`/candidate/dashboard`):
@@ -27,6 +27,14 @@ real browser app deployed to the public internet.
     from Supabase, with colored status and payment **pill badges**.
   - **Notifications** card — the candidate's notifications with icons and relative
     timestamps, **live-updating via Supabase Realtime** (no manual refresh).
+- **Admin workspace** (`/admin/dashboard`) — only visible to users whose profile
+  `role = 'admin'`:
+  - **KPI cards** (pending / approved / scheduled / completed).
+  - A **live table of every candidate's requests** with candidate identity,
+    status + payment badges, and a status filter.
+  - A **Manage** modal to **Approve / Reject / Complete / Cancel** a request, with
+    an optional message — each action **notifies the candidate in real time**.
+  - Admin-aware Row Level Security so admins can see/act on all rows.
 
 ---
 
@@ -37,11 +45,19 @@ At [supabase.com](https://supabase.com) → New project (free tier). Wait for it
 provision.
 
 ### 2. Create the schema
-Open **SQL Editor** in your Supabase project, paste the contents of
-[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), and run
-it. This creates the `profiles`, `interview_requests`, and `notifications` tables
-with Row Level Security, a new-user trigger (auto-creates a profile + welcome
-notification), and enables Realtime.
+Open **SQL Editor** in your Supabase project and run, in order:
+1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — the
+   `profiles`, `interview_requests`, and `notifications` tables with Row Level
+   Security, a new-user trigger (auto-creates a profile + welcome notification),
+   and Realtime.
+2. [`supabase/migrations/0002_admin.sql`](supabase/migrations/0002_admin.sql) — the
+   `is_admin()` helper and admin RLS policies for the admin workspace.
+
+**To use the Admin workspace,** make your account an admin (after signing up):
+```sql
+update public.profiles set role = 'admin' where email = 'you@example.com';
+```
+Then open `/admin/dashboard`.
 
 ### 3. (Optional) speed up local testing
 **Authentication → Providers → Email**: turn **"Confirm email" off** so sign-up
