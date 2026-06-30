@@ -11,6 +11,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { notifyChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { wallTimeToUtcISO } from "@/lib/time";
 
@@ -59,6 +60,7 @@ export function RequestInterviewCard({
     }
 
     reset({ role: "", preferredAt: "", duration: 30, notes: "" });
+    notifyChanged("interviews");
     toast({
       title: "Interview requested",
       description: "We'll review it and confirm a time.",

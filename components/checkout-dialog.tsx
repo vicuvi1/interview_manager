@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { notifyChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/utils";
 import type { InterviewRequest } from "@/lib/types";
@@ -16,12 +17,10 @@ export function CheckoutDialog({
   interview,
   open,
   onClose,
-  onPaid,
 }: {
   interview: InterviewRequest | null;
   open: boolean;
   onClose: () => void;
-  onPaid: () => void;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -55,7 +54,7 @@ export function CheckoutDialog({
     setExp("");
     setCvc("");
     toast({ title: "Payment successful", description: `${amount} paid.`, variant: "success" });
-    onPaid();
+    notifyChanged("interviews");
     onClose();
   }
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { formatMoney } from "@/lib/utils";
@@ -40,6 +41,7 @@ export function MyInterviewsCard({
   }, [userId]);
 
   async function cancelRequest(id: string) {
+    if (!window.confirm("Cancel this interview request?")) return;
     const supabase = createClient();
     const { error } = await supabase.rpc("cancel_my_request", { p_interview_id: id });
     if (error) {
@@ -47,8 +49,10 @@ export function MyInterviewsCard({
       return;
     }
     toast({ title: "Request cancelled", variant: "success" });
-    load();
+    notifyChanged("interviews");
   }
+
+  useDataChanged("interviews", load);
 
   useEffect(() => {
     const supabase = createClient();
@@ -73,11 +77,11 @@ export function MyInterviewsCard({
   return (
     <>
       <SectionCard
-      title="My interviews"
-      description="Your requests and their current status."
-      icon={CalendarRange}
-      bodyClassName="p-0 sm:p-0"
-    >
+        title="My interviews"
+        description="Your requests and their current status."
+        icon={CalendarRange}
+        bodyClassName="p-0 sm:p-0"
+      >
       {rows.length === 0 ? (
         <div className="p-5 sm:p-6">
           <EmptyState
@@ -164,7 +168,6 @@ export function MyInterviewsCard({
         interview={payTarget}
         open={payTarget !== null}
         onClose={() => setPayTarget(null)}
-        onPaid={load}
       />
     </>
   );

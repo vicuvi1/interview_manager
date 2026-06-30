@@ -143,6 +143,15 @@ export function NotificationsCard({
               <li
                 key={n.id}
                 onClick={() => (n.read ? undefined : markRead(n.id))}
+                onKeyDown={(e) => {
+                  if (!n.read && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    markRead(n.id);
+                  }
+                }}
+                role={n.read ? undefined : "button"}
+                tabIndex={n.read ? undefined : 0}
+                aria-label={n.read ? undefined : `Mark "${n.title}" as read`}
                 className={`flex gap-3 px-5 py-3.5 sm:px-6 ${
                   n.read ? "" : "cursor-pointer hover:bg-slate-50/70"
                 }`}

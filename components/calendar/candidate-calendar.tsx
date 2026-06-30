@@ -6,6 +6,7 @@ import { CalendarDays, CalendarRange, ExternalLink } from "lucide-react";
 import { Calendar, type CalendarEvent } from "@/components/calendar/calendar";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { dateKeyInTimeZone, timeInTimeZone } from "@/lib/calendar";
 import { formatInTimeZone } from "@/lib/time";
@@ -51,6 +52,8 @@ export function CandidateCalendar({
       supabase.removeChannel(channel);
     };
   }, [userId, load]);
+
+  useDataChanged("interviews", load);
 
   const scheduled = useMemo(
     () => rows.filter((r) => r.scheduled_at && r.status === "scheduled"),
