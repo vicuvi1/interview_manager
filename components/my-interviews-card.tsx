@@ -8,10 +8,13 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { formatMoney } from "@/lib/utils";
 import type { InterviewRequest } from "@/lib/types";
+
+const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
 
 export function MyInterviewsCard({
   userId,
@@ -22,6 +25,7 @@ export function MyInterviewsCard({
   timezone: string;
   initial: InterviewRequest[];
 }) {
+  const { toast } = useToast();
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [payTarget, setPayTarget] = useState<InterviewRequest | null>(null);
 
@@ -34,6 +38,17 @@ export function MyInterviewsCard({
       .order("created_at", { ascending: false });
     if (data) setRows(data as InterviewRequest[]);
   }, [userId]);
+
+  async function cancelRequest(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.rpc("cancel_my_request", { p_interview_id: id });
+    if (error) {
+      toast({ title: "Couldn't cancel", description: error.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Request cancelled", variant: "success" });
+    load();
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -73,14 +88,15 @@ export function MyInterviewsCard({
         </div>
       ) : (
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-[12px] uppercase tracking-wide text-slate-400">
                 <th className="px-5 py-3 font-medium sm:px-6">Role</th>
                 <th className="px-3 py-3 font-medium">When</th>
                 <th className="px-3 py-3 font-medium">Duration</th>
                 <th className="px-3 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium sm:px-6">Payment</th>
+                <th className="px-3 py-3 font-medium">Payment</th>
+                <th className="px-5 py-3 font-medium sm:px-6"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -115,7 +131,7 @@ export function MyInterviewsCard({
                   <td className="px-3 py-3">
                     <Badge tone={statusTone[row.status] ?? "slate"}>{row.status}</Badge>
                   </td>
-                  <td className="px-5 py-3 sm:px-6">
+                  <td className="px-3 py-3">
                     {row.payment_status === "paid" ? (
                       <Badge tone="green">paid</Badge>
                     ) : row.price_cents ? (
@@ -125,6 +141,17 @@ export function MyInterviewsCard({
                     ) : (
                       <span className="text-[13px] text-slate-400">—</span>
                     )}
+                  </td>
+                  <td className="px-5 py-3 text-right sm:px-6">
+                    {CANCELLABLE.has(row.status) ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cancelRequest(row.id)}
+                      >
+                        Cancel
+                      </Button>
+                    ) : null}
                   </td>
                 </tr>
               ))}

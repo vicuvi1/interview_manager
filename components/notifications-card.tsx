@@ -93,12 +93,39 @@ export function NotificationsCard({
     };
   }, [userId, load]);
 
+  const unreadCount = items.filter((n) => !n.read).length;
+
+  async function markRead(id: string) {
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    const supabase = createClient();
+    await supabase.from("notifications").update({ read: true }).eq("id", id);
+  }
+
+  async function markAllRead() {
+    const unread = items.filter((n) => !n.read).map((n) => n.id);
+    if (unread.length === 0) return;
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+    const supabase = createClient();
+    await supabase.from("notifications").update({ read: true }).in("id", unread);
+  }
+
   return (
     <SectionCard
       title="Notifications"
       description="Live updates on your requests."
       icon={Bell}
       bodyClassName="p-0 sm:p-0"
+      action={
+        unreadCount > 0 ? (
+          <button
+            type="button"
+            onClick={markAllRead}
+            className="text-[13px] font-medium text-brand-600 hover:text-brand-700"
+          >
+            Mark all read
+          </button>
+        ) : undefined
+      }
     >
       {items.length === 0 ? (
         <div className="p-5 sm:p-6">
@@ -113,7 +140,13 @@ export function NotificationsCard({
           {items.map((n) => {
             const Icon = iconFor(n.type);
             return (
-              <li key={n.id} className="flex gap-3 px-5 py-3.5 sm:px-6">
+              <li
+                key={n.id}
+                onClick={() => (n.read ? undefined : markRead(n.id))}
+                className={`flex gap-3 px-5 py-3.5 sm:px-6 ${
+                  n.read ? "" : "cursor-pointer hover:bg-slate-50/70"
+                }`}
+              >
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                   <Icon className="h-4 w-4" />
                 </span>

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutDashboard } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Settings } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/candidate/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/candidate/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/candidate/settings", label: "Settings", icon: Settings },
 ];
 
 export function CandidateNav() {

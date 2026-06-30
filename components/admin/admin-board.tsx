@@ -289,9 +289,23 @@ export function AdminBoard({
   const selectedActions = selected ? ACTIONS_BY_STATUS[selected.status] ?? [] : [];
   const candTz = selectedCandidate?.timezone ?? "UTC";
   let schedPreview: string | null = null;
+  let schedConflict: string | null = null;
   if (selected && schedAt) {
     try {
-      schedPreview = formatInTimeZone(wallTimeToUtcISO(schedAt, adminTimezone), candTz);
+      const startIso = wallTimeToUtcISO(schedAt, adminTimezone);
+      schedPreview = formatInTimeZone(startIso, candTz);
+      const start = new Date(startIso).getTime();
+      const end = start + schedDuration * 60000;
+      for (const r of requests) {
+        if (r.id === selected.id || r.status !== "scheduled" || !r.scheduled_at) continue;
+        const otherStart = new Date(r.scheduled_at).getTime();
+        const otherEnd = otherStart + (r.duration_minutes ?? 0) * 60000;
+        if (start < otherEnd && otherStart < end) {
+          const who = candidates[r.candidate_id]?.full_name || "another candidate";
+          schedConflict = `Overlaps ${who} at ${formatInTimeZone(r.scheduled_at, adminTimezone)}`;
+          break;
+        }
+      }
     } catch {
       schedPreview = null;
     }
@@ -512,6 +526,11 @@ export function AdminBoard({
                   <p className="text-[13px] text-slate-500">
                     Candidate ({candTz}) sees:{" "}
                     <span className="font-medium text-slate-700">{schedPreview}</span>
+                  </p>
+                ) : null}
+                {schedConflict ? (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                    Heads up: {schedConflict}.
                   </p>
                 ) : null}
                 <Button size="sm" loading={scheduling} disabled={scheduling} onClick={schedule}>

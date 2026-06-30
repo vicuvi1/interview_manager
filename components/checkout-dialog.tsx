@@ -39,22 +39,16 @@ export function CheckoutDialog({
     setError(null);
     const supabase = createClient();
 
-    const { error: updateError } = await supabase
-      .from("interview_requests")
-      .update({ payment_status: "paid", paid_at: new Date().toISOString() })
-      .eq("id", interview.id);
-    if (updateError) {
-      setError(updateError.message);
+    // Payment is enforced server-side (ownership + state) by the SECURITY
+    // DEFINER `pay_interview` function — the client can't set 'paid' directly.
+    const { error: payError } = await supabase.rpc("pay_interview", {
+      p_interview_id: interview.id,
+    });
+    if (payError) {
+      setError(payError.message);
       setBusy(false);
       return;
     }
-
-    await supabase.from("notifications").insert({
-      user_id: interview.candidate_id,
-      title: "Payment confirmed",
-      detail: `Your payment of ${amount} for "${interview.role}" was received.`,
-      type: "success",
-    });
 
     setBusy(false);
     setCard("");
