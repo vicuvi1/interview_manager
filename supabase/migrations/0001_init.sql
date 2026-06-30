@@ -13,6 +13,14 @@ create table if not exists public.profiles (
   created_at  timestamptz not null default now()
 );
 
+-- If a `profiles` table already existed (e.g. from another app), make sure the
+-- columns this app needs are present. Non-destructive and idempotent.
+alter table public.profiles add column if not exists full_name  text;
+alter table public.profiles add column if not exists email      text;
+alter table public.profiles add column if not exists timezone   text not null default 'UTC';
+alter table public.profiles add column if not exists role       text not null default 'candidate';
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.interview_requests (
   id                uuid primary key default gen_random_uuid(),
   candidate_id      uuid not null references auth.users (id) on delete cascade,
