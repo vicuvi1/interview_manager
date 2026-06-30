@@ -48,6 +48,19 @@ def as_utc(dt: datetime | None) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
+def parse_local_to_utc(
+    text: str, tz_name: str, fmt: str = "%Y-%m-%d %H:%M"
+) -> datetime:
+    """Parse a wall-clock string in `tz_name` and return it as naive UTC.
+
+    Raises ValueError if the text doesn't match `fmt` (the caller turns that
+    into a friendly message).
+    """
+    naive_local = datetime.strptime((text or "").strip(), fmt)
+    aware = naive_local.replace(tzinfo=ZoneInfo(tz_name))
+    return aware.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def to_local(dt: datetime | None, tz_name: str) -> datetime | None:
     """Convert a stored (naive UTC) datetime into the given IANA zone."""
     dt = as_utc(dt)

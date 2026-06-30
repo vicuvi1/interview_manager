@@ -1,9 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from conftest import ADMIN_HEADERS
+import pytest
 
-from app.timezone import as_utc, to_local, to_naive_utc
+from app.timezone import as_utc, parse_local_to_utc, to_local, to_naive_utc
 
 
 def test_to_naive_utc_converts_offset():
@@ -21,20 +21,13 @@ def test_round_trip_local():
     assert as_utc(stored).hour == 18
 
 
-def test_schedule_localized_for_candidate(client):
-    cand = client.post(
-        "/api/candidates",
-        json={"name": "Tokyo Dev", "email": "tk@example.com", "timezone": "Asia/Tokyo"},
-    ).json()
-    iv = client.post(
-        "/api/interviews", json={"candidate_id": cand["id"], "role": "SRE"}
-    ).json()
-    client.post(f"/api/interviews/{iv['id']}/approve", headers=ADMIN_HEADERS)
-    sched = client.post(
-        f"/api/interviews/{iv['id']}/schedule",
-        headers=ADMIN_HEADERS,
-        json={"scheduled_start": "2026-07-15T00:00:00+00:00"},
-    ).json()
-    # 00:00 UTC -> 09:00 the same day in Tokyo (UTC+9).
-    assert sched["scheduled_start_local"].startswith("2026-07-15T09:00")
-    assert sched["timezone"] == "Asia/Tokyo"
+def test_parse_local_to_utc():
+    # 14:00 in New York -> 18:00 UTC, returned as naive
+    naive = parse_local_to_utc("2026-07-15 14:00", "America/New_York")
+    assert naive.tzinfo is None
+    assert (naive.hour, naive.minute) == (18, 0)
+
+
+def test_parse_local_to_utc_bad_format_raises():
+    with pytest.raises(ValueError):
+        parse_local_to_utc("not a time", "UTC")

@@ -1,32 +1,72 @@
 # Interview Manager
 
-A small but complete **interview scheduling & management system** built with
-FastAPI. Candidates request interviews; a single admin (the **"caller"**)
-approves, schedules, conducts, and tracks every interview through its lifecycle.
-Timezone-aware scheduling, candidate management, mock payments, and an in-app
-notification feed are all included.
+A **local, server-less interview scheduling & management app**. Candidates
+request interviews; a single admin (the **"caller"**) approves, schedules,
+conducts, and tracks each one. It runs as a **native desktop window** (Python's
+built-in Tkinter) — no web server, no browser. Candidate and Admin modes talk to
+each other through a **shared local SQLite database** on your machine.
 
-> Tech stack: **Python · FastAPI · SQLAlchemy 2 · SQLite** + a dependency-free
-> HTML/JS frontend.
+Comes with a **one-click launcher/updater** that installs everything and starts
+the app.
+
+> Tech stack: **Python · Tkinter (stdlib) · SQLAlchemy 2 · SQLite**. The only
+> installed dependencies are SQLAlchemy and `tzdata`.
 
 ---
 
-## Features
+## Easiest way to run
 
-- **Candidate portal** — sign in by email, request an interview (with optional
-  preferred time), track status, read notifications, and pay invoices.
-- **Admin dashboard** — one caller manages everything: approve / reject /
-  schedule / start / complete / cancel, raise invoices, and keep private notes.
-- **Timezone-aware** — every time is stored in UTC and shown back to each
-  candidate in *their own* IANA timezone. No more "wait, whose 3 PM?".
-- **Interview lifecycle** — a guarded state machine; illegal transitions return
-  `409` instead of corrupting state.
-- **Payments** — a mock provider (invoice → pay → refund). Swap one function to
-  go live with Stripe/PayPal.
-- **Notifications** — candidates and the admin each get an in-app feed, written
-  automatically on every lifecycle event.
+**Double-click `Start Interview Manager.bat`** (Windows).
 
-## Interview lifecycle
+That opens the **Launcher**, which automatically:
+1. pulls the latest code from GitHub (if this folder is a git clone),
+2. creates a local virtual environment,
+3. installs/updates the requirements,
+
+then enables **Launch App**. Click it and the desktop app opens.
+
+You can re-open the launcher any time to update + relaunch.
+
+## Run it manually
+
+```bash
+python -m venv venv
+venv\Scripts\activate        # Windows  (source venv/bin/activate on macOS/Linux)
+pip install -r requirements.txt
+python run_app.py            # opens the desktop window
+```
+
+Or just `python launcher.py` to get the launcher UI.
+
+---
+
+## Using the app
+
+The window has two modes, toggled top-right:
+
+- **Candidate** — sign in by name + email + timezone, request an interview
+  (optionally a preferred time in *your* timezone), watch its status, read
+  notifications, and pay an invoice.
+- **Admin** — enter the admin password (default **`admin`**), then drive each
+  interview: **Approve · Reject · Schedule · Start call · Complete · Cancel**,
+  raise an **Invoice**, and keep private **Notes**.
+
+Both modes share one database, so a request made as a candidate shows up for the
+admin (and approvals/schedules flow back) — the views auto-refresh every few
+seconds. You can even open the app twice (once per role) and they stay in sync.
+
+### How candidate ↔ admin "communicate" without a server
+
+Everything is persisted to a single SQLite file and every action is a short
+transaction against it. There is no network service — the shared file *is* the
+channel. The database lives at (override with the `IM_DATABASE_URL` env var):
+
+```
+%LOCALAPPDATA%\InterviewManager\interview_manager.db   (Windows)
+~/.local/share/InterviewManager/interview_manager.db   (macOS/Linux)
+```
+
+### Interview lifecycle
 
 ```
 requested ──approve──► approved ──schedule──► scheduled ──start──► in_progress ──complete──► completed
@@ -34,110 +74,63 @@ requested ──approve──► approved ──schedule──► scheduled ─�
     └─reject─► rejected    └─cancel/reject         └─cancel              └─cancel ─► cancelled
 ```
 
-Transitions are enforced in [`app/lifecycle.py`](app/lifecycle.py).
+Illegal transitions are refused (enforced in [`app/lifecycle.py`](app/lifecycle.py)).
 
 ---
 
-## Quick start
+## Configuration
 
-```bash
-# 1. Create and activate a virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+All optional — sensible defaults mean it works with zero config. Set env vars to
+override:
 
-# 2. Install dependencies
-pip install -r requirements.txt
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `IM_ADMIN_PASSWORD` | `admin` | Password to enter Admin mode |
+| `IM_DATABASE_URL` | per-user SQLite file | SQLAlchemy database URL |
+| `IM_DEFAULT_TIMEZONE` | `UTC` | Prefilled timezone for new candidates |
+| `IM_APP_NAME` | `Interview Manager` | Window title |
 
-# 3. Configure (optional but recommended)
-copy .env.example .env       # then edit ADMIN_API_KEY
-# cp .env.example .env        # macOS/Linux
-
-# 4. Run
-python run.py                # or: uvicorn app.main:app --reload
-```
-
-> For an exact, reproducible install (the versions this app was built and
-> tested against), use the lockfile instead: `pip install -r requirements.lock`.
-
-Then open:
-
-| URL | What |
-| --- | --- |
-| http://127.0.0.1:8000/ | Candidate portal |
-| http://127.0.0.1:8000/admin.html | Admin dashboard (needs the admin key) |
-| http://127.0.0.1:8000/docs | Interactive API docs (Swagger UI) |
-| http://127.0.0.1:8000/health | Health check |
-
-The admin dashboard asks for your `ADMIN_API_KEY` (default `change-me-admin-key`
-— **change it** in `.env`). It is stored only in your browser and sent as the
-`X-Admin-Key` header.
-
-## Running the tests
+## Tests
 
 ```bash
 pytest
 ```
 
-The suite (in [`tests/`](tests/)) covers candidate registration & validation,
-the full interview lifecycle, illegal-transition guarding, admin auth, the
-payment flow, and timezone conversion. Each test runs against a throwaway SQLite
-database.
-
----
+Covers candidate registration/validation, the full interview lifecycle,
+illegal-transition guarding, payments, admin auth, and timezone conversion —
+all against the service layer with a throwaway SQLite database.
 
 ## Project layout
 
 ```
+launcher.py                 Launcher/updater mini-app (stdlib only)
+Start Interview Manager.bat  Double-click entry point for the launcher
+run_app.py                  Starts the desktop app
 app/
-  main.py           FastAPI app: routers + static frontend + health
-  config.py         Settings (env / .env)
-  database.py       Engine, session, declarative Base
-  models.py         Candidate, Interview, Payment, Notification
-  schemas.py        Pydantic request validation
-  serializers.py    Response dicts (incl. timezone-localized fields)
-  lifecycle.py      Interview status state machine
-  timezone.py       UTC <-> local helpers
-  notifications.py  In-app notification service
-  deps.py           Admin auth + shared 404 lookups
-  routers/          candidates, interviews, payments, notifications
-  static/           index.html (portal), admin.html (dashboard), JS, CSS
-tests/              pytest suite
-run.py              Dev-server launcher
+  config.py                 Settings + per-user database location
+  database.py               Engine, session_scope(), init_db()
+  models.py                 Candidate, Interview, Payment, Notification
+  service.py                All business operations (the GUI calls these)
+  lifecycle.py              Interview status state machine
+  timezone.py               UTC <-> local helpers
+  notifications.py          In-app notification writer
+  serializers.py            ORM -> plain dicts (with localized times)
+gui/
+  app.py                    Main window + mode toggle + auto-refresh
+  candidate.py              Candidate view
+  admin.py                  Admin view
+  common.py                 Shared widget helpers
+tests/                      pytest suite (service + timezone)
 ```
-
-## API overview
-
-Candidate-facing (no auth):
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/candidates` | Register / sign in by email |
-| `GET` | `/api/candidates/by-email?email=` | Look up a candidate |
-| `POST` | `/api/interviews` | Request an interview |
-| `GET` | `/api/interviews/by-candidate/{id}` | A candidate's interviews |
-| `GET` | `/api/candidates/{id}/notifications` | Candidate notification feed |
-| `POST` | `/api/payments/{id}/pay` | Pay an invoice (mock) |
-
-Admin-only (require `X-Admin-Key`):
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/interviews?status=` | List / filter interviews |
-| `POST` | `/api/interviews/{id}/approve` \| `/reject` \| `/schedule` \| `/start` \| `/complete` \| `/cancel` | Lifecycle actions |
-| `PATCH` | `/api/interviews/{id}/admin-notes` | Private notes |
-| `POST` | `/api/interviews/{id}/payment` | Raise an invoice |
-| `POST` | `/api/payments/{id}/refund` | Refund |
-| `GET` | `/api/payments` | List payments |
-| `GET` | `/api/admin/notifications` | Admin notification feed |
-
-See `/docs` for the full, interactive specification.
 
 ---
 
 ## Notes & next steps
 
-This is a working scaffold. For production you'd typically add: real
-authentication for candidates (currently identified by email), Alembic
-migrations instead of `create_all`, a real payment gateway and email/SMS
-notifications (both isolated to one module each), and rate limiting.
+This is a working local app. Natural next steps: package it into a single `.exe`
+with PyInstaller (the launcher already isolates the runtime), add candidate
+authentication, swap the mock payment step for a real provider (isolated to
+`app/service.py`), and move from `create_all` to Alembic migrations.
+
+> Earlier this project was a FastAPI web app; that version lives in git history
+> at commit `3e89667` if you ever want the browser-based interface back.
