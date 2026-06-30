@@ -6,8 +6,12 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
+  CreditCard,
   Inbox,
+  Receipt,
+  TrendingUp,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import { Badge, paymentTone, statusTone } from "@/components/ui/badge";
@@ -19,6 +23,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/admin/stat-card";
+import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
 import {
   formatInTimeZone,
@@ -144,6 +149,26 @@ export function AdminBoard({
     return c;
   }, [requests]);
 
+  const revenue = useMemo(() => {
+    let earned = 0;
+    let month = 0;
+    let outstanding = 0;
+    let paidCount = 0;
+    const monthKey = todayKeyInTimeZone(adminTimezone).slice(0, 7);
+    for (const r of requests) {
+      if (r.payment_status === "paid") {
+        earned += r.price_cents ?? 0;
+        paidCount += 1;
+        if (r.paid_at && dateKeyInTimeZone(r.paid_at, adminTimezone).slice(0, 7) === monthKey) {
+          month += r.price_cents ?? 0;
+        }
+      } else if (r.price_cents) {
+        outstanding += r.price_cents;
+      }
+    }
+    return { earned, month, outstanding, paidCount };
+  }, [requests, adminTimezone]);
+
   const visible = useMemo(
     () => (filter === "all" ? requests : requests.filter((r) => r.status === filter)),
     [requests, filter],
@@ -266,11 +291,34 @@ export function AdminBoard({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Pending" value={counts.pending} icon={Clock} tone="amber" />
-        <StatCard label="Approved" value={counts.approved} icon={CalendarCheck} tone="green" />
-        <StatCard label="Scheduled" value={counts.scheduled} icon={CalendarClock} tone="blue" />
-        <StatCard label="Completed" value={counts.completed} icon={CheckCircle2} tone="indigo" />
+      <div>
+        <p className="mb-2 text-[13px] font-medium text-slate-500">Revenue</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard label="Earned" value={formatMoney(revenue.earned)} icon={Wallet} tone="green" />
+          <StatCard
+            label="This month"
+            value={formatMoney(revenue.month)}
+            icon={TrendingUp}
+            tone="indigo"
+          />
+          <StatCard
+            label="Outstanding"
+            value={formatMoney(revenue.outstanding)}
+            icon={Receipt}
+            tone="amber"
+          />
+          <StatCard label="Paid" value={revenue.paidCount} icon={CreditCard} tone="blue" />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-[13px] font-medium text-slate-500">Pipeline</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard label="Pending" value={counts.pending} icon={Clock} tone="amber" />
+          <StatCard label="Approved" value={counts.approved} icon={CalendarCheck} tone="green" />
+          <StatCard label="Scheduled" value={counts.scheduled} icon={CalendarClock} tone="blue" />
+          <StatCard label="Completed" value={counts.completed} icon={CheckCircle2} tone="indigo" />
+        </div>
       </div>
 
       <SectionCard

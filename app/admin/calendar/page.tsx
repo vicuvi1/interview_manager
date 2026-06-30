@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AccessRequired } from "@/components/admin/access-required";
-import { AdminBoard } from "@/components/admin/admin-board";
+import { AdminCalendar } from "@/components/admin/admin-calendar";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Topbar } from "@/components/topbar";
 import { isAdminUser } from "@/lib/auth";
@@ -10,7 +10,7 @@ import type { CandidateLite, InterviewRequest, Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
+export default async function AdminCalendarPage() {
   const supabase = createClient();
 
   const {
@@ -33,7 +33,8 @@ export default async function AdminDashboardPage() {
     supabase
       .from("interview_requests")
       .select("*")
-      .order("created_at", { ascending: false }),
+      .eq("status", "scheduled")
+      .order("scheduled_at", { ascending: true }),
     supabase.from("profiles").select("id, full_name, email, timezone"),
   ]);
 
@@ -48,14 +49,7 @@ export default async function AdminDashboardPage() {
       <Topbar />
       <AdminNav />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">Admin workspace</h1>
-          <p className="text-[13px] text-slate-500">
-            Triage requests, schedule calls, invoice, and track revenue.
-          </p>
-        </div>
-        <AdminBoard
-          adminId={user.id}
+        <AdminCalendar
           adminTimezone={me?.timezone ?? "UTC"}
           initialRequests={requests}
           initialCandidates={candidates}

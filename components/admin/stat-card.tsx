@@ -21,7 +21,7 @@ export function StatCard({
   tone = "slate",
 }: {
   label: string;
-  value: number;
+  value: string | number;
   icon: LucideIcon;
   tone?: Tone;
 }) {
@@ -35,9 +35,11 @@ export function StatCard({
       >
         <Icon className="h-5 w-5" />
       </span>
-      <div>
-        <p className="text-2xl font-semibold leading-none text-slate-900">{value}</p>
-        <p className="mt-1 text-[13px] text-slate-500">{label}</p>
+      <div className="min-w-0">
+        <p className="truncate text-xl font-semibold leading-tight tabular-nums text-slate-900">
+          {value}
+        </p>
+        <p className="mt-0.5 text-[13px] text-slate-500">{label}</p>
       </div>
     </Card>
   );

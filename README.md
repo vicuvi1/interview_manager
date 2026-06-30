@@ -39,6 +39,14 @@ real browser app deployed to the public internet.
     with a live preview of what the candidate will see, plus a meeting link. It
     sets the confirmed time, moves the request to `scheduled`, and notifies the
     candidate.
+  - **Revenue** (admin Overview) — **Earned**, **This month**, **Outstanding**
+    (invoiced-but-unpaid), and **Paid count**, computed live from paid invoices.
+  - **Admin calendar** (`/admin/calendar`) — a month calendar of *all* candidates'
+    scheduled interviews (admin timezone) + an Upcoming list; an Overview/Calendar
+    sub-nav.
+  - **Auto-admin** — signing in with the configured admin email (`lib/constants.ts`
+    + [`0005_auto_admin.sql`](supabase/migrations/0005_auto_admin.sql)) is admin
+    automatically, no per-user SQL.
   - Admin-aware Row Level Security so admins can see/act on all rows.
 - **Candidate calendar** (`/candidate/calendar`) — a real **month calendar** of the
   candidate's confirmed interviews (in their timezone) with day-by-day detail, an
@@ -71,8 +79,12 @@ Open **SQL Editor** in your Supabase project and run, in order:
    — adds `scheduled_at` + `meeting_link` for scheduling.
 4. [`supabase/migrations/0004_payments.sql`](supabase/migrations/0004_payments.sql)
    — adds `price_cents`, `currency`, `paid_at` for payments.
+5. [`supabase/migrations/0005_auto_admin.sql`](supabase/migrations/0005_auto_admin.sql)
+   — makes the configured email (`victorbarbuta54@gmail.com`) an admin
+   automatically.
 
-**To use the Admin workspace,** make your account an admin (after signing up):
+**Admin access:** after running `0005`, signing in as `victorbarbuta54@gmail.com`
+is admin automatically. To grant admin to any other account (after signing up):
 ```sql
 update public.profiles set role = 'admin' where email = 'you@example.com';
 ```
