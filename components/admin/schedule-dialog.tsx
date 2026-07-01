@@ -15,7 +15,7 @@ import { expandRecurring, overlaps, within } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
-import type { AvailabilitySlot, CandidateLite, InterviewRequest } from "@/lib/types";
+import type { AvailabilitySlot, CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
 
 const START_HOUR = 8;
 const END_HOUR = 20;
@@ -39,6 +39,7 @@ export function ScheduleDialog({
   adminTimezone,
   requests,
   slots,
+  interviewers = [],
   onClose,
   onDone,
 }: {
@@ -47,6 +48,7 @@ export function ScheduleDialog({
   adminTimezone: string;
   requests: InterviewRequest[];
   slots: AvailabilitySlot[];
+  interviewers?: ProfileLite[];
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -57,6 +59,7 @@ export function ScheduleDialog({
   const [duration, setDuration] = useState(request.duration_minutes || 30);
   const [selected, setSelected] = useState<string | null>(null);
   const [link, setLink] = useState(request.meeting_link ?? "");
+  const [interviewerId, setInterviewerId] = useState(request.interviewer_id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,6 +144,7 @@ export function ScheduleDialog({
         scheduled_at: selected,
         duration_minutes: duration,
         meeting_link: link.trim() || null,
+        interviewer_id: interviewerId || null,
         status: "scheduled",
       })
       .eq("id", request.id);
@@ -267,6 +271,20 @@ export function ScheduleDialog({
               </p>
             ) : null}
           </div>
+        ) : null}
+
+        {/* Interviewer */}
+        {interviewers.length > 0 ? (
+          <Field label="Interviewer" htmlFor="sd-interviewer" hint="Who will run this interview.">
+            <Select id="sd-interviewer" value={interviewerId} onChange={(e) => setInterviewerId(e.target.value)}>
+              <option value="">— Unassigned —</option>
+              {interviewers.map((iv) => (
+                <option key={iv.id} value={iv.id}>
+                  {iv.full_name || iv.email}
+                </option>
+              ))}
+            </Select>
+          </Field>
         ) : null}
 
         {/* Meeting link */}

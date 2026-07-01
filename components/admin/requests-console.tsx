@@ -72,6 +72,13 @@ export function RequestsConsole({
   }, [profiles]);
   const candName = (id: string) => candidates[id]?.full_name || candidates[id]?.email || "Candidate";
 
+  const admins = useMemo(() => profiles.filter((p) => p.role === "admin"), [profiles]);
+  const interviewerName = (id: string | null) => {
+    if (!id) return null;
+    const iv = profiles.find((p) => p.id === id);
+    return iv ? iv.full_name || iv.email : null;
+  };
+
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: reqs }, { data: profs }, { data: sl }] = await Promise.all([
@@ -306,7 +313,12 @@ export function RequestsConsole({
                         <span className="truncate font-medium text-[#f0f0f5]">{candName(r.candidate_id)}</span>
                       </Link>
                     </td>
-                    <td className="px-3 py-3 text-white/70">{r.role}</td>
+                    <td className="px-3 py-3">
+                      <p className="text-white/70">{r.role}</p>
+                      {interviewerName(r.interviewer_id) ? (
+                        <p className="text-[11px] text-white/35">with {interviewerName(r.interviewer_id)}</p>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-3">
                       <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
                     </td>
@@ -353,6 +365,7 @@ export function RequestsConsole({
           adminTimezone={adminTimezone}
           requests={requests}
           slots={slots}
+          interviewers={admins}
           onClose={() => setSchedule(null)}
           onDone={load}
         />
@@ -360,6 +373,7 @@ export function RequestsConsole({
       {bookingOpen ? (
         <ManualBookingDialog
           profiles={profiles}
+          interviewers={admins}
           adminTimezone={adminTimezone}
           onClose={() => setBookingOpen(false)}
           onDone={load}
@@ -371,11 +385,13 @@ export function RequestsConsole({
 
 function ManualBookingDialog({
   profiles,
+  interviewers,
   adminTimezone,
   onClose,
   onDone,
 }: {
   profiles: ProfileLite[];
+  interviewers: ProfileLite[];
   adminTimezone: string;
   onClose: () => void;
   onDone: () => void;
@@ -387,6 +403,7 @@ function ManualBookingDialog({
   const [when, setWhen] = useState("");
   const [duration, setDuration] = useState(30);
   const [link, setLink] = useState("");
+  const [interviewerId, setInterviewerId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -405,6 +422,7 @@ function ManualBookingDialog({
       scheduled_at: scheduledUtc,
       duration_minutes: duration,
       meeting_link: link.trim() || null,
+      interviewer_id: interviewerId || null,
       status: "scheduled",
       payment_status: "unpaid",
       currency: "USD",
@@ -457,6 +475,18 @@ function ManualBookingDialog({
             </Select>
           </Field>
         </div>
+        {interviewers.length > 0 ? (
+          <Field label="Interviewer" htmlFor="mb-interviewer" hint="Optional — who will run it.">
+            <Select id="mb-interviewer" value={interviewerId} onChange={(e) => setInterviewerId(e.target.value)}>
+              <option value="">— Unassigned —</option>
+              {interviewers.map((iv) => (
+                <option key={iv.id} value={iv.id}>
+                  {iv.full_name || iv.email}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
         <Field label="Meeting link" htmlFor="mb-link" hint="Optional — shared with the candidate.">
           <Input id="mb-link" placeholder="https://meet.google.com/…" value={link} onChange={(e) => setLink(e.target.value)} />
         </Field>

@@ -21,6 +21,7 @@ export interface InterviewRequest {
   id: string;
   candidate_id: string;
   role: string;
+  interviewer_id: string | null;
   preferred_at: string | null;
   scheduled_at: string | null;
   meeting_link: string | null;

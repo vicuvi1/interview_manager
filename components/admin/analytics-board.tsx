@@ -6,6 +6,7 @@ import { BarChart3, CheckCircle2, TrendingUp, Users, Wallet } from "lucide-react
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/admin/stat-card";
+import { completionRate, computeFunnel, lastMonths, statusCounts, sumPaid } from "@/lib/analytics";
 import { useDataChanged } from "@/lib/bus";
 import { MONTH_NAMES, dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatAmount } from "@/lib/payments";
@@ -20,11 +21,6 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#f87171",
   rejected: "#f87171",
 };
-
-function prevMonth(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
-  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
-}
 
 export function AnalyticsBoard({
   adminTimezone,
@@ -62,40 +58,15 @@ export function AnalyticsBoard({
   useDataChanged("interviews", load);
 
   const total = requests.length;
-  const byStatus = useMemo(() => {
-    const c: Record<string, number> = {};
-    for (const r of requests) c[r.status] = (c[r.status] ?? 0) + 1;
-    return c;
-  }, [requests]);
+  const byStatus = useMemo(() => statusCounts(requests), [requests]);
+  const funnel = useMemo(() => computeFunnel(requests), [requests]);
+  const rate = useMemo(() => completionRate(requests), [requests]);
+  const totalRevenue = useMemo(() => sumPaid(payments), [payments]);
 
-  const funnel = useMemo(() => {
-    const requested = total;
-    const approved = requests.filter((r) => ["approved", "scheduled", "completed"].includes(r.status)).length;
-    const scheduled = requests.filter((r) => ["scheduled", "completed"].includes(r.status)).length;
-    const completed = byStatus.completed ?? 0;
-    return [
-      { label: "Requested", value: requested },
-      { label: "Approved", value: approved },
-      { label: "Scheduled", value: scheduled },
-      { label: "Completed", value: completed },
-    ];
-  }, [requests, total, byStatus]);
-
-  const completionRate = total > 0 ? Math.round(((byStatus.completed ?? 0) / total) * 100) : 0;
-  const totalRevenue = useMemo(
-    () => payments.filter((p) => p.status === "paid").reduce((s, p) => s + (Number(p.amount) || 0), 0),
-    [payments],
+  const months = useMemo(
+    () => lastMonths(todayKeyInTimeZone(adminTimezone).slice(0, 7), 6),
+    [adminTimezone],
   );
-
-  const months = useMemo(() => {
-    const out: string[] = [];
-    let mk = todayKeyInTimeZone(adminTimezone).slice(0, 7);
-    for (let i = 0; i < 6; i++) {
-      out.unshift(mk);
-      mk = prevMonth(mk);
-    }
-    return out;
-  }, [adminTimezone]);
 
   const requestsByMonth = useMemo(
     () =>
@@ -151,7 +122,7 @@ export function AnalyticsBoard({
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total requests" value={total} icon={Users} tone="indigo" />
         <StatCard label="Scheduled" value={(byStatus.scheduled ?? 0) + (byStatus.completed ?? 0)} icon={TrendingUp} tone="blue" />
-        <StatCard label="Completion rate" value={`${completionRate}%`} icon={CheckCircle2} tone="green" />
+        <StatCard label="Completion rate" value={`${rate}%`} icon={CheckCircle2} tone="green" />
         <StatCard label="Total revenue" value={formatAmount(totalRevenue)} icon={Wallet} tone="green" />
       </div>
 
