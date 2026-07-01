@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { MyInterviewsCard } from "@/components/my-interviews-card";
-import { NotificationsCard } from "@/components/notifications-card";
-import { RequestInterviewCard } from "@/components/request-interview-card";
-import { WelcomeHeader } from "@/components/welcome-header";
+import { CandidateDashboard } from "@/components/candidate/candidate-dashboard";
 import { createClient } from "@/lib/supabase/server";
 import type { InterviewRequest, Notification, Profile } from "@/lib/types";
 
@@ -26,7 +23,6 @@ export default async function CandidateDashboardPage() {
 
   const timezone = profile?.timezone || "UTC";
   const name = profile?.full_name || (user.user_metadata?.full_name as string) || "";
-  const email = user.email ?? "";
 
   const [interviewsResult, notificationsResult] = await Promise.all([
     supabase
@@ -42,21 +38,13 @@ export default async function CandidateDashboardPage() {
       .limit(20),
   ]);
 
-  const interviews = (interviewsResult.data as InterviewRequest[] | null) ?? [];
-  const notifications = (notificationsResult.data as Notification[] | null) ?? [];
-
   return (
-    <div>
-      <WelcomeHeader name={name} email={email} timezone={timezone} />
-
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <RequestInterviewCard userId={user.id} timezone={timezone} />
-        <NotificationsCard userId={user.id} initial={notifications} />
-      </div>
-
-      <div className="mt-5">
-        <MyInterviewsCard userId={user.id} timezone={timezone} initial={interviews} />
-      </div>
-    </div>
+    <CandidateDashboard
+      userId={user.id}
+      name={name}
+      timezone={timezone}
+      initialInterviews={(interviewsResult.data as InterviewRequest[] | null) ?? []}
+      initialNotifications={(notificationsResult.data as Notification[] | null) ?? []}
+    />
   );
 }
