@@ -1,0 +1,536 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  BadgeDollarSign,
+  CalendarClock,
+  CalendarCheck,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  MessageSquarePlus,
+  Plus,
+  Send,
+  StickyNote,
+  Trash2,
+  Wallet,
+} from "lucide-react";
+
+import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
+import { StatCard } from "@/components/admin/stat-card";
+import { Badge, statusTone } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, SectionCard } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
+import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { METHOD_LABEL, PAYMENT_METHODS, PAYMENT_STATUS_TONE, formatAmount } from "@/lib/payments";
+import { createClient } from "@/lib/supabase/client";
+import { formatInTimeZone, relativeTime } from "@/lib/time";
+import { initials } from "@/lib/utils";
+import type {
+  CandidateLite,
+  CandidateNote,
+  InterviewRequest,
+  Payment,
+  ProfileLite,
+} from "@/lib/types";
+
+const isOutstanding = (s: string) => s === "pending" || s === "overdue" || s === "partial";
+
+export function CandidateDetail({
+  candidate,
+  adminId,
+  adminTimezone,
+  initialRequests,
+  initialPayments,
+  initialNotes,
+}: {
+  candidate: ProfileLite;
+  adminId: string;
+  adminTimezone: string;
+  initialRequests: InterviewRequest[];
+  initialPayments: Payment[];
+  initialNotes: CandidateNote[];
+}) {
+  const { toast } = useToast();
+  const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
+  const [payments, setPayments] = useState<Payment[]>(initialPayments);
+  const [notes, setNotes] = useState<CandidateNote[]>(initialNotes);
+
+  const [manageRequest, setManageRequest] = useState<InterviewRequest | null>(null);
+  const [addPayOpen, setAddPayOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [noteBody, setNoteBody] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [busyPayId, setBusyPayId] = useState<string | null>(null);
+
+  const name = candidate.full_name || candidate.email || "Candidate";
+  const candidatesMap = useMemo<Record<string, CandidateLite>>(
+    () => ({ [candidate.id]: { full_name: candidate.full_name, email: candidate.email, timezone: candidate.timezone } }),
+    [candidate],
+  );
+
+  const load = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: reqs }, { data: pays }, { data: n }] = await Promise.all([
+      supabase.from("interview_requests").select("*").eq("candidate_id", candidate.id).order("created_at", { ascending: false }),
+      supabase.from("payments").select("*").eq("candidate_id", candidate.id).order("created_at", { ascending: false }),
+      supabase.from("candidate_notes").select("*").eq("candidate_id", candidate.id).order("created_at", { ascending: false }),
+    ]);
+    if (reqs) setRequests(reqs as InterviewRequest[]);
+    if (pays) setPayments(pays as Payment[]);
+    if (n) setNotes(n as CandidateNote[]);
+  }, [candidate.id]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const filter = `candidate_id=eq.${candidate.id}`;
+    const channel = supabase
+      .channel(`candidate-${candidate.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests", filter }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidate_notes", filter }, () => load())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [candidate.id, load]);
+  useDataChanged("interviews", load);
+
+  const kpis = useMemo(() => {
+    const now = Date.now();
+    let completed = 0, upcoming = 0, paid = 0, outstanding = 0;
+    for (const r of requests) {
+      if (r.status === "completed") completed += 1;
+      if (r.status === "scheduled" && r.scheduled_at && new Date(r.scheduled_at).getTime() >= now) upcoming += 1;
+    }
+    for (const p of payments) {
+      const amount = Number(p.amount) || 0;
+      if (p.status === "paid") paid += amount;
+      else if (isOutstanding(p.status)) outstanding += amount;
+    }
+    return { total: requests.length, completed, upcoming, paid, outstanding };
+  }, [requests, payments]);
+
+  const timeline = useMemo(() => {
+    const items: { at: string; icon: typeof Clock; text: string; tone: string }[] = [];
+    for (const r of requests) {
+      items.push({ at: r.created_at, icon: MessageSquarePlus, tone: "text-white/40", text: `Requested "${r.role}"` });
+      if (r.scheduled_at) items.push({ at: r.scheduled_at, icon: CalendarClock, tone: "text-[#a5b4fc]", text: `Interview for "${r.role}" scheduled` });
+      if (r.status === "completed") items.push({ at: r.created_at, icon: CheckCircle2, tone: "text-[#34d399]", text: `"${r.role}" marked completed` });
+    }
+    for (const p of payments) {
+      if (p.status === "paid" && p.paid_at) items.push({ at: p.paid_at, icon: Wallet, tone: "text-[#34d399]", text: `Paid ${formatAmount(Number(p.amount), p.currency)}` });
+      else items.push({ at: p.created_at, icon: BadgeDollarSign, tone: "text-[#fbbf24]", text: `Invoice ${formatAmount(Number(p.amount), p.currency)} · ${p.status}` });
+    }
+    return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 14);
+  }, [requests, payments]);
+
+  async function markPaid(p: Payment) {
+    setBusyPayId(p.id);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("payments")
+      .update({ status: "paid", paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", p.id);
+    if (error) toast({ title: "Couldn't update", description: error.message, variant: "error" });
+    else {
+      toast({ title: "Marked as paid", variant: "success" });
+      load();
+    }
+    setBusyPayId(null);
+  }
+
+  async function addNote() {
+    const body = noteBody.trim();
+    if (!body) return;
+    setSavingNote(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("candidate_notes").insert({ candidate_id: candidate.id, body, created_by: adminId });
+    if (error) toast({ title: "Couldn't save note", description: error.message, variant: "error" });
+    else {
+      setNoteBody("");
+      load();
+    }
+    setSavingNote(false);
+  }
+
+  async function deleteNote(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("candidate_notes").delete().eq("id", id);
+    if (error) toast({ title: "Couldn't delete", description: error.message, variant: "error" });
+    else load();
+  }
+
+  return (
+    <div className="space-y-5">
+      <Link href="/admin/candidates" className="inline-flex items-center gap-1.5 text-[13px] text-white/50 hover:text-white/80">
+        <ArrowLeft className="h-4 w-4" /> All candidates
+      </Link>
+
+      {/* Header */}
+      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-lg font-semibold text-white">
+            {initials(candidate.full_name, candidate.email)}
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-xl font-medium text-[#f0f0f5]">{name}</h1>
+              <Badge tone={candidate.role === "admin" ? "purple" : "slate"}>{candidate.role}</Badge>
+            </div>
+            <p className="truncate text-[13px] text-white/55">{candidate.email}</p>
+            <p className="mt-0.5 text-[12px] text-white/35">
+              {candidate.timezone} · joined {relativeTime(candidate.created_at)}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setNotifyOpen(true)}>
+            <Send className="h-4 w-4" /> Notify
+          </Button>
+          <Button size="sm" onClick={() => setAddPayOpen(true)}>
+            <Plus className="h-4 w-4" /> Add payment
+          </Button>
+        </div>
+      </Card>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <StatCard label="Interviews" value={kpis.total} icon={CalendarCheck} tone="indigo" />
+        <StatCard label="Completed" value={kpis.completed} icon={CheckCircle2} tone="green" />
+        <StatCard label="Upcoming" value={kpis.upcoming} icon={CalendarClock} tone="blue" />
+        <StatCard label="Total paid" value={formatAmount(kpis.paid)} icon={Wallet} tone="green" />
+        <StatCard label="Outstanding" value={formatAmount(kpis.outstanding)} icon={Clock} tone="amber" />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          {/* Interview history */}
+          <SectionCard title="Interview history" description="Every request from this candidate." icon={CalendarCheck} bodyClassName="p-0 sm:p-0">
+            {requests.length === 0 ? (
+              <div className="p-5 sm:p-6">
+                <EmptyState icon={CalendarCheck} title="No interviews yet" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full min-w-[560px] text-left text-[13px]">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wide text-white/40">
+                      <th className="px-5 py-2.5 font-medium sm:px-6">Role</th>
+                      <th className="px-3 py-2.5 font-medium">Status</th>
+                      <th className="px-3 py-2.5 font-medium">When</th>
+                      <th className="px-3 py-2.5 font-medium">Payment</th>
+                      <th className="px-5 py-2.5 font-medium sm:px-6"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.06]">
+                    {requests.map((r) => (
+                      <tr key={r.id} className="transition-colors hover:bg-white/[0.03]">
+                        <td className="px-5 py-3 font-medium text-[#f0f0f5] sm:px-6">{r.role}</td>
+                        <td className="px-3 py-3">
+                          <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                        </td>
+                        <td className="px-3 py-3 text-white/60">
+                          {formatInTimeZone(r.scheduled_at ?? r.preferred_at, adminTimezone)}
+                        </td>
+                        <td className="px-3 py-3">
+                          <Badge tone={r.payment_status === "paid" ? "green" : "amber"}>{r.payment_status}</Badge>
+                        </td>
+                        <td className="px-5 py-3 text-right sm:px-6">
+                          <Button size="sm" variant="secondary" onClick={() => setManageRequest(r)}>
+                            Manage
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Payments */}
+          <SectionCard
+            title="Payments"
+            description="This candidate's ledger."
+            icon={Wallet}
+            bodyClassName="p-0 sm:p-0"
+            action={
+              <Button size="sm" variant="secondary" onClick={() => setAddPayOpen(true)}>
+                <Plus className="h-4 w-4" /> Add
+              </Button>
+            }
+          >
+            {payments.length === 0 ? (
+              <div className="p-5 sm:p-6">
+                <EmptyState icon={Wallet} title="No payments yet" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full min-w-[520px] text-left text-[13px]">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wide text-white/40">
+                      <th className="px-5 py-2.5 font-medium sm:px-6">Amount</th>
+                      <th className="px-3 py-2.5 font-medium">Method</th>
+                      <th className="px-3 py-2.5 font-medium">Status</th>
+                      <th className="px-3 py-2.5 font-medium">Date</th>
+                      <th className="px-5 py-2.5 font-medium sm:px-6"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.06]">
+                    {payments.map((p) => (
+                      <tr key={p.id} className="transition-colors hover:bg-white/[0.03]">
+                        <td className="px-5 py-3 tabular-nums font-medium text-white/80 sm:px-6">
+                          {formatAmount(Number(p.amount), p.currency)}
+                        </td>
+                        <td className="px-3 py-3 text-white/60">{p.method ? METHOD_LABEL[p.method] ?? p.method : "—"}</td>
+                        <td className="px-3 py-3">
+                          <Badge tone={PAYMENT_STATUS_TONE[p.status] ?? "slate"}>{p.status}</Badge>
+                        </td>
+                        <td className="px-3 py-3 text-white/55">
+                          {p.paid_at ? formatInTimeZone(p.paid_at, adminTimezone) : "—"}
+                        </td>
+                        <td className="px-5 py-3 text-right sm:px-6">
+                          {p.status !== "paid" ? (
+                            <Button size="sm" loading={busyPayId === p.id} disabled={busyPayId !== null} onClick={() => markPaid(p)}>
+                              Mark paid
+                            </Button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+        </div>
+
+        {/* Right rail: notes + timeline */}
+        <div className="space-y-5">
+          <SectionCard title="Private notes" description="Only admins can see these." icon={StickyNote}>
+            <div className="space-y-3">
+              <Textarea
+                value={noteBody}
+                onChange={(e) => setNoteBody(e.target.value)}
+                placeholder="Add a note about this candidate…"
+                className="min-h-[72px]"
+              />
+              <div className="flex justify-end">
+                <Button size="sm" loading={savingNote} disabled={!noteBody.trim()} onClick={addNote}>
+                  <MessageSquarePlus className="h-4 w-4" /> Add note
+                </Button>
+              </div>
+              {notes.length === 0 ? (
+                <p className="py-2 text-center text-[12px] text-white/30">No notes yet.</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {notes.map((n) => (
+                    <li key={n.id} className="group rounded-lg bg-white/[0.03] px-3.5 py-2.5">
+                      <p className="whitespace-pre-wrap text-[13px] text-white/80">{n.body}</p>
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <span className="text-[11px] text-white/30">{relativeTime(n.created_at)}</span>
+                        <button
+                          type="button"
+                          onClick={() => deleteNote(n.id)}
+                          className="text-white/25 opacity-0 transition hover:text-[#f87171] group-hover:opacity-100"
+                          aria-label="Delete note"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Activity" description="Recent timeline." icon={Clock}>
+            {timeline.length === 0 ? (
+              <EmptyState icon={Clock} title="No activity yet" />
+            ) : (
+              <ul className="space-y-3">
+                {timeline.map((t, i) => {
+                  const Icon = t.icon;
+                  return (
+                    <li key={i} className="flex gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.04]">
+                        <Icon className={`h-3.5 w-3.5 ${t.tone}`} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[13px] text-white/75">{t.text}</p>
+                        <p className="text-[11px] text-white/30">{relativeTime(t.at)}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </SectionCard>
+        </div>
+      </div>
+
+      {manageRequest ? (
+        <ManageRequestDialog
+          request={manageRequest}
+          candidates={candidatesMap}
+          adminTimezone={adminTimezone}
+          requests={requests}
+          onClose={() => setManageRequest(null)}
+        />
+      ) : null}
+      {addPayOpen ? (
+        <AddPaymentDialog candidateId={candidate.id} candidateName={name} onClose={() => setAddPayOpen(false)} onDone={load} />
+      ) : null}
+      {notifyOpen ? (
+        <NotifyDialog candidateId={candidate.id} candidateName={name} onClose={() => setNotifyOpen(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+function AddPaymentDialog({
+  candidateId,
+  candidateName,
+  onClose,
+  onDone,
+}: {
+  candidateId: string;
+  candidateName: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("bank_transfer");
+  const [date, setDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    const value = parseFloat(amount);
+    if (!value || value <= 0) {
+      setError("Enter a valid amount.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: insertError } = await supabase.from("payments").insert({
+      candidate_id: candidateId,
+      amount: value,
+      currency: "USD",
+      method,
+      status: "paid",
+      paid_at: date ? new Date(date).toISOString() : new Date().toISOString(),
+      notes: notes.trim() || null,
+    });
+    if (insertError) {
+      setError(insertError.message);
+      setBusy(false);
+      return;
+    }
+    toast({ title: "Payment recorded", variant: "success" });
+    setBusy(false);
+    onDone();
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Add payment" description={candidateName}>
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Amount (USD)" htmlFor="cd-amt">
+            <Input id="cd-amt" inputMode="decimal" placeholder="150.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </Field>
+          <Field label="Date" htmlFor="cd-date">
+            <Input id="cd-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+        </div>
+        <Field label="Method" htmlFor="cd-method">
+          <Select id="cd-method" value={method} onChange={(e) => setMethod(e.target.value)}>
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Notes" htmlFor="cd-notes" hint="Optional.">
+          <Textarea id="cd-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </Field>
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+        <Button className="w-full" loading={busy} onClick={save}>
+          Record payment
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
+function NotifyDialog({
+  candidateId,
+  candidateName,
+  onClose,
+}: {
+  candidateId: string;
+  candidateName: string;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send() {
+    if (!title.trim() || !message.trim()) {
+      setError("Add a title and message.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: insertError } = await supabase.from("notifications").insert({
+      user_id: candidateId,
+      title: title.trim(),
+      detail: message.trim(),
+      type: "info",
+    });
+    if (insertError) {
+      setError(insertError.message);
+      setBusy(false);
+      return;
+    }
+    toast({ title: "Message sent", variant: "success" });
+    setBusy(false);
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Send a message" description={`Notify ${candidateName}`}>
+      <div className="space-y-4">
+        <Field label="Title" htmlFor="nt-title">
+          <Input id="nt-title" placeholder="Quick update" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </Field>
+        <Field label="Message" htmlFor="nt-msg">
+          <Textarea id="nt-msg" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your message…" />
+        </Field>
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+        <Button className="w-full" loading={busy} onClick={send}>
+          <Send className="h-4 w-4" /> Send notification
+        </Button>
+      </div>
+    </Dialog>
+  );
+}

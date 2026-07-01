@@ -79,6 +79,14 @@ export interface AvailabilitySlot {
   created_at: string;
 }
 
+export interface CandidateNote {
+  id: string;
+  candidate_id: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
