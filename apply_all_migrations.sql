@@ -434,7 +434,7 @@ select ir.id,
        case when ir.payment_status = 'paid' then 'stripe' else null end
 from public.interview_requests ir
 where ir.price_cents is not null
-on conflict (interview_id) do nothing;
+on conflict (interview_id) where interview_id is not null do nothing;
 
 -- Keep the ledger in sync with interview_requests invoice/payment changes.
 create or replace function public.sync_payment_from_request()
@@ -454,7 +454,7 @@ begin
       case when new.payment_status = 'paid' then 'paid' else 'pending' end,
       new.paid_at
     )
-    on conflict (interview_id) do update set
+    on conflict (interview_id) where interview_id is not null do update set
       amount = excluded.amount,
       currency = excluded.currency,
       status = case when new.payment_status = 'paid' then 'paid' else payments.status end,
