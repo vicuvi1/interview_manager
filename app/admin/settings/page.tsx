@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { KeyRound, ShieldCheck } from "lucide-react";
 
 import { SettingsForm } from "@/components/settings-form";
+import { TelegramCard } from "@/components/admin/telegram-card";
 import { SectionCard } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -33,13 +34,14 @@ export default async function AdminSettingsPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="space-y-5 lg:col-span-2">
           <SettingsForm
             userId={user.id}
             email={user.email ?? ""}
             initialName={profile?.full_name ?? ""}
             initialTimezone={profile?.timezone ?? "UTC"}
           />
+          <TelegramCard />
         </div>
 
         <SectionCard title="Admin access" description="How this workspace is secured." icon={ShieldCheck}>
