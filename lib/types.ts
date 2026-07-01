@@ -64,6 +64,21 @@ export interface Payment {
   updated_at: string;
 }
 
+export interface AvailabilitySlot {
+  id: string;
+  title: string | null;
+  slot_type: string; // "available" | "busy" | "event"
+  starts_at: string;
+  ends_at: string;
+  repeat_rule: string; // "none" | "daily" | "weekly"
+  is_booked: boolean;
+  candidate_id: string | null;
+  meeting_link: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
