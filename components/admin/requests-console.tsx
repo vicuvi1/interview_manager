@@ -365,6 +365,11 @@ export function RequestsConsole({
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: r.color ?? "rgba(255,255,255,0.18)" }}
+                          aria-hidden
+                        />
                         <span className="text-white/70">{r.role}</span>
                         {r.interview_type ? (
                           <span className="rounded-full bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-white/50">{r.interview_type}</span>

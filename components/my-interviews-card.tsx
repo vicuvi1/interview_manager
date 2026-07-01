@@ -118,7 +118,16 @@ export function MyInterviewsCard({
             <tbody className="divide-y divide-white/[0.06]">
               {rows.map((row) => (
                 <tr key={row.id} className="transition-colors hover:bg-white/[0.03]">
-                  <td className="px-5 py-3 font-medium text-[#f0f0f5] sm:px-6">{row.role}</td>
+                  <td className="px-5 py-3 font-medium text-[#f0f0f5] sm:px-6">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: row.color ?? "rgba(255,255,255,0.18)" }}
+                        aria-hidden
+                      />
+                      {row.role}
+                    </span>
+                  </td>
                   <td className="px-3 py-3 text-white/60">
                     {row.scheduled_at ? (
                       <div>

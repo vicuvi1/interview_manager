@@ -76,6 +76,7 @@ export interface InterviewRequest {
   price_cents: number | null;
   currency: string;
   paid_at: string | null;
+  color?: string | null;
   created_at: string;
 }
 

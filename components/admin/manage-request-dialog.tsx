@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, ExternalLink, FileText } from "lucide-react";
+import { CalendarClock, Check, ExternalLink, FileText } from "lucide-react";
 
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
@@ -86,6 +87,9 @@ export function ManageRequestDialog({
     request.price_cents ? (request.price_cents / 100).toFixed(2) : "",
   );
   const [invoicing, setInvoicing] = useState(false);
+  const [marking, setMarking] = useState(false);
+  const [color, setColor] = useState<string | null>(request.color ?? null);
+  const [savingColor, setSavingColor] = useState(false);
 
   const candidate = candidates[request.candidate_id];
   const candTz = candidate?.timezone ?? "UTC";
@@ -207,6 +211,53 @@ export function ManageRequestDialog({
     setInvoicing(false);
     notifyChanged("interviews");
     onClose();
+  }
+
+  async function markPaid() {
+    setMarking(true);
+    setError(null);
+    const supabase = createClient();
+    const cents = request.price_cents ?? (invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : null);
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({
+        payment_status: "paid",
+        paid_at: new Date().toISOString(),
+        ...(cents && !request.price_cents ? { price_cents: cents, currency: "USD" } : {}),
+      })
+      .eq("id", request.id);
+    if (updateError) {
+      setError(updateError.message);
+      toast({ title: "Couldn't mark paid", description: updateError.message, variant: "error" });
+      setMarking(false);
+      return;
+    }
+    await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Payment confirmed",
+      detail: `Your payment for "${request.role}" has been received. Thank you!`,
+      type: "success",
+    });
+    toast({ title: "Marked as paid", variant: "success" });
+    setMarking(false);
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  async function saveColor(next: string | null) {
+    setColor(next);
+    setSavingColor(true);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ color: next })
+      .eq("id", request.id);
+    setSavingColor(false);
+    if (updateError) {
+      toast({ title: "Couldn't save color", description: updateError.message, variant: "error" });
+      return;
+    }
+    notifyChanged("interviews");
   }
 
   async function acceptRequestedTime() {
@@ -435,8 +486,22 @@ export function ManageRequestDialog({
                   Invoiced {formatMoney(request.price_cents, request.currency)} · awaiting payment
                 </p>
               ) : null}
+              <Button size="sm" loading={marking} disabled={marking} onClick={markPaid}>
+                <Check className="h-4 w-4" /> Mark as paid
+              </Button>
+              <p className="text-[11px] text-white/40">
+                Confirms you received the money and notifies the candidate.
+              </p>
             </>
           )}
+        </div>
+
+        <div className="space-y-2 border-t border-white/[0.06] pt-4">
+          <p className="text-[13px] font-medium text-white/80">
+            Color tag {savingColor ? <span className="text-white/40">· saving…</span> : null}
+          </p>
+          <p className="text-[12px] text-white/40">Sets the background color of this event on the calendar.</p>
+          <ColorPicker value={color} onChange={saveColor} disabled={savingColor} />
         </div>
 
         {actions.length > 0 ? (

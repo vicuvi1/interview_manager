@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { useDataChanged } from "@/lib/bus";
+import { colorBg } from "@/lib/colors";
 import { FORMAT_LABEL } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
@@ -86,8 +87,8 @@ export function ScheduleCalendar({
         title: `${r.role} · ${r.status}`,
         start,
         end: new Date(start.getTime() + (r.duration_minutes || 30) * 60000),
-        backgroundColor: c.bg,
-        borderColor: c.border,
+        backgroundColor: r.color ? colorBg(r.color, 0.3) : c.bg,
+        borderColor: r.color ?? c.border,
         textColor: c.text,
         extendedProps: { reqId: r.id },
       });

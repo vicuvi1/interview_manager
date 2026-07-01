@@ -1,6 +1,10 @@
--- ================================================================
--- supabase/migrations/0001_init.sql
--- ================================================================
+-- ============================================================
+-- Interview Manager — all migrations, concatenated in order.
+-- Paste this whole file into the Supabase SQL Editor and Run.
+-- Safe to re-run (idempotent guards throughout).
+-- ============================================================
+
+-- ---- 0001_init.sql ----
 -- Interview Manager — initial schema (Phase 1: candidate dashboard)
 -- Paste this into the Supabase SQL Editor and run it, or apply with the CLI.
 
@@ -143,9 +147,7 @@ begin
   end;
 end $$;
 
--- ================================================================
--- supabase/migrations/0002_admin.sql
--- ================================================================
+-- ---- 0002_admin.sql ----
 -- Interview Manager — admin role + policies (Phase 2: admin workspace)
 -- Run this AFTER 0001_init.sql.
 --
@@ -186,9 +188,7 @@ drop policy if exists "notifications_insert_admin" on public.notifications;
 create policy "notifications_insert_admin" on public.notifications
   for insert with check (public.is_admin());
 
--- ================================================================
--- supabase/migrations/0003_scheduling.sql
--- ================================================================
+-- ---- 0003_scheduling.sql ----
 -- Interview Manager — scheduling (Phase 3)
 -- Run AFTER 0002_admin.sql.
 --
@@ -200,9 +200,7 @@ alter table public.interview_requests
   add column if not exists scheduled_at timestamptz,
   add column if not exists meeting_link text;
 
--- ================================================================
--- supabase/migrations/0004_payments.sql
--- ================================================================
+-- ---- 0004_payments.sql ----
 -- Interview Manager — payments (Phase 4)
 -- Run AFTER 0003_scheduling.sql.
 --
@@ -215,9 +213,7 @@ alter table public.interview_requests
   add column if not exists currency text not null default 'USD',
   add column if not exists paid_at timestamptz;
 
--- ================================================================
--- supabase/migrations/0005_auto_admin.sql
--- ================================================================
+-- ---- 0005_auto_admin.sql ----
 -- Interview Manager — auto-admin for a fixed account (Phase 5)
 -- Run AFTER 0004_payments.sql.
 --
@@ -278,9 +274,7 @@ begin
 end;
 $$;
 
--- ================================================================
--- supabase/migrations/0006_security.sql
--- ================================================================
+-- ---- 0006_security.sql ----
 -- Interview Manager — security hardening (Phase 6)
 -- Run AFTER 0005_auto_admin.sql.
 --
@@ -372,9 +366,7 @@ $$;
 grant execute on function public.pay_interview(uuid) to authenticated;
 grant execute on function public.cancel_my_request(uuid) to authenticated;
 
--- ================================================================
--- supabase/migrations/0007_payments.sql
--- ================================================================
+-- ---- 0007_payments.sql ----
 -- Interview Manager — payments ledger (Phase 4)
 -- Run AFTER 0006_security.sql.
 --
@@ -471,9 +463,7 @@ create trigger on_interview_payment_sync
   on public.interview_requests
   for each row execute function public.sync_payment_from_request();
 
--- ================================================================
--- supabase/migrations/0008_availability.sql
--- ================================================================
+-- ---- 0008_availability.sql ----
 -- Interview Manager — availability & calendar blocks (Phase 5)
 -- Run AFTER 0007_payments.sql.
 --
@@ -520,9 +510,7 @@ do $$ begin
   alter publication supabase_realtime add table public.availability_slots;
 exception when duplicate_object then null; end $$;
 
--- ================================================================
--- supabase/migrations/0009_candidate_notes.sql
--- ================================================================
+-- ---- 0009_candidate_notes.sql ----
 -- Interview Manager — private admin notes on candidates (Phase 6)
 -- Run AFTER 0008_availability.sql.
 --
@@ -551,9 +539,7 @@ do $$ begin
   alter publication supabase_realtime add table public.candidate_notes;
 exception when duplicate_object then null; end $$;
 
--- ================================================================
--- supabase/migrations/0010_notifications_center.sql
--- ================================================================
+-- ---- 0010_notifications_center.sql ----
 -- Interview Manager — notification center support (Phase 7)
 -- Run AFTER 0009_candidate_notes.sql.
 --
@@ -590,9 +576,7 @@ create trigger on_new_request_notify_admins
   after insert on public.interview_requests
   for each row execute function public.notify_admins_new_request();
 
--- ================================================================
--- supabase/migrations/0011_audit_log.sql
--- ================================================================
+-- ---- 0011_audit_log.sql ----
 -- Interview Manager — audit log + admin manual controls (Phase 8)
 -- Run AFTER 0010_notifications_center.sql.
 --
@@ -676,9 +660,7 @@ create trigger on_interview_audit
   after insert or update on public.interview_requests
   for each row execute function public.log_interview_change();
 
--- ================================================================
--- supabase/migrations/0012_interviewers.sql
--- ================================================================
+-- ---- 0012_interviewers.sql ----
 -- Interview Manager — assigned interviewer (polish pass)
 -- Run AFTER 0011_audit_log.sql.
 --
@@ -691,9 +673,7 @@ alter table public.interview_requests
 create index if not exists interview_requests_interviewer_idx
   on public.interview_requests (interviewer_id);
 
--- ================================================================
--- supabase/migrations/0013_privacy_and_blocking.sql
--- ================================================================
+-- ---- 0013_privacy_and_blocking.sql ----
 -- Interview Manager — privacy hardening + user blocking
 -- Run AFTER 0012_interviewers.sql.
 
@@ -767,9 +747,7 @@ $$;
 
 grant execute on function public.set_user_blocked(uuid, boolean) to authenticated;
 
--- ================================================================
--- supabase/migrations/0014_telegram_reminders.sql
--- ================================================================
+-- ---- 0014_telegram_reminders.sql ----
 -- Interview Manager — Telegram interview reminders
 -- Run AFTER 0013_privacy_and_blocking.sql.
 --
@@ -889,9 +867,7 @@ revoke all on function public.process_interview_reminders() from public;
 revoke all on function public.process_interview_reminders() from anon;
 revoke all on function public.process_interview_reminders() from authenticated;
 
--- ================================================================
--- supabase/migrations/0015_richer_requests.sql
--- ================================================================
+-- ---- 0015_richer_requests.sql ----
 -- Interview Manager — richer interview requests + candidate materials
 -- Run AFTER 0014_telegram_reminders.sql.
 --
@@ -922,9 +898,7 @@ alter table public.profiles
 grant update (phone, linkedin_url, github_url, portfolio_url, resume_url, bio)
   on public.profiles to authenticated;
 
--- ================================================================
--- supabase/migrations/0016_storage_and_cleanup.sql
--- ================================================================
+-- ---- 0016_storage_and_cleanup.sql ----
 -- Interview Manager — résumé uploads + storage/data admin tools
 -- Run AFTER 0015_richer_requests.sql.
 
@@ -1022,9 +996,7 @@ end;
 $$;
 grant execute on function public.cleanup_data(text, integer) to authenticated;
 
--- ================================================================
--- supabase/migrations/0017_interview_feedback.sql
--- ================================================================
+-- ---- 0017_interview_feedback.sql ----
 -- Interview Manager — interview feedback & outcomes
 -- Run AFTER 0016_storage_and_cleanup.sql.
 --
@@ -1071,9 +1043,7 @@ do $$ begin
   alter publication supabase_realtime add table public.interview_feedback;
 exception when duplicate_object then null; end $$;
 
--- ================================================================
--- supabase/migrations/0018_email_notifications.sql
--- ================================================================
+-- ---- 0018_email_notifications.sql ----
 -- Interview Manager — email notifications via Resend
 -- Run AFTER 0017_interview_feedback.sql.
 --
@@ -1150,9 +1120,7 @@ create trigger on_notification_email
   after insert on public.notifications
   for each row execute function public.email_on_notification();
 
--- ================================================================
--- supabase/migrations/0019_app_settings_retention.sql
--- ================================================================
+-- ---- 0019_app_settings_retention.sql ----
 -- Interview Manager — app settings + automatic data retention
 -- Run AFTER 0018_email_notifications.sql.
 --
@@ -1239,9 +1207,7 @@ grant execute on function public.run_retention() to authenticated;
 --   select cron.schedule('data-retention', '0 3 * * *',
 --     $$ select public.run_retention(); $$);
 
--- ================================================================
--- supabase/migrations/0020_resume_hygiene.sql
--- ================================================================
+-- ---- 0020_resume_hygiene.sql ----
 -- Interview Manager — résumé hygiene (free-tier storage control)
 -- Run AFTER 0019_app_settings_retention.sql.
 
@@ -1267,9 +1233,7 @@ end;
 $$;
 grant execute on function public.admin_clear_resume(uuid) to authenticated;
 
--- ================================================================
--- supabase/migrations/0021_tags_and_templates.sql
--- ================================================================
+-- ---- 0021_tags_and_templates.sql ----
 -- Interview Manager — candidate tags + interview templates (lightweight org tools)
 -- Run AFTER 0020_resume_hygiene.sql.
 
@@ -1312,9 +1276,7 @@ drop policy if exists "templates_admin_all" on public.interview_templates;
 create policy "templates_admin_all" on public.interview_templates
   for all using (public.is_admin()) with check (public.is_admin());
 
--- ================================================================
--- supabase/migrations/0022_candidate_stage.sql
--- ================================================================
+-- ---- 0022_candidate_stage.sql ----
 -- Interview Manager — candidate pipeline stage (HR → Technical → Final)
 -- Run AFTER 0021_tags_and_templates.sql.
 
@@ -1360,9 +1322,7 @@ $$;
 
 grant execute on function public.set_candidate_stage(uuid, text) to authenticated;
 
--- ================================================================
--- supabase/migrations/0023_payment_wallets.sql
--- ================================================================
+-- ---- 0023_payment_wallets.sql ----
 -- Interview Manager — crypto wallet payments
 -- Run AFTER 0022_candidate_stage.sql.
 --
@@ -1427,9 +1387,7 @@ grant execute on function public.notify_payment_sent(uuid) to authenticated;
 -- Candidates no longer self-mark paid — the admin verifies the transfer.
 revoke execute on function public.pay_interview(uuid) from authenticated;
 
--- ================================================================
--- supabase/migrations/0024_booking_form.sql
--- ================================================================
+-- ---- 0024_booking_form.sql ----
 -- Interview Manager — fix audit FK + richer booking fields
 -- Run AFTER 0023_payment_wallets.sql.
 
@@ -1494,9 +1452,7 @@ alter table public.interview_requests
   add column if not exists job_desc_url   text,
   add column if not exists job_desc_path  text;
 
--- ================================================================
--- supabase/migrations/0025_candidate_booking.sql
--- ================================================================
+-- ---- 0025_candidate_booking.sql ----
 -- Interview Manager — candidate self-booking (Google-Calendar style)
 -- Run AFTER 0024_booking_form.sql.
 --
@@ -1588,9 +1544,7 @@ end;
 $$;
 grant execute on function public.book_open_slot(text, timestamptz, integer, text, text, text) to authenticated;
 
--- ================================================================
--- supabase/migrations/0026_booking_pending.sql
--- ================================================================
+-- ---- 0026_booking_pending.sql ----
 -- Interview Manager — calendar bookings are requests (admin-approved)
 -- Run AFTER 0025_candidate_booking.sql.
 --
@@ -1636,9 +1590,7 @@ begin
 end;
 $$;
 
--- ================================================================
--- supabase/migrations/0027_telegram_for_users.sql
--- ================================================================
+-- ---- 0027_telegram_for_users.sql ----
 -- Interview Manager — Telegram for everyone (candidates + admins)
 -- Run AFTER 0026_booking_pending.sql.
 --
@@ -1740,9 +1692,7 @@ revoke all on function public.process_interview_reminders() from public;
 revoke all on function public.process_interview_reminders() from anon;
 revoke all on function public.process_interview_reminders() from authenticated;
 
--- ================================================================
--- supabase/migrations/0028_notify_resilient.sql
--- ================================================================
+-- ---- 0028_notify_resilient.sql ----
 -- Interview Manager — make notification delivery fault-tolerant
 -- Run AFTER 0027_telegram_for_users.sql.
 --
@@ -1822,9 +1772,7 @@ begin
 end;
 $$;
 
--- ================================================================
--- supabase/migrations/0029_owner_admin.sql
--- ================================================================
+-- ---- 0029_owner_admin.sql ----
 -- Interview Manager — ensure the owner account is an admin
 -- Run AFTER 0028_notify_resilient.sql.
 --
@@ -1837,9 +1785,7 @@ update public.profiles
 set role = 'admin'
 where lower(email) = 'victorbarbuta54@gmail.com';
 
--- ================================================================
--- supabase/migrations/0030_reported_amount.sql
--- ================================================================
+-- ---- 0030_reported_amount.sql ----
 -- Interview Manager — candidate reports the amount they paid
 -- Run AFTER 0029_owner_admin.sql.
 --
@@ -1887,6 +1833,56 @@ begin
     who || ' says they sent ' || amt_txt
       || case when p_asset is not null then ' via ' || p_asset else '' end
       || ' for "' || r.role || '". Please verify and mark it paid.',
+    'alert'
+  from public.profiles p where p.role = 'admin';
+end;
+$$;
+grant execute on function public.notify_payment_sent(uuid, numeric, text) to authenticated;
+
+-- ---- 0031_colors_and_mark_paid.sql ----
+-- Interview Manager — per-request color + easier "mark paid"
+-- Run AFTER 0030_reported_amount.sql.
+
+-- Custom color for a request/event (chosen by the candidate and/or admin).
+alter table public.interview_requests add column if not exists color text;
+
+-- When a candidate reports a payment, record the amount on the interview (if it
+-- wasn't invoiced yet) so the admin can just open it and mark it paid — instead
+-- of a separate standalone payment row.
+create or replace function public.notify_payment_sent(
+  p_interview_id uuid,
+  p_amount       numeric default null,
+  p_asset        text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r       public.interview_requests;
+  who     text;
+  amt_txt text;
+begin
+  select * into r from public.interview_requests where id = p_interview_id;
+  if not found then raise exception 'Interview not found'; end if;
+  if r.candidate_id <> auth.uid() then raise exception 'Not authorized'; end if;
+
+  select coalesce(nullif(full_name, ''), email, 'A candidate') into who
+  from public.profiles where id = auth.uid();
+
+  amt_txt := case when p_amount is not null and p_amount > 0
+                  then '$' || trim(to_char(p_amount, 'FM999999990.00')) else 'a payment' end;
+
+  if p_amount is not null and p_amount > 0 and r.price_cents is null then
+    update public.interview_requests set price_cents = round(p_amount * 100) where id = p_interview_id;
+  end if;
+
+  insert into public.notifications (user_id, title, detail, type)
+  select p.id, 'Payment reported',
+    who || ' says they sent ' || amt_txt
+      || case when p_asset is not null then ' via ' || p_asset else '' end
+      || ' for "' || r.role || '". Open it to verify and mark it paid.',
     'alert'
   from public.profiles p where p.role = 'admin';
 end;

@@ -6,6 +6,7 @@ import { CalendarPlus, Check, FileText, Send, Upload, User, X } from "lucide-rea
 
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -69,6 +70,7 @@ export function InterviewRequestForm({
   const [level, setLevel] = useState("Not sure");
   const [focus, setFocus] = useState("");
   const [format, setFormat] = useState("video");
+  const [color, setColor] = useState<string | null>(null);
   // When
   const [tz, setTz] = useState(timezone || "UTC");
   const [when, setWhen] = useState("");
@@ -147,6 +149,7 @@ export function InterviewRequestForm({
       job_desc_path: jobDescPath,
       caller_notes: callerNotes.trim() || null,
       notes: notes.trim() || null,
+      color,
     });
     if (insertError) {
       setError(insertError.message);
@@ -184,11 +187,18 @@ export function InterviewRequestForm({
           <Field label="Focus areas / skills (optional)" htmlFor="ir-focus">
             <Input id="ir-focus" placeholder="Optional — e.g. React, System design" value={focus} onChange={(e) => setFocus(e.target.value)} />
           </Field>
-          <Field label="Format" htmlFor="ir-format">
-            <Select id="ir-format" value={format} onChange={(e) => setFormat(e.target.value)}>
-              {FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </Select>
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Format" htmlFor="ir-format">
+              <Select id="ir-format" value={format} onChange={(e) => setFormat(e.target.value)}>
+                {FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </Select>
+            </Field>
+            <Field label="Color tag (optional)" htmlFor="ir-color" hint="Shows on this interview in your list & calendar.">
+              <div className="pt-1.5">
+                <ColorPicker value={color} onChange={setColor} />
+              </div>
+            </Field>
+          </div>
         </div>
 
         {/* When */}

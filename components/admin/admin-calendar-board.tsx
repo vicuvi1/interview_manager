@@ -28,6 +28,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { colorBg } from "@/lib/colors";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -197,8 +198,10 @@ export function AdminCalendarBoard({
         start,
         end,
         editable: r.status === "scheduled",
-        backgroundColor: style.bg,
-        borderColor: style.border,
+        // Custom color (if the candidate/admin tagged it) fills the event; the
+        // status still shows as the border + the "(status)" suffix in the title.
+        backgroundColor: r.color ? colorBg(r.color, 0.32) : style.bg,
+        borderColor: r.color ?? style.border,
         textColor: style.text,
         extendedProps: { kind: "interview", requestId: r.id },
       });
