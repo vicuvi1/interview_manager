@@ -22,12 +22,21 @@ export function NotificationBell({ userId, notifHref }: { userId: string; notifH
   const refresh = useCallback(async () => {
     const supabase = createClient();
     const [{ data }, { count }] = await Promise.all([
-      supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(8),
-      supabase.from("notifications").select("*", { count: "exact", head: true }).eq("read", false),
+      supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("read", false),
     ]);
     if (data) setItems(data as Notification[]);
     setUnread(count ?? 0);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     refresh();
@@ -70,7 +79,7 @@ export function NotificationBell({ userId, notifHref }: { userId: string; notifH
 
   async function markAllRead() {
     const supabase = createClient();
-    await supabase.from("notifications").update({ read: true }).eq("read", false);
+    await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
     refresh();
   }
 

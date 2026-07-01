@@ -76,7 +76,7 @@ export function NotificationsView({ initial, userId }: { initial: Notification[]
   async function markAllRead() {
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
     const supabase = createClient();
-    await supabase.from("notifications").update({ read: true }).eq("read", false);
+    await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
   }
 
   async function markRead(n: Notification) {

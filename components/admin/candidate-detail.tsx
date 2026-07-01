@@ -124,7 +124,7 @@ export function CandidateDetail({
     for (const r of requests) {
       items.push({ at: r.created_at, icon: MessageSquarePlus, tone: "text-white/40", text: `Requested "${r.role}"` });
       if (r.scheduled_at) items.push({ at: r.scheduled_at, icon: CalendarClock, tone: "text-[#a5b4fc]", text: `Interview for "${r.role}" scheduled` });
-      if (r.status === "completed") items.push({ at: r.created_at, icon: CheckCircle2, tone: "text-[#34d399]", text: `"${r.role}" marked completed` });
+      if (r.status === "completed") items.push({ at: r.scheduled_at ?? r.created_at, icon: CheckCircle2, tone: "text-[#34d399]", text: `"${r.role}" marked completed` });
     }
     for (const p of payments) {
       if (p.status === "paid" && p.paid_at) items.push({ at: p.paid_at, icon: Wallet, tone: "text-[#34d399]", text: `Paid ${formatAmount(Number(p.amount), p.currency)}` });
