@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 
+import { NotificationBell } from "@/components/shell/notification-bell";
 import { createClient } from "@/lib/supabase/client";
 import { cn, initials } from "@/lib/utils";
 
@@ -108,11 +109,12 @@ const BADGE_TONE: Record<string, string> = {
 export interface ShellProps {
   variant: "admin" | "candidate";
   user: { name: string; email: string };
+  userId: string;
   counts: { pending: number; unpaid: number; unread: number };
   children: React.ReactNode;
 }
 
-export function AppShell({ variant, user, counts, children }: ShellProps) {
+export function AppShell({ variant, user, userId, counts, children }: ShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -195,16 +197,7 @@ export function AppShell({ variant, user, counts, children }: ShellProps) {
           </div>
 
           <div className="ml-auto flex items-center gap-1">
-            <Link
-              href={notifHref}
-              className="relative rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
-              aria-label="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              {counts.unread > 0 ? (
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#8b5cf6]" />
-              ) : null}
-            </Link>
+            <NotificationBell userId={userId} notifHref={notifHref} />
             <span className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[11px] font-semibold text-white">
               {initials(user.name, user.email)}
             </span>

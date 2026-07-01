@@ -30,6 +30,7 @@ export default async function CandidateLayout({ children }: { children: React.Re
     <AppShell
       variant="candidate"
       user={{ name, email: user.email ?? "" }}
+      userId={user.id}
       counts={{ pending: 0, unpaid: 0, unread: count ?? 0 }}
     >
       {children}
