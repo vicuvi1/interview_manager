@@ -22,7 +22,7 @@ export default async function AdminCalendarPage() {
   const me = meRow as Profile | null;
 
   const [requestsResult, slotsResult, profilesResult] = await Promise.all([
-    supabase.from("interview_requests").select("*").not("scheduled_at", "is", null),
+    supabase.from("interview_requests").select("*"),
     supabase.from("availability_slots").select("*"),
     supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
   ]);

@@ -49,7 +49,8 @@ const INTERVIEW_STYLES: Record<string, { bg: string; border: string; text: strin
   scheduled: { bg: "rgba(99,102,241,0.18)", border: "#6366f1", text: "#c7d2fe" },
   completed: { bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.2)", text: "rgba(255,255,255,0.6)" },
   cancelled: { bg: "rgba(239,68,68,0.14)", border: "#ef4444", text: "#fca5a5" },
-  approved: { bg: "rgba(99,102,241,0.12)", border: "rgba(99,102,241,0.5)", text: "#a5b4fc" },
+  pending: { bg: "rgba(245,158,11,0.2)", border: "#f59e0b", text: "#fbbf24" },
+  approved: { bg: "rgba(16,185,129,0.18)", border: "#10b981", text: "#6ee7b7" },
 };
 
 const SLOT_STYLES: Record<string, { bg: string; border: string; text: string }> = {
@@ -65,10 +66,11 @@ const SLOT_LABEL: Record<string, string> = {
 };
 
 const LEGEND = [
+  { color: "#f59e0b", label: "Pending" },
+  { color: "#10b981", label: "Approved" },
   { color: "#6366f1", label: "Scheduled" },
   { color: "rgba(255,255,255,0.3)", label: "Completed" },
-  { color: "#ef4444", label: "Cancelled" },
-  { color: "#10b981", label: "Available" },
+  { color: "rgba(16,185,129,0.45)", label: "Available" },
   { color: "rgba(255,255,255,0.3)", label: "Blocked" },
   { color: "#8b5cf6", label: "Event" },
 ];
@@ -157,7 +159,7 @@ export function AdminCalendarBoard({
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: reqs }, { data: sl }, { data: profs }] = await Promise.all([
-      supabase.from("interview_requests").select("*").not("scheduled_at", "is", null),
+      supabase.from("interview_requests").select("*"),
       supabase.from("availability_slots").select("*"),
       supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
     ]);
@@ -182,13 +184,15 @@ export function AdminCalendarBoard({
   const events = useMemo<EventInput[]>(() => {
     const out: EventInput[] = [];
     for (const r of requests) {
-      if (!r.scheduled_at) continue;
-      const start = new Date(r.scheduled_at);
+      if (r.status === "cancelled" || r.status === "rejected") continue;
+      const at = r.scheduled_at ?? r.preferred_at;
+      if (!at) continue;
+      const start = new Date(at);
       const end = new Date(start.getTime() + (r.duration_minutes ?? 30) * 60000);
-      const style = INTERVIEW_STYLES[r.status] ?? INTERVIEW_STYLES.scheduled;
+      const style = INTERVIEW_STYLES[r.status] ?? INTERVIEW_STYLES.pending;
       out.push({
         id: `iv:${r.id}`,
-        title: `${candName(r.candidate_id)} · ${r.role}`,
+        title: `${candName(r.candidate_id)} · ${r.role}${r.status !== "scheduled" ? ` (${r.status})` : ""}`,
         start,
         end,
         editable: r.status === "scheduled",

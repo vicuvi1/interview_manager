@@ -16,6 +16,7 @@ import type { PaymentWallet } from "@/lib/types";
 export function WalletsManager() {
   const { toast } = useToast();
   const [wallets, setWallets] = useState<PaymentWallet[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +27,12 @@ export function WalletsManager() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("payment_wallets").select("*").order("sort").order("created_at");
+    const { data, error } = await supabase.from("payment_wallets").select("*").order("sort").order("created_at");
+    if (error) {
+      setLoadError(error.message);
+      return;
+    }
+    setLoadError(null);
     if (data) setWallets(data as PaymentWallet[]);
   }, []);
 
@@ -81,6 +87,13 @@ export function WalletsManager() {
         </Button>
       }
     >
+      {loadError ? (
+        <div className="mb-4 rounded-lg border border-[#ef4444]/30 bg-[#ef4444]/[0.06] p-3 text-[12px] text-[#f87171]">
+          Couldn&apos;t load wallets: {loadError}. If this mentions a missing table, run the latest
+          <span className="font-mono"> apply_all_migrations.sql</span> in Supabase (it creates payment_wallets).
+        </div>
+      ) : null}
+
       {adding ? (
         <div className="mb-4 space-y-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5">
           <div className="grid gap-3 sm:grid-cols-2">

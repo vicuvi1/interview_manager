@@ -23,8 +23,10 @@ export function WalletPayDialog({
   const { toast } = useToast();
   const [wallets, setWallets] = useState<PaymentWallet[] | null>(null);
   const [selected, setSelected] = useState<PaymentWallet | null>(null);
+  const [amount, setAmount] = useState("");
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,11 +53,21 @@ export function WalletPayDialog({
   }
 
   async function markSent() {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) {
+      setError("Enter the amount you paid, in dollars.");
+      return;
+    }
+    setError(null);
     setBusy(true);
     const supabase = createClient();
-    const { error } = await supabase.rpc("notify_payment_sent", { p_interview_id: interviewId });
+    const { error: rpcError } = await supabase.rpc("notify_payment_sent", {
+      p_interview_id: interviewId,
+      p_amount: amt,
+      p_asset: selected ? walletLabel(selected) : null,
+    });
     setBusy(false);
-    if (error) return toast({ title: "Couldn't notify", description: error.message, variant: "error" });
+    if (rpcError) return toast({ title: "Couldn't notify", description: rpcError.message, variant: "error" });
     toast({ title: "Thanks — we'll confirm shortly", description: "The team will verify your payment.", variant: "success" });
     onClose();
   }
@@ -136,7 +148,31 @@ export function WalletPayDialog({
             <p className="text-center text-[12px] text-white/35">Pick an option above to see the address.</p>
           )}
 
-          <Button className="w-full" loading={busy} disabled={busy || !selected} onClick={markSent}>
+          {selected ? (
+            <div className="rounded-lg border border-[#ef4444]/30 bg-[#ef4444]/[0.06] p-3">
+              <label htmlFor="pay-amt" className="mb-1 block text-[12px] font-semibold text-[#f87171]">
+                Amount you sent (USD) — required
+              </label>
+              <input
+                id="pay-amt"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  setError(null);
+                }}
+                placeholder="e.g. 150"
+                className="h-10 w-full rounded-lg border border-[#ef4444]/40 bg-[#1a1a24] px-3 text-[13px] text-[#f0f0f5] placeholder:text-white/25 focus:border-[#ef4444] focus:outline-none focus:ring-2 focus:ring-[#ef4444]/25"
+              />
+              <p className="mt-1 text-[11px] text-[#f87171]">Enter exactly how much you paid, in dollars.</p>
+            </div>
+          ) : null}
+          {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+
+          <Button className="w-full" loading={busy} disabled={busy || !selected || !amount.trim()} onClick={markSent}>
             <Send className="h-4 w-4" /> I&apos;ve sent the payment
           </Button>
         </div>
