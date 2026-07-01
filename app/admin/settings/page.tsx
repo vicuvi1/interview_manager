@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { KeyRound, ShieldCheck } from "lucide-react";
 
 import { SettingsForm } from "@/components/settings-form";
+import { EmailCard } from "@/components/admin/email-card";
 import { TelegramCard } from "@/components/admin/telegram-card";
 import { SectionCard } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
@@ -42,6 +43,7 @@ export default async function AdminSettingsPage() {
             initialTimezone={profile?.timezone ?? "UTC"}
           />
           <TelegramCard />
+          <EmailCard />
         </div>
 
         <SectionCard title="Admin access" description="How this workspace is secured." icon={ShieldCheck}>
