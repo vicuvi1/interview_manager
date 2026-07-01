@@ -108,12 +108,15 @@ export async function POST(request: Request) {
   }
 
   if (action === "update") {
-    const reminderMinutes = Math.max(1, Math.min(240, Number(body?.reminderMinutes) || 15));
-    const enabled = body?.enabled !== false;
-    const { error } = await supabase
-      .from("telegram_settings")
-      .update({ reminder_minutes: reminderMinutes, enabled, updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
+    const update: Record<string, unknown> = {
+      enabled: body?.enabled !== false,
+      updated_at: new Date().toISOString(),
+    };
+    // Only admins send reminderMinutes; don't clobber it for candidates.
+    if (body?.reminderMinutes !== undefined && body?.reminderMinutes !== null) {
+      update.reminder_minutes = Math.max(1, Math.min(240, Number(body.reminderMinutes) || 15));
+    }
+    const { error } = await supabase.from("telegram_settings").update(update).eq("user_id", userId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

@@ -206,8 +206,6 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
             height={620}
             allDaySlot={false}
             nowIndicator
-            selectable
-            selectMirror
             scrollTime="08:00:00"
             slotDuration="00:30:00"
             expandRows
@@ -226,11 +224,6 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
             dateClick={(info) => {
               if (info.date.getTime() < Date.now()) return;
               setSelected({ startISO: info.date.toISOString(), dur: duration });
-            }}
-            select={(info) => {
-              api()?.unselect();
-              if (info.start.getTime() < Date.now()) return;
-              setSelected({ startISO: info.start.toISOString(), dur: duration });
             }}
           />
         ) : (
