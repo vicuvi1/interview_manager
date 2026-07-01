@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { RequestsConsole } from "@/components/admin/requests-console";
 import { createClient } from "@/lib/supabase/server";
-import type { InterviewRequest, ProfileLite } from "@/lib/types";
+import type { AvailabilitySlot, InterviewRequest, ProfileLite } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +21,10 @@ export default async function AdminRequestsPage() {
     .maybeSingle();
   const timezone = (meRow as { timezone?: string } | null)?.timezone ?? "UTC";
 
-  const [{ data: reqs }, { data: profs }] = await Promise.all([
+  const [{ data: reqs }, { data: profs }, { data: slots }] = await Promise.all([
     supabase.from("interview_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+    supabase.from("availability_slots").select("*"),
   ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function AdminRequestsPage() {
       adminTimezone={timezone}
       initialRequests={(reqs as InterviewRequest[] | null) ?? []}
       initialProfiles={(profs as ProfileLite[] | null) ?? []}
+      initialSlots={(slots as AvailabilitySlot[] | null) ?? []}
     />
   );
 }

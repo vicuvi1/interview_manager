@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarPlus, CheckCheck, Search, Slash, X } from "lucide-react";
+import { CalendarClock, CalendarPlus, CheckCheck, Search, Slash, X } from "lucide-react";
 
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
+import { ScheduleDialog } from "@/components/admin/schedule-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import { useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
-import type { CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
+import type { AvailabilitySlot, CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
 
 const STATUSES = ["pending", "approved", "scheduled", "completed", "cancelled", "rejected"] as const;
 
@@ -43,14 +44,17 @@ export function RequestsConsole({
   adminTimezone,
   initialRequests,
   initialProfiles,
+  initialSlots,
 }: {
   adminTimezone: string;
   initialRequests: InterviewRequest[];
   initialProfiles: ProfileLite[];
+  initialSlots: AvailabilitySlot[];
 }) {
   const { toast } = useToast();
   const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
   const [profiles, setProfiles] = useState<ProfileLite[]>(initialProfiles);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>(initialSlots);
   const [filter, setFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -58,6 +62,7 @@ export function RequestsConsole({
   const [forceStatus, setForceStatus] = useState<string>("scheduled");
   const [busy, setBusy] = useState(false);
   const [manage, setManage] = useState<InterviewRequest | null>(null);
+  const [schedule, setSchedule] = useState<InterviewRequest | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
 
   const candidates = useMemo(() => {
@@ -69,12 +74,14 @@ export function RequestsConsole({
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: reqs }, { data: profs }] = await Promise.all([
+    const [{ data: reqs }, { data: profs }, { data: sl }] = await Promise.all([
       supabase.from("interview_requests").select("*").order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+      supabase.from("availability_slots").select("*"),
     ]);
     if (reqs) setRequests(reqs as InterviewRequest[]);
     if (profs) setProfiles(profs as ProfileLite[]);
+    if (sl) setSlots(sl as AvailabilitySlot[]);
   }, []);
 
   useEffect(() => {
@@ -309,10 +316,18 @@ export function RequestsConsole({
                     <td className="px-3 py-3">
                       <Badge tone={r.payment_status === "paid" ? "green" : "amber"}>{r.payment_status}</Badge>
                     </td>
-                    <td className="px-5 py-3 text-right sm:px-6">
-                      <Button size="sm" variant="secondary" onClick={() => setManage(r)}>
-                        Manage
-                      </Button>
+                    <td className="px-5 py-3 sm:px-6">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {r.status !== "cancelled" && r.status !== "rejected" && r.status !== "completed" ? (
+                          <Button size="sm" variant="secondary" onClick={() => setSchedule(r)} title="Schedule">
+                            <CalendarClock className="h-4 w-4" />
+                            {r.status === "scheduled" ? "Reschedule" : "Schedule"}
+                          </Button>
+                        ) : null}
+                        <Button size="sm" variant="secondary" onClick={() => setManage(r)}>
+                          Manage
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -329,6 +344,17 @@ export function RequestsConsole({
           adminTimezone={adminTimezone}
           requests={requests}
           onClose={() => setManage(null)}
+        />
+      ) : null}
+      {schedule ? (
+        <ScheduleDialog
+          request={schedule}
+          candidate={candidates[schedule.candidate_id]}
+          adminTimezone={adminTimezone}
+          requests={requests}
+          slots={slots}
+          onClose={() => setSchedule(null)}
+          onDone={load}
         />
       ) : null}
       {bookingOpen ? (
