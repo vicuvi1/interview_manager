@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ExternalLink, FileText } from "lucide-react";
 
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -208,6 +208,13 @@ export function ManageRequestDialog({
     onClose();
   }
 
+  async function openJobDesc() {
+    if (!request.job_desc_path) return;
+    const supabase = createClient();
+    const { data } = await supabase.storage.from("resumes").createSignedUrl(request.job_desc_path, 60);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+  }
+
   const canSchedule = request.status === "approved" || request.status === "scheduled";
 
   return (
@@ -273,6 +280,29 @@ export function ManageRequestDialog({
             <div className="col-span-2">
               <dt className="text-[11px] uppercase tracking-wide text-white/40">Goals</dt>
               <dd className="whitespace-pre-wrap text-white/80">{request.goals}</dd>
+            </div>
+          ) : null}
+          {request.caller_notes ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Notes for the caller</dt>
+              <dd className="whitespace-pre-wrap text-white/80">{request.caller_notes}</dd>
+            </div>
+          ) : null}
+          {request.job_desc_url || request.job_desc_path ? (
+            <div className="col-span-2">
+              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Job description</dt>
+              <dd className="flex flex-wrap gap-3">
+                {request.job_desc_url ? (
+                  <a href={request.job_desc_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                    Open link <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                {request.job_desc_path ? (
+                  <button type="button" onClick={openJobDesc} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                    Open file <FileText className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </dd>
             </div>
           ) : null}
           {request.notes ? (

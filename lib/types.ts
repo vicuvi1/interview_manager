@@ -63,6 +63,9 @@ export interface InterviewRequest {
   focus_areas?: string[] | null;
   format?: string | null;
   goals?: string | null;
+  caller_notes?: string | null;
+  job_desc_url?: string | null;
+  job_desc_path?: string | null;
   preferred_at: string | null;
   scheduled_at: string | null;
   meeting_link: string | null;
