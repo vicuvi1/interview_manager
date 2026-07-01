@@ -15,6 +15,7 @@ export interface Profile {
   timezone: string;
   role: string;
   blocked?: boolean;
+  stage?: string | null;
   phone?: string | null;
   linkedin_url?: string | null;
   github_url?: string | null;
@@ -88,6 +89,7 @@ export interface ProfileLite {
   timezone: string;
   role: string;
   blocked?: boolean;
+  stage?: string | null;
   tags?: string[] | null;
   created_at: string;
 }

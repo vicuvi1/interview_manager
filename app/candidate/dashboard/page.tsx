@@ -43,6 +43,7 @@ export default async function CandidateDashboardPage() {
       userId={user.id}
       name={name}
       timezone={timezone}
+      stage={profile?.stage ?? null}
       initialInterviews={(interviewsResult.data as InterviewRequest[] | null) ?? []}
       initialNotifications={(notificationsResult.data as Notification[] | null) ?? []}
     />

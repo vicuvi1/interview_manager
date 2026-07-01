@@ -30,6 +30,7 @@ import {
 
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
+import { StageTracker } from "@/components/admin/stage-tracker";
 import { StatCard } from "@/components/admin/stat-card";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -261,6 +262,9 @@ export function CandidateDetail({
           ) : null}
         </div>
       </Card>
+
+      {/* Pipeline stage */}
+      <StageTracker candidateId={candidate.id} initialStage={candidate.stage ?? "applied"} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/admin/stat-card";
 import { useDataChanged } from "@/lib/bus";
 import { formatAmount } from "@/lib/payments";
+import { STAGE_LABEL, stageTone } from "@/lib/stages";
 import { createClient } from "@/lib/supabase/client";
 import { relativeTime } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
@@ -45,7 +46,7 @@ export function CandidatesList({
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: profs }, { data: reqs }, { data: pays }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, timezone, role, blocked, tags, created_at"),
+      supabase.from("profiles").select("id, full_name, email, timezone, role, blocked, stage, tags, created_at"),
       supabase.from("interview_requests").select("*"),
       supabase.from("payments").select("*"),
     ]);
@@ -187,6 +188,9 @@ export function CandidatesList({
                           <div className="flex items-center gap-1.5">
                             <p className="truncate font-medium text-[#f0f0f5] group-hover:text-white">{name(r.profile)}</p>
                             {r.profile.blocked ? <Badge tone="red">suspended</Badge> : null}
+                            {r.profile.stage && r.profile.stage !== "applied" ? (
+                              <Badge tone={stageTone(r.profile.stage)}>{STAGE_LABEL[r.profile.stage] ?? r.profile.stage}</Badge>
+                            ) : null}
                           </div>
                           <p className="truncate text-[12px] text-white/40">{r.profile.email}</p>
                           {r.profile.tags && r.profile.tags.length ? (

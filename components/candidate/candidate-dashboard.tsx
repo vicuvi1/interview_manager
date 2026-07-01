@@ -24,6 +24,7 @@ import { StatCard } from "@/components/admin/stat-card";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { notifMeta } from "@/lib/notifications";
+import { STAGE_LABEL, stageTone } from "@/lib/stages";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { cn, formatMoney } from "@/lib/utils";
@@ -53,12 +54,14 @@ export function CandidateDashboard({
   userId,
   name,
   timezone,
+  stage,
   initialInterviews,
   initialNotifications,
 }: {
   userId: string;
   name: string;
   timezone: string;
+  stage?: string | null;
   initialInterviews: InterviewRequest[];
   initialNotifications: Notification[];
 }) {
@@ -142,7 +145,10 @@ export function CandidateDashboard({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <p className="text-[12px] text-white/45">{greeting()}</p>
-              <h1 className="text-2xl font-semibold text-[#f0f0f5]">{name || "there"} 👋</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold text-[#f0f0f5]">{name || "there"} 👋</h1>
+                {stage ? <Badge tone={stageTone(stage)}>{STAGE_LABEL[stage] ?? stage}</Badge> : null}
+              </div>
               {nextUp ? (
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
                   <span className="inline-flex items-center gap-1.5 text-white/70">
