@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 
+import { CommandPalette } from "@/components/shell/command-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { createClient } from "@/lib/supabase/client";
 import { cn, initials } from "@/lib/utils";
@@ -121,6 +122,18 @@ export interface ShellProps {
 export function AppShell({ variant, user, userId, counts, children }: ShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const nav = variant === "admin" ? ADMIN_NAV : CANDIDATE_NAV;
   const width = variant === "admin" ? "lg:w-[220px]" : "lg:w-[200px]";
@@ -192,15 +205,27 @@ export function AppShell({ variant, user, userId, counts, children }: ShellProps
             <span className="text-white/70">{breadcrumb}</span>
           </nav>
 
-          <div className="mx-auto hidden w-full max-w-md items-center gap-2 rounded-lg border border-white/[0.06] bg-[#13131a] px-3 py-1.5 text-white/30 md:flex">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="mx-auto hidden w-full max-w-md items-center gap-2 rounded-lg border border-white/[0.06] bg-[#13131a] px-3 py-1.5 text-white/30 transition-colors hover:border-white/15 hover:text-white/50 md:flex"
+          >
             <Search className="h-3.5 w-3.5" />
-            <span className="text-[12px]">Search candidates, interviews…</span>
-            <kbd className="ml-auto rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-white/40">
-              ⌘K
-            </kbd>
-          </div>
+            <span className="text-[12px]">
+              {variant === "admin" ? "Search candidates, requests…" : "Search your interviews…"}
+            </span>
+            <kbd className="ml-auto rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-white/40">⌘K</kbd>
+          </button>
 
           <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="rounded-md p-1.5 text-white/50 hover:bg-white/[0.06] hover:text-white/80 md:hidden"
+              aria-label="Search"
+            >
+              <Search className="h-4 w-4" />
+            </button>
             <NotificationBell userId={userId} notifHref={notifHref} />
             <span className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[11px] font-semibold text-white">
               {initials(user.name, user.email)}
@@ -210,6 +235,8 @@ export function AppShell({ variant, user, userId, counts, children }: ShellProps
 
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} variant={variant} userId={userId} />
     </div>
   );
 }
