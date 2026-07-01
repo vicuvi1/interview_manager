@@ -168,8 +168,7 @@ export function LoginForm() {
     goCandidate();
   }
 
-  const verb = mode === "signin" ? "Log in" : "Sign up";
-  const submitLabel = `${verb} as ${role}`;
+  const submitLabel = `Continue as ${role}`;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0f0f13] px-4 py-10">
