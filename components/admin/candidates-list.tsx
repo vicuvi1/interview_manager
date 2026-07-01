@@ -45,7 +45,7 @@ export function CandidatesList({
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: profs }, { data: reqs }, { data: pays }] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, email, timezone, role, blocked, created_at"),
+      supabase.from("profiles").select("id, full_name, email, timezone, role, blocked, tags, created_at"),
       supabase.from("interview_requests").select("*"),
       supabase.from("payments").select("*"),
     ]);
@@ -189,6 +189,15 @@ export function CandidatesList({
                             {r.profile.blocked ? <Badge tone="red">suspended</Badge> : null}
                           </div>
                           <p className="truncate text-[12px] text-white/40">{r.profile.email}</p>
+                          {r.profile.tags && r.profile.tags.length ? (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {r.profile.tags.slice(0, 4).map((t) => (
+                                <span key={t} className="rounded-full bg-[#6366f1]/[0.12] px-1.5 py-0.5 text-[10px] text-[#c7d2fe]">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                       </Link>
                     </td>

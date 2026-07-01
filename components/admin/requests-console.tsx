@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Search, Slash, X } from "lucide-react";
+import { CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Plus, Search, Slash, X } from "lucide-react";
 
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
@@ -21,7 +21,7 @@ import { FORMAT_LABEL } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
-import type { AvailabilitySlot, CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
+import type { AvailabilitySlot, CandidateLite, InterviewRequest, InterviewTemplate, ProfileLite } from "@/lib/types";
 
 const STATUSES = ["pending", "approved", "scheduled", "completed", "cancelled", "rejected"] as const;
 
@@ -69,6 +69,29 @@ export function RequestsConsole({
   const [schedule, setSchedule] = useState<InterviewRequest | null>(null);
   const [feedback, setFeedback] = useState<InterviewRequest | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [views, setViews] = useState<{ name: string; filter: string; query: string }[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("im:req-views");
+      if (raw) setViews(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  function persistViews(next: { name: string; filter: string; query: string }[]) {
+    setViews(next);
+    try {
+      localStorage.setItem("im:req-views", JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  function saveView() {
+    const nm = window.prompt("Name this view:")?.trim();
+    if (!nm) return;
+    persistViews([...views.filter((v) => v.name !== nm), { name: nm, filter, query }]);
+  }
 
   const candidates = useMemo(() => {
     const map: Record<string, CandidateLite> = {};
@@ -202,6 +225,28 @@ export function RequestsConsole({
             {s} <span className="text-white/30">{counts[s] ?? 0}</span>
           </button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] text-white/30">Saved views:</span>
+        {views.length === 0 ? <span className="text-[11px] text-white/25">none yet</span> : null}
+        {views.map((v) => (
+          <span key={v.name} className="inline-flex items-center gap-1 rounded-full bg-white/[0.05] px-2 py-1 text-[12px] text-white/60">
+            <button type="button" onClick={() => { setFilter(v.filter); setQuery(v.query); }} className="hover:text-white/90">
+              {v.name}
+            </button>
+            <button type="button" onClick={() => persistViews(views.filter((x) => x.name !== v.name))} aria-label={`Delete ${v.name}`}>
+              <X className="h-3 w-3 opacity-50 hover:opacity-100" />
+            </button>
+          </span>
+        ))}
+        <button
+          type="button"
+          onClick={saveView}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/15 px-2 py-1 text-[12px] text-white/50 hover:border-white/25 hover:text-white/80"
+        >
+          <Plus className="h-3 w-3" /> Save current
+        </button>
       </div>
 
       <SectionCard
@@ -431,8 +476,30 @@ function ManualBookingDialog({
   const [duration, setDuration] = useState(30);
   const [link, setLink] = useState("");
   const [interviewerId, setInterviewerId] = useState("");
+  const [templates, setTemplates] = useState<InterviewTemplate[]>([]);
+  const [interviewType, setInterviewType] = useState("");
+  const [level, setLevel] = useState("");
+  const [format, setFormat] = useState("video");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("interview_templates").select("*").order("name");
+      if (data) setTemplates(data as InterviewTemplate[]);
+    })();
+  }, []);
+
+  function applyTemplate(id: string) {
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    if (t.role) setRole(t.role);
+    setDuration(t.duration_minutes);
+    setInterviewType(t.interview_type ?? "");
+    setLevel(t.level ?? "");
+    setFormat(t.format ?? "video");
+  }
 
   async function save() {
     if (!candidateId) return setError("Select a candidate.");
@@ -445,6 +512,9 @@ function ManualBookingDialog({
     const { error: insertError } = await supabase.from("interview_requests").insert({
       candidate_id: candidateId,
       role: role.trim(),
+      interview_type: interviewType || null,
+      level: level || null,
+      format,
       preferred_at: scheduledUtc,
       scheduled_at: scheduledUtc,
       duration_minutes: duration,
@@ -475,6 +545,18 @@ function ManualBookingDialog({
   return (
     <Dialog open onClose={onClose} title="New booking" description="Schedule an interview on a candidate's behalf.">
       <div className="space-y-4">
+        {templates.length > 0 ? (
+          <Field label="Start from template" htmlFor="mb-template" hint="Optional — prefills the fields below.">
+            <Select id="mb-template" defaultValue="" onChange={(e) => applyTemplate(e.target.value)}>
+              <option value="">— None —</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
         <Field label="Candidate" htmlFor="mb-cand">
           <Select id="mb-cand" value={candidateId} onChange={(e) => setCandidateId(e.target.value)}>
             {candidatesList.length === 0 ? <option value="">No candidates</option> : null}

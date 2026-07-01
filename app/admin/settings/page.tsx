@@ -4,6 +4,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { SettingsForm } from "@/components/settings-form";
 import { EmailCard } from "@/components/admin/email-card";
 import { TelegramCard } from "@/components/admin/telegram-card";
+import { TemplatesCard } from "@/components/admin/templates-card";
 import { SectionCard } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -42,6 +43,7 @@ export default async function AdminSettingsPage() {
             initialName={profile?.full_name ?? ""}
             initialTimezone={profile?.timezone ?? "UTC"}
           />
+          <TemplatesCard />
           <TelegramCard />
           <EmailCard />
         </div>

@@ -22,6 +22,20 @@ export interface Profile {
   resume_url?: string | null;
   resume_path?: string | null;
   bio?: string | null;
+  tags?: string[] | null;
+  created_at: string;
+}
+
+export interface InterviewTemplate {
+  id: string;
+  name: string;
+  role: string | null;
+  interview_type: string | null;
+  level: string | null;
+  duration_minutes: number;
+  format: string | null;
+  notes: string | null;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -74,6 +88,7 @@ export interface ProfileLite {
   timezone: string;
   role: string;
   blocked?: boolean;
+  tags?: string[] | null;
   created_at: string;
 }
 

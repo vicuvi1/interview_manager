@@ -22,8 +22,10 @@ import {
   Send,
   ShieldCheck,
   StickyNote,
+  Tags,
   Trash2,
   Wallet,
+  X,
 } from "lucide-react";
 
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
@@ -386,8 +388,10 @@ export function CandidateDetail({
           </SectionCard>
         </div>
 
-        {/* Right rail: links + notes + timeline */}
+        {/* Right rail: tags + links + notes + timeline */}
         <div className="space-y-5">
+          <TagsCard candidateId={candidate.id} initial={candidate.tags ?? []} />
+
           <MaterialsCard materials={materials} candidateId={candidate.id} />
 
           <SectionCard title="Private notes" description="Only admins can see these." icon={StickyNote}>
@@ -478,6 +482,59 @@ export function CandidateDetail({
         />
       ) : null}
     </div>
+  );
+}
+
+function TagsCard({ candidateId, initial }: { candidateId: string; initial: string[] }) {
+  const { toast } = useToast();
+  const [tags, setTags] = useState<string[]>(initial);
+  const [input, setInput] = useState("");
+
+  async function persist(next: string[]) {
+    setTags(next);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("set_candidate_tags", { p_user: candidateId, p_tags: next });
+    if (error) toast({ title: "Couldn't update tags", description: error.message, variant: "error" });
+  }
+  function add() {
+    const t = input.trim();
+    if (!t || tags.includes(t)) {
+      setInput("");
+      return;
+    }
+    persist([...tags, t]);
+    setInput("");
+  }
+
+  return (
+    <SectionCard title="Tags" description="Label this candidate." icon={Tags}>
+      <div className="flex flex-wrap gap-1.5">
+        {tags.length === 0 ? <span className="text-[12px] text-white/30">No tags yet.</span> : null}
+        {tags.map((t) => (
+          <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[#6366f1]/[0.12] px-2 py-0.5 text-[12px] text-[#c7d2fe]">
+            {t}
+            <button type="button" onClick={() => persist(tags.filter((x) => x !== t))} aria-label={`Remove ${t}`}>
+              <X className="h-3 w-3 opacity-70 hover:opacity-100" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-3">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          onBlur={add}
+          placeholder="Add a tag and press Enter"
+          className="h-9"
+        />
+      </div>
+    </SectionCard>
   );
 }
 
