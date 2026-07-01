@@ -2,7 +2,15 @@ import { notFound, redirect } from "next/navigation";
 
 import { CandidateDetail } from "@/components/admin/candidate-detail";
 import { createClient } from "@/lib/supabase/server";
-import type { CandidateMaterials, CandidateNote, InterviewRequest, Payment, Profile, ProfileLite } from "@/lib/types";
+import type {
+  CandidateMaterials,
+  CandidateNote,
+  InterviewFeedback,
+  InterviewRequest,
+  Payment,
+  Profile,
+  ProfileLite,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -61,15 +69,22 @@ export default async function CandidateDetailPage({ params }: { params: { id: st
       .order("created_at", { ascending: false }),
   ]);
 
+  const reqRows = (reqs as InterviewRequest[] | null) ?? [];
+  const reqIds = reqRows.map((r) => r.id);
+  const { data: fb } = reqIds.length
+    ? await supabase.from("interview_feedback").select("*").in("interview_id", reqIds)
+    : { data: [] as InterviewFeedback[] };
+
   return (
     <CandidateDetail
       candidate={candidate}
       materials={materials}
       adminId={user.id}
       adminTimezone={timezone}
-      initialRequests={(reqs as InterviewRequest[] | null) ?? []}
+      initialRequests={reqRows}
       initialPayments={(pays as Payment[] | null) ?? []}
       initialNotes={(notes as CandidateNote[] | null) ?? []}
+      initialFeedback={(fb as InterviewFeedback[] | null) ?? []}
     />
   );
 }

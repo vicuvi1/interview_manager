@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, CalendarPlus, CheckCheck, Search, Slash, X } from "lucide-react";
+import { CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Search, Slash, X } from "lucide-react";
 
+import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { ScheduleDialog } from "@/components/admin/schedule-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -42,11 +43,13 @@ const STATUS_NTYPE: Record<string, string> = {
 };
 
 export function RequestsConsole({
+  adminId,
   adminTimezone,
   initialRequests,
   initialProfiles,
   initialSlots,
 }: {
+  adminId: string;
   adminTimezone: string;
   initialRequests: InterviewRequest[];
   initialProfiles: ProfileLite[];
@@ -64,6 +67,7 @@ export function RequestsConsole({
   const [busy, setBusy] = useState(false);
   const [manage, setManage] = useState<InterviewRequest | null>(null);
   const [schedule, setSchedule] = useState<InterviewRequest | null>(null);
+  const [feedback, setFeedback] = useState<InterviewRequest | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
 
   const candidates = useMemo(() => {
@@ -345,6 +349,11 @@ export function RequestsConsole({
                             {r.status === "scheduled" ? "Reschedule" : "Schedule"}
                           </Button>
                         ) : null}
+                        {r.status === "scheduled" || r.status === "completed" ? (
+                          <Button size="sm" variant="secondary" onClick={() => setFeedback(r)} title="Feedback">
+                            <ClipboardCheck className="h-4 w-4" /> Feedback
+                          </Button>
+                        ) : null}
                         <Button size="sm" variant="secondary" onClick={() => setManage(r)}>
                           Manage
                         </Button>
@@ -376,6 +385,15 @@ export function RequestsConsole({
           slots={slots}
           interviewers={admins}
           onClose={() => setSchedule(null)}
+          onDone={load}
+        />
+      ) : null}
+      {feedback ? (
+        <FeedbackDialog
+          request={feedback}
+          candidateName={candName(feedback.candidate_id)}
+          adminId={adminId}
+          onClose={() => setFeedback(null)}
           onDone={load}
         />
       ) : null}

@@ -29,6 +29,7 @@ export default async function AdminRequestsPage() {
 
   return (
     <RequestsConsole
+      adminId={user.id}
       adminTimezone={timezone}
       initialRequests={(reqs as InterviewRequest[] | null) ?? []}
       initialProfiles={(profs as ProfileLite[] | null) ?? []}

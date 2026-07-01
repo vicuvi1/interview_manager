@@ -107,6 +107,20 @@ export interface AvailabilitySlot {
   created_at: string;
 }
 
+export interface InterviewFeedback {
+  id: string;
+  interview_id: string;
+  author_id: string | null;
+  outcome: string; // advance | hold | reject | no_show
+  rating: number | null;
+  strengths: string | null;
+  concerns: string | null;
+  shared_feedback: string | null;
+  shared: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLog {
   id: string;
   actor_id: string | null;

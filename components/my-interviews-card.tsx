@@ -1,19 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarRange, ExternalLink, Inbox } from "lucide-react";
+import { CalendarRange, ExternalLink, Inbox, MessageSquareText, Star } from "lucide-react";
 
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
-import { formatMoney } from "@/lib/utils";
-import type { InterviewRequest } from "@/lib/types";
+import { cn, formatMoney } from "@/lib/utils";
+import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
 
@@ -29,16 +30,27 @@ export function MyInterviewsCard({
   const { toast } = useToast();
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [payTarget, setPayTarget] = useState<InterviewRequest | null>(null);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, InterviewFeedback>>({});
+  const [viewing, setViewing] = useState<InterviewFeedback | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("interview_requests")
-      .select("*")
-      .eq("candidate_id", userId)
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: fb }] = await Promise.all([
+      supabase
+        .from("interview_requests")
+        .select("*")
+        .eq("candidate_id", userId)
+        .order("created_at", { ascending: false }),
+      // RLS returns only feedback that was shared with this candidate.
+      supabase.from("interview_feedback").select("*"),
+    ]);
     if (data) setRows(data as InterviewRequest[]);
+    if (fb) setFeedbackMap(Object.fromEntries((fb as InterviewFeedback[]).map((f) => [f.interview_id, f])));
   }, [userId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function cancelRequest(id: string) {
     if (!window.confirm("Cancel this interview request?")) return;
@@ -146,16 +158,19 @@ export function MyInterviewsCard({
                       <span className="text-[13px] text-white/40">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-right sm:px-6">
-                    {CANCELLABLE.has(row.status) ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => cancelRequest(row.id)}
-                      >
-                        Cancel
-                      </Button>
-                    ) : null}
+                  <td className="px-5 py-3 sm:px-6">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {feedbackMap[row.id] ? (
+                        <Button variant="secondary" size="sm" onClick={() => setViewing(feedbackMap[row.id])}>
+                          <MessageSquareText className="h-4 w-4" /> Feedback
+                        </Button>
+                      ) : null}
+                      {CANCELLABLE.has(row.status) ? (
+                        <Button variant="ghost" size="sm" onClick={() => cancelRequest(row.id)}>
+                          Cancel
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -169,6 +184,27 @@ export function MyInterviewsCard({
         open={payTarget !== null}
         onClose={() => setPayTarget(null)}
       />
+      {viewing ? (
+        <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
+          <div className="space-y-4">
+            {viewing.rating ? (
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    className={cn("h-5 w-5", n <= (viewing.rating ?? 0) ? "fill-[#fbbf24] text-[#fbbf24]" : "text-white/20")}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {viewing.shared_feedback ? (
+              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-white/80">{viewing.shared_feedback}</p>
+            ) : (
+              <p className="text-[13px] text-white/50">No written feedback was shared.</p>
+            )}
+          </div>
+        </Dialog>
+      ) : null}
     </>
   );
 }

@@ -26,6 +26,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { StatCard } from "@/components/admin/stat-card";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/feedback";
 import { METHOD_LABEL, PAYMENT_METHODS, PAYMENT_STATUS_TONE, formatAmount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
@@ -46,6 +48,7 @@ import type {
   CandidateLite,
   CandidateMaterials,
   CandidateNote,
+  InterviewFeedback,
   InterviewRequest,
   Payment,
   ProfileLite,
@@ -61,6 +64,7 @@ export function CandidateDetail({
   initialRequests,
   initialPayments,
   initialNotes,
+  initialFeedback = [],
 }: {
   candidate: ProfileLite;
   materials?: CandidateMaterials;
@@ -69,12 +73,17 @@ export function CandidateDetail({
   initialRequests: InterviewRequest[];
   initialPayments: Payment[];
   initialNotes: CandidateNote[];
+  initialFeedback?: InterviewFeedback[];
 }) {
   const { toast } = useToast();
   const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
   const [notes, setNotes] = useState<CandidateNote[]>(initialNotes);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, InterviewFeedback>>(() =>
+    Object.fromEntries(initialFeedback.map((f) => [f.interview_id, f])),
+  );
 
+  const [feedbackReq, setFeedbackReq] = useState<InterviewRequest | null>(null);
   const [manageRequest, setManageRequest] = useState<InterviewRequest | null>(null);
   const [addPayOpen, setAddPayOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -100,6 +109,14 @@ export function CandidateDetail({
     if (reqs) setRequests(reqs as InterviewRequest[]);
     if (pays) setPayments(pays as Payment[]);
     if (n) setNotes(n as CandidateNote[]);
+
+    const reqIds = ((reqs as InterviewRequest[] | null) ?? []).map((r) => r.id);
+    if (reqIds.length) {
+      const { data: fb } = await supabase.from("interview_feedback").select("*").in("interview_id", reqIds);
+      if (fb) setFeedbackMap(Object.fromEntries((fb as InterviewFeedback[]).map((f) => [f.interview_id, f])));
+    } else {
+      setFeedbackMap({});
+    }
   }, [candidate.id]);
 
   useEffect(() => {
@@ -277,7 +294,14 @@ export function CandidateDetail({
                       <tr key={r.id} className="transition-colors hover:bg-white/[0.03]">
                         <td className="px-5 py-3 font-medium text-[#f0f0f5] sm:px-6">{r.role}</td>
                         <td className="px-3 py-3">
-                          <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                            {feedbackMap[r.id] ? (
+                              <Badge tone={OUTCOME_TONE[feedbackMap[r.id].outcome] ?? "slate"}>
+                                {OUTCOME_LABEL[feedbackMap[r.id].outcome] ?? feedbackMap[r.id].outcome}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-3 py-3 text-white/60">
                           {formatInTimeZone(r.scheduled_at ?? r.preferred_at, adminTimezone)}
@@ -285,10 +309,17 @@ export function CandidateDetail({
                         <td className="px-3 py-3">
                           <Badge tone={r.payment_status === "paid" ? "green" : "amber"}>{r.payment_status}</Badge>
                         </td>
-                        <td className="px-5 py-3 text-right sm:px-6">
-                          <Button size="sm" variant="secondary" onClick={() => setManageRequest(r)}>
-                            Manage
-                          </Button>
+                        <td className="px-5 py-3 sm:px-6">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {r.status === "scheduled" || r.status === "completed" ? (
+                              <Button size="sm" variant="secondary" onClick={() => setFeedbackReq(r)}>
+                                Feedback
+                              </Button>
+                            ) : null}
+                            <Button size="sm" variant="secondary" onClick={() => setManageRequest(r)}>
+                              Manage
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -436,6 +467,15 @@ export function CandidateDetail({
       ) : null}
       {notifyOpen ? (
         <NotifyDialog candidateId={candidate.id} candidateName={name} onClose={() => setNotifyOpen(false)} />
+      ) : null}
+      {feedbackReq ? (
+        <FeedbackDialog
+          request={feedbackReq}
+          candidateName={name}
+          adminId={adminId}
+          onClose={() => setFeedbackReq(null)}
+          onDone={load}
+        />
       ) : null}
     </div>
   );
