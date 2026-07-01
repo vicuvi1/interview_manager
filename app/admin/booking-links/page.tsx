@@ -1,7 +1,17 @@
-import { Link2 } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { ComingSoon } from "@/components/coming-soon";
+import { BookingLinks } from "@/components/admin/booking-links";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Page() {
-  return <ComingSoon title="Booking Links" icon={Link2} />;
+export const dynamic = "force-dynamic";
+
+export default async function AdminBookingLinksPage() {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  return <BookingLinks />;
 }
