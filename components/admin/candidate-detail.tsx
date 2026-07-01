@@ -388,7 +388,7 @@ export function CandidateDetail({
 
         {/* Right rail: links + notes + timeline */}
         <div className="space-y-5">
-          <MaterialsCard materials={materials} />
+          <MaterialsCard materials={materials} candidateId={candidate.id} />
 
           <SectionCard title="Private notes" description="Only admins can see these." icon={StickyNote}>
             <div className="space-y-3">
@@ -481,16 +481,33 @@ export function CandidateDetail({
   );
 }
 
-function MaterialsCard({ materials }: { materials?: CandidateMaterials }) {
+function MaterialsCard({ materials, candidateId }: { materials?: CandidateMaterials; candidateId: string }) {
+  const { toast } = useToast();
+  const [gone, setGone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   if (!materials) return null;
+  const hasUpload = !!materials.resume_path && !gone;
   const links = [
-    { icon: FileText, label: "Résumé (uploaded)", href: materials.resume_signed_url },
     { icon: FileText, label: "Résumé / CV link", href: materials.resume_url },
     { icon: Globe, label: "Portfolio", href: materials.portfolio_url },
     { icon: Linkedin, label: "LinkedIn", href: materials.linkedin_url },
     { icon: Github, label: "GitHub", href: materials.github_url },
   ].filter((l) => l.href);
-  if (links.length === 0 && !materials.phone) return null;
+  if (!hasUpload && links.length === 0 && !materials.phone) return null;
+
+  async function removeUpload() {
+    if (!materials?.resume_path) return;
+    if (!window.confirm("Delete this candidate's uploaded résumé file?")) return;
+    setBusy(true);
+    const supabase = createClient();
+    await supabase.storage.from("resumes").remove([materials.resume_path]);
+    const { error } = await supabase.rpc("admin_clear_resume", { p_user: candidateId });
+    setBusy(false);
+    if (error) return toast({ title: "Couldn't remove", description: error.message, variant: "error" });
+    setGone(true);
+    toast({ title: "Résumé removed", variant: "success" });
+  }
 
   return (
     <SectionCard title="Links & contact" description="Shared by the candidate." icon={Link2}>
@@ -499,6 +516,27 @@ function MaterialsCard({ materials }: { materials?: CandidateMaterials }) {
           <li className="flex items-center gap-2.5 text-[13px] text-white/75">
             <Phone className="h-4 w-4 text-white/40" />
             {materials.phone}
+          </li>
+        ) : null}
+        {hasUpload ? (
+          <li className="flex items-center gap-2.5 text-[13px]">
+            <FileText className="h-4 w-4 shrink-0 text-[#a5b4fc]" />
+            {materials.resume_signed_url ? (
+              <a href={materials.resume_signed_url} target="_blank" rel="noreferrer" className="truncate text-[#a5b4fc] hover:text-[#c7d2fe]">
+                Résumé (uploaded)
+              </a>
+            ) : (
+              <span className="truncate text-white/70">Résumé (uploaded)</span>
+            )}
+            <button
+              type="button"
+              onClick={removeUpload}
+              disabled={busy}
+              className="ml-auto shrink-0 rounded-md p-1 text-white/30 transition hover:bg-white/[0.06] hover:text-[#f87171] disabled:opacity-50"
+              aria-label="Delete uploaded résumé"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </li>
         ) : null}
         {links.map((l) => {

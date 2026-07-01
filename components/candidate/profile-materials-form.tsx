@@ -16,9 +16,11 @@ const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export function ProfileMaterialsForm({
   userId,
   initial,
+  uploadsEnabled = true,
 }: {
   userId: string;
   initial: CandidateMaterials;
+  uploadsEnabled?: boolean;
 }) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -123,7 +125,7 @@ export function ProfileMaterialsForm({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
-          ) : (
+          ) : uploadsEnabled ? (
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 px-4 py-4 text-[13px] text-white/55 transition-colors hover:border-white/25 hover:text-white/80">
               {uploading ? "Uploading…" : (
                 <>
@@ -132,6 +134,10 @@ export function ProfileMaterialsForm({
               )}
               <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,application/pdf" className="hidden" onChange={onFile} disabled={uploading} />
             </label>
+          ) : (
+            <p className="rounded-lg border border-dashed border-white/10 px-4 py-3 text-[12px] text-white/40">
+              File uploads are turned off — please share a link to your résumé below.
+            </p>
           )}
           <Field label="…or link to it" htmlFor="pm-resume" hint="Google Drive, Dropbox, etc.">
             <Input id="pm-resume" placeholder="https://…" value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} />

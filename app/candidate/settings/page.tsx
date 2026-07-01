@@ -23,6 +23,14 @@ export default async function CandidateSettingsPage() {
     .eq("id", user.id)
     .maybeSingle();
   const profile = profileRow as Profile | null;
+
+  const { data: settingsRow } = await supabase
+    .from("app_settings")
+    .select("resume_uploads_enabled")
+    .eq("id", 1)
+    .maybeSingle();
+  const uploadsEnabled = (settingsRow as { resume_uploads_enabled?: boolean } | null)?.resume_uploads_enabled ?? true;
+
   const materials: CandidateMaterials = {
     phone: profile?.phone ?? null,
     linkedin_url: profile?.linkedin_url ?? null,
@@ -46,7 +54,7 @@ export default async function CandidateSettingsPage() {
           initialName={profile?.full_name ?? ""}
           initialTimezone={profile?.timezone ?? "UTC"}
         />
-        <ProfileMaterialsForm userId={user.id} initial={materials} />
+        <ProfileMaterialsForm userId={user.id} initial={materials} uploadsEnabled={uploadsEnabled} />
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ interface Retention {
   audit_days: number;
   reminder_days: number;
   closed_requests_days: number;
+  resume_uploads_enabled: boolean;
 }
 
 interface TableStat {
@@ -148,6 +149,18 @@ export function StorageBoard() {
             <div className="space-y-4">
               <QuotaBar label="Database" used={stats.db_bytes} limit={FREE_DB_BYTES} />
               <QuotaBar label="File storage" used={stats.storage_bytes} limit={FREE_STORAGE_BYTES} />
+              {retention ? (
+                <label className="flex cursor-pointer items-center gap-2 border-t border-white/[0.06] pt-3 text-[13px] text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={retention.resume_uploads_enabled}
+                    onChange={(e) => saveRetention({ resume_uploads_enabled: e.target.checked })}
+                    className="h-4 w-4 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+                  />
+                  Allow candidate résumé uploads
+                  <span className="text-white/35">— off = links only (saves the file bucket)</span>
+                </label>
+              ) : null}
             </div>
           </SectionCard>
 
