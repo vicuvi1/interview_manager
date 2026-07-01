@@ -168,7 +168,7 @@ export function LoginForm() {
     goCandidate();
   }
 
-  const verb = mode === "signin" ? "Sign in" : "Sign up";
+  const verb = mode === "signin" ? "Log in" : "Sign up";
   const submitLabel = `${verb} as ${role}`;
 
   return (
@@ -179,7 +179,7 @@ export function LoginForm() {
             <CalendarClock className="h-6 w-6" />
           </span>
           <h1 className="mt-3 text-[18px] font-medium text-[#f0f0f5]">Interview Scheduler Pro</h1>
-          <p className="text-[13px] text-white/40">Sign in or create your account</p>
+          <p className="text-[13px] text-white/40">Log in or create your account</p>
         </div>
 
         <div className="rounded-2xl border border-white/[0.06] bg-[#13131a] p-8">
@@ -221,7 +221,7 @@ export function LoginForm() {
                   mode === m ? "bg-[#1a1a24] text-[#f0f0f5]" : "text-white/40 hover:text-white/70",
                 )}
               >
-                {m === "signin" ? "Sign in" : "Sign up"}
+                {m === "signin" ? "Log in" : "Sign up"}
               </button>
             ))}
           </div>
