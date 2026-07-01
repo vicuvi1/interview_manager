@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
+  ArrowLeftRight,
   BarChart3,
   Bell,
   CalendarDays,
@@ -115,11 +116,12 @@ export interface ShellProps {
   variant: "admin" | "candidate";
   user: { name: string; email: string };
   userId: string;
+  isAdmin?: boolean;
   counts: { pending: number; unpaid: number; unread: number };
   children: React.ReactNode;
 }
 
-export function AppShell({ variant, user, userId, counts, children }: ShellProps) {
+export function AppShell({ variant, user, userId, isAdmin = false, counts, children }: ShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -149,6 +151,8 @@ export function AppShell({ variant, user, userId, counts, children }: ShellProps
       pathname={pathname}
       user={user}
       roleLabel={roleLabel}
+      variant={variant}
+      isAdmin={isAdmin}
       onNavigate={() => setMobileOpen(false)}
     />
   );
@@ -247,6 +251,8 @@ function SidebarContent({
   pathname,
   user,
   roleLabel,
+  variant,
+  isAdmin,
   onNavigate,
 }: {
   nav: NavGroup[];
@@ -254,6 +260,8 @@ function SidebarContent({
   pathname: string;
   user: { name: string; email: string };
   roleLabel: string;
+  variant: "admin" | "candidate";
+  isAdmin: boolean;
   onNavigate: () => void;
 }) {
   return (
@@ -309,15 +317,25 @@ function SidebarContent({
         ))}
       </nav>
 
-      <UserMenu user={user} roleLabel={roleLabel} />
+      <UserMenu user={user} roleLabel={roleLabel} variant={variant} canSwitch={isAdmin} />
     </>
   );
 }
 
-function UserMenu({ user, roleLabel }: { user: { name: string; email: string }; roleLabel: string }) {
+function UserMenu({
+  user,
+  roleLabel,
+  variant,
+  canSwitch,
+}: {
+  user: { name: string; email: string };
+  roleLabel: string;
+  variant: "admin" | "candidate";
+  canSwitch: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const isAdmin = roleLabel === "Admin";
+  const onAdminSide = variant === "admin";
 
   async function signOut() {
     const supabase = createClient();
@@ -330,15 +348,25 @@ function UserMenu({ user, roleLabel }: { user: { name: string; email: string }; 
     <div className="relative border-t border-white/[0.06] p-2">
       {open ? (
         <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-lg border border-white/[0.08] bg-[#13131a] py-1 shadow-xl shadow-black/40">
+          {canSwitch ? (
+            <Link
+              href={onAdminSide ? "/candidate/dashboard" : "/admin/dashboard"}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-1.5 text-[13px] font-medium text-[#a5b4fc] hover:bg-white/[0.05] hover:text-[#c7d2fe]"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              {onAdminSide ? "Switch to candidate view" : "Switch to admin view"}
+            </Link>
+          ) : null}
           <Link
-            href={isAdmin ? "/admin/settings" : "/candidate/settings"}
+            href={onAdminSide ? "/admin/settings" : "/candidate/settings"}
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-white/60 hover:bg-white/[0.05] hover:text-white/90"
           >
             <User className="h-3.5 w-3.5" /> Profile
           </Link>
           <Link
-            href={isAdmin ? "/admin/settings" : "/candidate/settings"}
+            href={onAdminSide ? "/admin/settings" : "/candidate/settings"}
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-white/60 hover:bg-white/[0.05] hover:text-white/90"
           >
@@ -367,7 +395,7 @@ function UserMenu({ user, roleLabel }: { user: { name: string; email: string }; 
           </span>
           <span className="flex items-center gap-1 text-[10px] text-[#a5b4fc]">
             <ShieldCheck className="h-3 w-3" />
-            {isAdmin ? "Super Admin" : "Candidate"}
+            {onAdminSide ? "Super Admin" : "Candidate"}
           </span>
         </span>
         <MoreVertical className="h-4 w-4 shrink-0 text-white/30" />

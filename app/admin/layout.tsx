@@ -49,6 +49,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       variant="admin"
       user={{ name: me?.full_name ?? "", email: user.email ?? "" }}
       userId={user.id}
+      isAdmin
       counts={{
         pending: pendingRes.count ?? 0,
         unpaid: unpaidRes.count ?? 0,

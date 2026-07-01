@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 
 import { AccountSuspended } from "@/components/account-suspended";
 import { AppShell } from "@/components/shell/app-shell";
+import { isAdminUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import type { Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +18,15 @@ export default async function CandidateLayout({ children }: { children: React.Re
 
   const { data: meRow } = await supabase
     .from("profiles")
-    .select("full_name, blocked")
+    .select("full_name, blocked, role")
     .eq("id", user.id)
     .maybeSingle();
-  const me = meRow as { full_name?: string; blocked?: boolean } | null;
+  const me = meRow as { full_name?: string; blocked?: boolean; role?: string } | null;
   if (me?.blocked) {
     return <AccountSuspended email={user.email ?? ""} />;
   }
   const name = me?.full_name ?? "";
+  const isAdmin = isAdminUser({ role: me?.role } as Profile, user.email);
 
   const { count } = await supabase
     .from("notifications")
@@ -36,6 +39,7 @@ export default async function CandidateLayout({ children }: { children: React.Re
       variant="candidate"
       user={{ name, email: user.email ?? "" }}
       userId={user.id}
+      isAdmin={isAdmin}
       counts={{ pending: 0, unpaid: 0, unread: count ?? 0 }}
     >
       {children}
