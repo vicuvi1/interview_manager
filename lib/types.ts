@@ -14,6 +14,7 @@ export interface Profile {
   email: string | null;
   timezone: string;
   role: string;
+  blocked?: boolean;
   created_at: string;
 }
 
@@ -47,6 +48,7 @@ export interface ProfileLite {
   email: string | null;
   timezone: string;
   role: string;
+  blocked?: boolean;
   created_at: string;
 }
 

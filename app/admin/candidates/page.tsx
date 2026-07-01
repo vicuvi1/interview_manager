@@ -22,7 +22,7 @@ export default async function CandidatesPage() {
   const timezone = (meRow as { timezone?: string } | null)?.timezone ?? "UTC";
 
   const [{ data: profs }, { data: reqs }, { data: pays }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+    supabase.from("profiles").select("id, full_name, email, timezone, role, blocked, created_at"),
     supabase.from("interview_requests").select("*"),
     supabase.from("payments").select("*"),
   ]);

@@ -23,7 +23,7 @@ export default async function CandidateDetailPage({ params }: { params: { id: st
 
   const { data: candidateRow } = await supabase
     .from("profiles")
-    .select("id, full_name, email, timezone, role, created_at")
+    .select("id, full_name, email, timezone, role, blocked, created_at")
     .eq("id", params.id)
     .maybeSingle();
   const candidate = candidateRow as ProfileLite | null;

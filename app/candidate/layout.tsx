@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AccountSuspended } from "@/components/account-suspended";
 import { AppShell } from "@/components/shell/app-shell";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,10 +16,14 @@ export default async function CandidateLayout({ children }: { children: React.Re
 
   const { data: meRow } = await supabase
     .from("profiles")
-    .select("full_name")
+    .select("full_name, blocked")
     .eq("id", user.id)
     .maybeSingle();
-  const name = (meRow as { full_name?: string } | null)?.full_name ?? "";
+  const me = meRow as { full_name?: string; blocked?: boolean } | null;
+  if (me?.blocked) {
+    return <AccountSuspended email={user.email ?? ""} />;
+  }
+  const name = me?.full_name ?? "";
 
   const { count } = await supabase
     .from("notifications")

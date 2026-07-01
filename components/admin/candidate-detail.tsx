@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BadgeDollarSign,
+  Ban,
   CalendarClock,
   CalendarCheck,
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   MessageSquarePlus,
   Plus,
   Send,
+  ShieldCheck,
   StickyNote,
   Trash2,
   Wallet,
@@ -70,6 +72,8 @@ export function CandidateDetail({
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [busyPayId, setBusyPayId] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<boolean>(!!candidate.blocked);
+  const [blocking, setBlocking] = useState(false);
 
   const name = candidate.full_name || candidate.email || "Candidate";
   const candidatesMap = useMemo<Record<string, CandidateLite>>(
@@ -169,6 +173,21 @@ export function CandidateDetail({
     else load();
   }
 
+  async function toggleBlocked() {
+    const next = !blocked;
+    if (next && !window.confirm(`Block ${name}? They won't be able to sign in or book.`)) return;
+    setBlocking(true);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("set_user_blocked", { p_user: candidate.id, p_blocked: next });
+    if (error) {
+      toast({ title: "Couldn't update access", description: error.message, variant: "error" });
+    } else {
+      setBlocked(next);
+      toast({ title: next ? "Candidate blocked" : "Candidate unblocked", variant: next ? "info" : "success" });
+    }
+    setBlocking(false);
+  }
+
   return (
     <div className="space-y-5">
       <Link href="/admin/candidates" className="inline-flex items-center gap-1.5 text-[13px] text-white/50 hover:text-white/80">
@@ -185,6 +204,7 @@ export function CandidateDetail({
             <div className="flex items-center gap-2">
               <h1 className="truncate text-xl font-medium text-[#f0f0f5]">{name}</h1>
               <Badge tone={candidate.role === "admin" ? "purple" : "slate"}>{candidate.role}</Badge>
+              {blocked ? <Badge tone="red">suspended</Badge> : null}
             </div>
             <p className="truncate text-[13px] text-white/55">{candidate.email}</p>
             <p className="mt-0.5 text-[12px] text-white/35">
@@ -192,13 +212,25 @@ export function CandidateDetail({
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={() => setNotifyOpen(true)}>
             <Send className="h-4 w-4" /> Notify
           </Button>
           <Button size="sm" onClick={() => setAddPayOpen(true)}>
             <Plus className="h-4 w-4" /> Add payment
           </Button>
+          {candidate.role !== "admin" ? (
+            <Button
+              size="sm"
+              variant={blocked ? "secondary" : "danger"}
+              loading={blocking}
+              disabled={blocking}
+              onClick={toggleBlocked}
+            >
+              {blocked ? <ShieldCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+              {blocked ? "Unblock" : "Block"}
+            </Button>
+          ) : null}
         </div>
       </Card>
 
