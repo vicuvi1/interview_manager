@@ -6,11 +6,25 @@ import { Bell, Database, FileText, HardDrive, Loader2, RefreshCw, Table2, Trash2
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/admin/stat-card";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatBytes } from "@/lib/utils";
+
+// Supabase free-tier ceilings (approx) — used only for the usage bars/warnings.
+const FREE_DB_BYTES = 500 * 1024 * 1024; // 500 MB Postgres
+const FREE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB files
+
+interface Retention {
+  retention_enabled: boolean;
+  notifications_days: number;
+  audit_days: number;
+  reminder_days: number;
+  closed_requests_days: number;
+}
 
 interface TableStat {
   name: string;
@@ -42,17 +56,46 @@ const DAY_OPTIONS = [
 export function StorageBoard() {
   const { toast } = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [retention, setRetention] = useState<Retention | null>(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data, error } = await supabase.rpc("get_storage_stats");
+    const [{ data, error }, { data: cfg }] = await Promise.all([
+      supabase.rpc("get_storage_stats"),
+      supabase.from("app_settings").select("*").eq("id", 1).maybeSingle(),
+    ]);
     if (error) toast({ title: "Couldn't load usage", description: error.message, variant: "error" });
     else setStats(data as Stats);
+    if (cfg) setRetention(cfg as Retention);
     setLoading(false);
   }, [toast]);
+
+  async function saveRetention(patch: Partial<Retention>) {
+    if (!retention) return;
+    const next = { ...retention, ...patch };
+    setRetention(next);
+    setBusy("retention");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+    setBusy(null);
+    if (error) toast({ title: "Couldn't save", description: error.message, variant: "error" });
+  }
+
+  async function runRetention() {
+    setBusy("run");
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("run_retention");
+    setBusy(null);
+    if (error) return toast({ title: "Cleanup failed", description: error.message, variant: "error" });
+    toast({ title: `Removed ${data ?? 0} row${data === 1 ? "" : "s"}`, variant: "success" });
+    load();
+  }
 
   useEffect(() => {
     load();
@@ -100,6 +143,13 @@ export function StorageBoard() {
             <StatCard label="Files stored" value={stats.storage_files} icon={FileText} tone="slate" />
             <StatCard label="Tables" value={stats.tables.length} icon={Table2} tone="slate" />
           </div>
+
+          <SectionCard title="Free-tier usage" description="Against the Supabase free-plan limits." icon={Database}>
+            <div className="space-y-4">
+              <QuotaBar label="Database" used={stats.db_bytes} limit={FREE_DB_BYTES} />
+              <QuotaBar label="File storage" used={stats.storage_bytes} limit={FREE_STORAGE_BYTES} />
+            </div>
+          </SectionCard>
 
           <SectionCard title="By table" description="Total size on disk (index + data)." icon={Table2}>
             {stats.tables.length === 0 ? (
@@ -165,6 +215,40 @@ export function StorageBoard() {
             </ul>
           </SectionCard>
 
+          {retention ? (
+            <SectionCard
+              title="Automatic cleanup"
+              description="Trim old data on a schedule so you stay under the limits."
+              icon={RefreshCw}
+              action={
+                <label className="flex cursor-pointer items-center gap-2 text-[12px] text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={retention.retention_enabled}
+                    onChange={(e) => saveRetention({ retention_enabled: e.target.checked })}
+                    className="h-4 w-4 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+                  />
+                  Enabled
+                </label>
+              }
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DayField label="Read notifications" value={retention.notifications_days} onSave={(v) => saveRetention({ notifications_days: v })} />
+                <DayField label="Activity log" value={retention.audit_days} onSave={(v) => saveRetention({ audit_days: v })} />
+                <DayField label="Reminder records" value={retention.reminder_days} onSave={(v) => saveRetention({ reminder_days: v })} />
+                <DayField label="Cancelled / declined requests" value={retention.closed_requests_days} onSave={(v) => saveRetention({ closed_requests_days: v })} />
+              </div>
+              <div className="mt-4 flex items-center gap-3">
+                <Button size="sm" variant="secondary" loading={busy === "run"} disabled={busy !== null} onClick={runRetention}>
+                  <RefreshCw className="h-4 w-4" /> Run now
+                </Button>
+                <p className="text-[12px] text-white/40">
+                  {retention.retention_enabled ? "Runs daily once scheduled in Supabase (pg_cron)." : "Enable, then schedule the daily job in Supabase."}
+                </p>
+              </div>
+            </SectionCard>
+          ) : null}
+
           <p className="px-1 text-[12px] text-white/35">
             Row counts drop immediately; on-disk size is reclaimed by Postgres autovacuum shortly after. Uploaded résumés are
             managed by each candidate under their profile.
@@ -172,5 +256,48 @@ export function StorageBoard() {
         </>
       )}
     </div>
+  );
+}
+
+function QuotaBar({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  const tone = pct >= 90 ? "#f87171" : pct >= 70 ? "#fbbf24" : "#6366f1";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[12px]">
+        <span className="text-white/70">{label}</span>
+        <span className="tabular-nums text-white/50">
+          {formatBytes(used)} / {formatBytes(limit)} · {pct}%
+        </span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(1, pct)}%`, backgroundColor: tone }} />
+      </div>
+      {pct >= 90 ? (
+        <p className="mt-1 text-[11px] text-[#f87171]">Almost full — clean up or upgrade soon.</p>
+      ) : pct >= 70 ? (
+        <p className="mt-1 text-[11px] text-[#fbbf24]">Getting full — consider cleaning up old data.</p>
+      ) : null}
+    </div>
+  );
+}
+
+function DayField({ label, value, onSave }: { label: string; value: number; onSave: (v: number) => void }) {
+  const [local, setLocal] = useState(String(value));
+  return (
+    <Field label={`${label} — keep (days)`} htmlFor={`day-${label}`}>
+      <Input
+        id={`day-${label}`}
+        type="number"
+        min={1}
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => {
+          const v = Math.max(1, Number(local) || value);
+          setLocal(String(v));
+          if (v !== value) onSave(v);
+        }}
+      />
+    </Field>
   );
 }
