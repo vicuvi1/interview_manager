@@ -11,7 +11,13 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
+  FileText,
+  Github,
+  Globe,
+  Linkedin,
+  Link2,
   MessageSquarePlus,
+  Phone,
   Plus,
   Send,
   ShieldCheck,
@@ -38,6 +44,7 @@ import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { initials } from "@/lib/utils";
 import type {
   CandidateLite,
+  CandidateMaterials,
   CandidateNote,
   InterviewRequest,
   Payment,
@@ -48,6 +55,7 @@ const isOutstanding = (s: string) => s === "pending" || s === "overdue" || s ===
 
 export function CandidateDetail({
   candidate,
+  materials,
   adminId,
   adminTimezone,
   initialRequests,
@@ -55,6 +63,7 @@ export function CandidateDetail({
   initialNotes,
 }: {
   candidate: ProfileLite;
+  materials?: CandidateMaterials;
   adminId: string;
   adminTimezone: string;
   initialRequests: InterviewRequest[];
@@ -346,8 +355,10 @@ export function CandidateDetail({
           </SectionCard>
         </div>
 
-        {/* Right rail: notes + timeline */}
+        {/* Right rail: links + notes + timeline */}
         <div className="space-y-5">
+          <MaterialsCard materials={materials} />
+
           <SectionCard title="Private notes" description="Only admins can see these." icon={StickyNote}>
             <div className="space-y-3">
               <Textarea
@@ -427,6 +438,47 @@ export function CandidateDetail({
         <NotifyDialog candidateId={candidate.id} candidateName={name} onClose={() => setNotifyOpen(false)} />
       ) : null}
     </div>
+  );
+}
+
+function MaterialsCard({ materials }: { materials?: CandidateMaterials }) {
+  if (!materials) return null;
+  const links = [
+    { icon: FileText, label: "Résumé / CV", href: materials.resume_url },
+    { icon: Globe, label: "Portfolio", href: materials.portfolio_url },
+    { icon: Linkedin, label: "LinkedIn", href: materials.linkedin_url },
+    { icon: Github, label: "GitHub", href: materials.github_url },
+  ].filter((l) => l.href);
+  if (links.length === 0 && !materials.phone) return null;
+
+  return (
+    <SectionCard title="Links & contact" description="Shared by the candidate." icon={Link2}>
+      <ul className="space-y-2">
+        {materials.phone ? (
+          <li className="flex items-center gap-2.5 text-[13px] text-white/75">
+            <Phone className="h-4 w-4 text-white/40" />
+            {materials.phone}
+          </li>
+        ) : null}
+        {links.map((l) => {
+          const Icon = l.icon;
+          return (
+            <li key={l.label}>
+              <a
+                href={l.href as string}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2.5 text-[13px] text-[#a5b4fc] hover:text-[#c7d2fe]"
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{l.label}</span>
+                <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-60" />
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </SectionCard>
   );
 }
 

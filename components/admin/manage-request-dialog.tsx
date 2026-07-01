@@ -11,6 +11,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
+import { FORMAT_LABEL } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import {
   formatInTimeZone,
@@ -228,6 +229,24 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Duration</dt>
             <dd className="text-white/80">{request.duration_minutes} min</dd>
           </div>
+          {request.interview_type ? (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Type</dt>
+              <dd className="text-white/80">{request.interview_type}</dd>
+            </div>
+          ) : null}
+          {request.level ? (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Level</dt>
+              <dd className="text-white/80">{request.level}</dd>
+            </div>
+          ) : null}
+          {request.format ? (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Format</dt>
+              <dd className="text-white/80">{FORMAT_LABEL[request.format] ?? request.format}</dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Status</dt>
             <dd>
@@ -238,6 +257,24 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Requested</dt>
             <dd className="text-white/80">{relativeTime(request.created_at)}</dd>
           </div>
+          {request.focus_areas && request.focus_areas.length ? (
+            <div className="col-span-2">
+              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Focus areas</dt>
+              <dd className="flex flex-wrap gap-1.5">
+                {request.focus_areas.map((f) => (
+                  <span key={f} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[12px] text-white/70">
+                    {f}
+                  </span>
+                ))}
+              </dd>
+            </div>
+          ) : null}
+          {request.goals ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Goals</dt>
+              <dd className="whitespace-pre-wrap text-white/80">{request.goals}</dd>
+            </div>
+          ) : null}
           {request.notes ? (
             <div className="col-span-2">
               <dt className="text-[11px] uppercase tracking-wide text-white/40">Notes</dt>

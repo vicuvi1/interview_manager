@@ -15,7 +15,23 @@ export interface Profile {
   timezone: string;
   role: string;
   blocked?: boolean;
+  phone?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
+  resume_url?: string | null;
+  bio?: string | null;
   created_at: string;
+}
+
+/** The reusable materials a candidate keeps on their profile. */
+export interface CandidateMaterials {
+  phone: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  resume_url: string | null;
+  bio: string | null;
 }
 
 export interface InterviewRequest {
@@ -23,6 +39,11 @@ export interface InterviewRequest {
   candidate_id: string;
   role: string;
   interviewer_id: string | null;
+  interview_type?: string | null;
+  level?: string | null;
+  focus_areas?: string[] | null;
+  format?: string | null;
+  goals?: string | null;
   preferred_at: string | null;
   scheduled_at: string | null;
   meeting_link: string | null;

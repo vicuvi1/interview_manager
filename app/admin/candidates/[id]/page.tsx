@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { CandidateDetail } from "@/components/admin/candidate-detail";
 import { createClient } from "@/lib/supabase/server";
-import type { CandidateNote, InterviewRequest, Payment, ProfileLite } from "@/lib/types";
+import type { CandidateMaterials, CandidateNote, InterviewRequest, Payment, Profile, ProfileLite } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,20 @@ export default async function CandidateDetailPage({ params }: { params: { id: st
 
   const { data: candidateRow } = await supabase
     .from("profiles")
-    .select("id, full_name, email, timezone, role, blocked, created_at")
+    .select("*")
     .eq("id", params.id)
     .maybeSingle();
-  const candidate = candidateRow as ProfileLite | null;
-  if (!candidate) notFound();
+  const full = candidateRow as Profile | null;
+  if (!full) notFound();
+  const candidate = full as ProfileLite;
+  const materials: CandidateMaterials = {
+    phone: full.phone ?? null,
+    linkedin_url: full.linkedin_url ?? null,
+    github_url: full.github_url ?? null,
+    portfolio_url: full.portfolio_url ?? null,
+    resume_url: full.resume_url ?? null,
+    bio: full.bio ?? null,
+  };
 
   const [{ data: reqs }, { data: pays }, { data: notes }] = await Promise.all([
     supabase
@@ -50,6 +59,7 @@ export default async function CandidateDetailPage({ params }: { params: { id: st
   return (
     <CandidateDetail
       candidate={candidate}
+      materials={materials}
       adminId={user.id}
       adminTimezone={timezone}
       initialRequests={(reqs as InterviewRequest[] | null) ?? []}

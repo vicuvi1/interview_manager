@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { CalendarClock, CheckCircle2, MessageSquare } from "lucide-react";
 
-import { RequestInterviewCard } from "@/components/request-interview-card";
+import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { SectionCard } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types";
+import type { CandidateMaterials, Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,16 @@ export default async function BookInterviewPage() {
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
-  const timezone = (profileRow as Profile | null)?.timezone || "UTC";
+  const profile = profileRow as Profile | null;
+  const timezone = profile?.timezone || "UTC";
+  const materials: CandidateMaterials = {
+    phone: profile?.phone ?? null,
+    linkedin_url: profile?.linkedin_url ?? null,
+    github_url: profile?.github_url ?? null,
+    portfolio_url: profile?.portfolio_url ?? null,
+    resume_url: profile?.resume_url ?? null,
+    bio: profile?.bio ?? null,
+  };
 
   return (
     <div>
@@ -40,7 +49,7 @@ export default async function BookInterviewPage() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <RequestInterviewCard userId={user.id} timezone={timezone} />
+          <InterviewRequestForm userId={user.id} timezone={timezone} materials={materials} />
         </div>
         <SectionCard title="How it works" description="Three quick steps." icon={CalendarClock}>
           <ol className="space-y-4">
