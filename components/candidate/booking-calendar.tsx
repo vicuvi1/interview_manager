@@ -10,7 +10,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { expandRecurring, overlaps } from "@/lib/slots";
+import { expandRecurring } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,6 @@ interface MyRow {
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
-const SLOT_STEP = 30 * 60000; // green suggestion granularity
 
 const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = {
   scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
@@ -92,7 +91,19 @@ export function BookingCalendar({
     const now = Date.now();
     const out: EventInput[] = [];
 
-    // Dimmed "unavailable" shading.
+    // Green "suggested" shading = available windows (one event each — light + fast).
+    for (const iv of availIvals) {
+      if (iv.e <= now) continue;
+      out.push({
+        id: `av-${iv.s}-${iv.e}`,
+        start: new Date(Math.max(iv.s, now)),
+        end: new Date(iv.e),
+        display: "background",
+        backgroundColor: "rgba(16,185,129,0.14)",
+      });
+    }
+
+    // Grey "unavailable" shading (busy + already-taken) on top.
     for (const b of blocked) {
       out.push({
         id: `blk-${b.s}-${b.e}`,
@@ -102,25 +113,6 @@ export function BookingCalendar({
         backgroundColor: "rgba(255,255,255,0.06)",
         classNames: ["fc-busy-slot"],
       });
-    }
-
-    // Green suggested open slots.
-    for (const iv of availIvals) {
-      for (let t = iv.s; t + SLOT_STEP <= iv.e && out.length < 400; t += SLOT_STEP) {
-        if (t < now) continue;
-        const end = t + SLOT_STEP;
-        if (blocked.some((b) => overlaps(t, end, b.s, b.e))) continue;
-        out.push({
-          id: `slot-${t}`,
-          title: "Available",
-          start: new Date(t),
-          end: new Date(end),
-          backgroundColor: "rgba(16,185,129,0.18)",
-          borderColor: "#10b981",
-          textColor: "#6ee7b7",
-          extendedProps: { startISO: new Date(t).toISOString(), dur: 30 },
-        });
-      }
     }
 
     // The candidate's own requests/interviews.

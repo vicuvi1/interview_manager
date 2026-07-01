@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -10,10 +11,12 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock,
+  Copy,
   ExternalLink,
   FileText,
   Github,
   Globe,
+  KeyRound,
   Linkedin,
   Link2,
   MessageSquarePlus,
@@ -95,6 +98,9 @@ export function CandidateDetail({
   const [busyPayId, setBusyPayId] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<boolean>(!!candidate.blocked);
   const [blocking, setBlocking] = useState(false);
+  const [accountBusy, setAccountBusy] = useState<string | null>(null);
+  const [resetResult, setResetResult] = useState<{ password: string; email: string | null } | null>(null);
+  const router = useRouter();
 
   const name = candidate.full_name || candidate.email || "Candidate";
   const candidatesMap = useMemo<Record<string, CandidateLite>>(
@@ -217,6 +223,34 @@ export function CandidateDetail({
     setBlocking(false);
   }
 
+  async function resetPassword() {
+    setAccountBusy("reset");
+    const res = await fetch("/api/admin/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset-password", userId: candidate.id }),
+    });
+    const r = await res.json();
+    setAccountBusy(null);
+    if (r.error) return toast({ title: "Couldn't reset password", description: r.error, variant: "error" });
+    setResetResult({ password: r.password, email: r.email });
+  }
+
+  async function deleteAccount() {
+    if (!window.confirm(`Permanently delete ${name} and all their data? This cannot be undone.`)) return;
+    setAccountBusy("delete");
+    const res = await fetch("/api/admin/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", userId: candidate.id }),
+    });
+    const r = await res.json();
+    setAccountBusy(null);
+    if (r.error) return toast({ title: "Couldn't delete", description: r.error, variant: "error" });
+    toast({ title: "Account deleted", variant: "success" });
+    router.push("/admin/candidates");
+  }
+
   return (
     <div className="space-y-5">
       <Link href="/admin/candidates" className="inline-flex items-center gap-1.5 text-[13px] text-white/50 hover:text-white/80">
@@ -249,16 +283,24 @@ export function CandidateDetail({
             <Plus className="h-4 w-4" /> Add payment
           </Button>
           {candidate.role !== "admin" ? (
-            <Button
-              size="sm"
-              variant={blocked ? "secondary" : "danger"}
-              loading={blocking}
-              disabled={blocking}
-              onClick={toggleBlocked}
-            >
-              {blocked ? <ShieldCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-              {blocked ? "Unblock" : "Block"}
-            </Button>
+            <>
+              <Button size="sm" variant="secondary" loading={accountBusy === "reset"} disabled={accountBusy !== null} onClick={resetPassword}>
+                <KeyRound className="h-4 w-4" /> Reset password
+              </Button>
+              <Button
+                size="sm"
+                variant={blocked ? "secondary" : "danger"}
+                loading={blocking}
+                disabled={blocking}
+                onClick={toggleBlocked}
+              >
+                {blocked ? <ShieldCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                {blocked ? "Unblock" : "Block"}
+              </Button>
+              <Button size="sm" variant="ghost" loading={accountBusy === "delete"} disabled={accountBusy !== null} onClick={deleteAccount}>
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
+            </>
           ) : null}
         </div>
       </Card>
@@ -484,6 +526,30 @@ export function CandidateDetail({
           onClose={() => setFeedbackReq(null)}
           onDone={load}
         />
+      ) : null}
+      {resetResult ? (
+        <Dialog open onClose={() => setResetResult(null)} title="New password set" description="Give these to the candidate — shown once.">
+          <div className="space-y-3 text-[13px]">
+            {resetResult.email ? (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-white/40">Email</p>
+                <code className="mt-1 block rounded-md bg-[#0f0f13] px-2.5 py-2 font-mono text-white/85">{resetResult.email}</code>
+              </div>
+            ) : null}
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-white/40">New password</p>
+              <div className="mt-1 flex items-center gap-2">
+                <code className="flex-1 rounded-md bg-[#0f0f13] px-2.5 py-2 font-mono text-white/85">{resetResult.password}</code>
+                <Button size="sm" variant="secondary" onClick={() => navigator.clipboard?.writeText(resetResult.password)}>
+                  <Copy className="h-4 w-4" /> Copy
+                </Button>
+              </div>
+            </div>
+            <p className="rounded-lg bg-[#f59e0b]/10 px-3 py-2 text-[12px] text-[#fbbf24] ring-1 ring-inset ring-[#f59e0b]/25">
+              Save this now — it won&apos;t be shown again. Ask the candidate to change it after they log in.
+            </p>
+          </div>
+        </Dialog>
       ) : null}
     </div>
   );

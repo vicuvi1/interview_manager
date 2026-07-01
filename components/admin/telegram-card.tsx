@@ -137,13 +137,17 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
         </div>
       ) : !status.connected ? (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-[13px]">
-            <Badge tone="amber">action needed</Badge>
-            <span className="text-white/70">
-              {status.botUsername ? `@${status.botUsername}` : "Your bot"} is added — send it{" "}
-              <span className="text-white/90">/start</span> in Telegram, then detect the chat.
-            </span>
-          </div>
+          <p className="text-[13px] font-medium text-white/80">Almost done — 2 quick steps in Telegram:</p>
+          <ol className="space-y-1.5 text-[12px] text-white/60">
+            <li>
+              1. Open Telegram, search for {status.botUsername ? <span className="font-medium text-white/85">@{status.botUsername}</span> : "your bot"}, open the chat, and tap{" "}
+              <span className="font-medium text-white/85">Start</span> (or type <span className="font-medium text-white/85">/start</span>).
+            </li>
+            <li>2. Come back here and tap <span className="font-medium text-white/85">Detect chat</span> below.</li>
+          </ol>
+          <p className="rounded-lg bg-white/[0.03] px-3 py-2 text-[11px] text-white/40">
+            &ldquo;Action needed&rdquo; just means we don&apos;t know your Telegram chat yet. Tapping Start lets the bot message you, and Detect chat links it.
+          </p>
           <div className="flex gap-2">
             <Button loading={busy === "detect"} disabled={busy !== null} onClick={detect}>
               Detect chat
