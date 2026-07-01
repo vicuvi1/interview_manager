@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
@@ -147,12 +148,14 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
         {mounted ? (
           <FullCalendar
             ref={calRef}
-            plugins={[timeGridPlugin]}
+            plugins={[timeGridPlugin, interactionPlugin]}
             initialView="timeGridWeek"
             headerToolbar={false}
             height={620}
             allDaySlot={false}
             nowIndicator
+            selectable
+            selectMirror
             scrollTime="08:00:00"
             slotDuration="00:30:00"
             expandRows
@@ -168,6 +171,15 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
               const p = info.event.extendedProps as { startISO?: string; dur?: number };
               if (p.startISO) setSelected({ startISO: p.startISO, dur: p.dur ?? duration });
             }}
+            dateClick={(info) => {
+              if (info.date.getTime() < Date.now()) return;
+              setSelected({ startISO: info.date.toISOString(), dur: duration });
+            }}
+            select={(info) => {
+              api()?.unselect();
+              if (info.start.getTime() < Date.now()) return;
+              setSelected({ startISO: info.start.toISOString(), dur: duration });
+            }}
           />
         ) : (
           <div className="h-[620px] animate-pulse rounded-lg bg-white/[0.02]" />
@@ -177,11 +189,15 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[12px] text-white/45">
         {loading ? (
           <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading times…</span>
-        ) : events.length === 0 ? (
-          <span className="inline-flex items-center gap-1.5 text-white/40"><CalendarDays className="h-3.5 w-3.5" /> No open times here — try another week, or use “Request in detail”.</span>
         ) : (
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} /> Green = open — click one to book
+            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> Click any time to book it
+            {events.length > 0 ? (
+              <>
+                <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
+                <span className="text-white/40">green = suggested open times</span>
+              </>
+            ) : null}
           </span>
         )}
         <span className="text-white/30">· Times in your local timezone</span>
