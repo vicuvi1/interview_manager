@@ -1,21 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CalendarClock, KeyRound, type LucideIcon, ShieldCheck, User } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  KeyRound,
+  Loader2,
+  type LucideIcon,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { browserTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
-
-const ADMIN_PURPLE = "#3c3489";
 
 const schema = z.object({
   fullName: z.string().optional(),
@@ -23,18 +26,23 @@ const schema = z.object({
   password: z.string().min(6, "At least 6 characters"),
 });
 type Values = z.infer<typeof schema>;
-
 type Role = "candidate" | "admin";
 type Mode = "signin" | "signup";
 
+const inputCls =
+  "h-10 w-full rounded-lg border border-white/10 bg-[#1a1a24] px-3 text-[13px] text-[#f0f0f5] " +
+  "placeholder:text-white/25 transition-colors focus:border-[#6366f1] focus:outline-none " +
+  "focus:ring-2 focus:ring-[#6366f1]/25";
+const labelCls = "mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-white/40";
+
 export function LoginForm() {
   const router = useRouter();
-  const { toast } = useToast();
 
   const [role, setRole] = useState<Role>("candidate");
   const [mode, setMode] = useState<Mode>("signin");
   const [adminCode, setAdminCode] = useState("");
   const [adminError, setAdminError] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -42,23 +50,33 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm<Values>({ resolver: zodResolver(schema) });
 
-  async function checkCode(code: string): Promise<boolean> {
+  async function callVerify(
+    code: string,
+    m?: Mode,
+  ): Promise<{ valid: boolean; isAdmin?: boolean }> {
     try {
-      const res = await fetch("/api/admin-code", {
+      const res = await fetch("/api/verify-admin-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, mode: m }),
       });
-      if (!res.ok) return false;
-      const data = (await res.json()) as { valid?: boolean };
-      return !!data.valid;
+      if (!res.ok) return { valid: false };
+      return await res.json();
     } catch {
-      return false;
+      return { valid: false };
     }
+  }
+
+  function goAdmin() {
+    router.replace("/admin/dashboard");
+    router.refresh();
+  }
+  function goCandidate() {
+    router.replace("/candidate/dashboard");
+    router.refresh();
   }
 
   async function onVerify() {
@@ -68,13 +86,14 @@ export function LoginForm() {
       return;
     }
     setVerifying(true);
-    const ok = await checkCode(adminCode.trim());
+    const { valid } = await callVerify(adminCode.trim());
     setVerifying(false);
-    if (ok) {
+    if (valid) {
       setRole("admin");
-      toast({ title: "Admin access unlocked", variant: "success" });
+      setVerified(true);
     } else {
       setRole("candidate");
+      setVerified(false);
       setAdminError("Invalid access code");
     }
   }
@@ -102,82 +121,73 @@ export function LoginForm() {
         setMode("signin");
         return;
       }
-    } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
-      if (signInError) {
-        setError(signInError.message);
+      if (role === "admin") {
+        const { valid, isAdmin } = await callVerify(adminCode.trim(), "signup");
+        if (!valid) {
+          setRole("candidate");
+          setAdminError("Invalid access code");
+          goCandidate();
+          return;
+        }
+        if (!isAdmin) {
+          setError("Could not grant admin access — contact the system owner.");
+          goCandidate();
+          return;
+        }
+        goAdmin();
         return;
       }
+      goCandidate();
+      return;
     }
 
-    // Admin role must be proven with the access code (verified server-side).
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
     if (role === "admin") {
-      const ok = await checkCode(adminCode.trim());
-      if (!ok) {
+      const { valid, isAdmin } = await callVerify(adminCode.trim(), "signin");
+      if (!valid) {
         setRole("candidate");
         setAdminError("Invalid access code");
-        toast({
-          title: "Signed in as candidate",
-          description: "The admin access code was invalid.",
-          variant: "info",
-        });
-        router.replace("/candidate/dashboard");
-        router.refresh();
+        goCandidate();
         return;
       }
-      router.replace("/admin/dashboard");
-      router.refresh();
+      if (!isAdmin) {
+        setError("This account is not an admin.");
+        goCandidate();
+        return;
+      }
+      goAdmin();
       return;
     }
-
-    router.replace("/candidate/dashboard");
-    router.refresh();
-  }
-
-  async function onForgotPassword() {
-    setError(null);
-    setInfo(null);
-    const email = getValues("email");
-    if (!email) {
-      setError("Enter your email above, then click Forgot password.");
-      return;
-    }
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
-    });
-    if (resetError) {
-      setError(resetError.message);
-      return;
-    }
-    setInfo("Password reset link sent — check your email.");
+    goCandidate();
   }
 
   const verb = mode === "signin" ? "Sign in" : "Sign up";
   const submitLabel = `${verb} as ${role}`;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-[#0f0f13] px-4 py-10">
+      <div className="w-full max-w-[420px]">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-white">
             <CalendarClock className="h-6 w-6" />
           </span>
-          <h1 className="mt-3 text-xl font-semibold text-slate-900">Interview Scheduler Pro</h1>
-          <p className="text-[13px] text-slate-500">
-            {mode === "signin" ? "Sign in to continue" : "Create your account"}
-          </p>
+          <h1 className="mt-3 text-[18px] font-medium text-[#f0f0f5]">Interview Scheduler Pro</h1>
+          <p className="text-[13px] text-white/40">Sign in or create your account</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          {/* Role selection */}
+        <div className="rounded-2xl border border-white/[0.06] bg-[#13131a] p-8">
+          <p className={labelCls}>I am joining as</p>
           <div className="grid grid-cols-2 gap-3">
             <RoleCard
               active={role === "candidate"}
-              accent="blue"
+              accent="indigo"
               icon={User}
               label="Candidate"
               subtitle="Book interviews"
@@ -196,8 +206,7 @@ export function LoginForm() {
             />
           </div>
 
-          {/* Sign in / Sign up tabs */}
-          <div className="mt-5 inline-flex w-full rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+          <div className="mt-5 inline-flex w-full rounded-lg border border-white/[0.06] bg-[#0f0f13] p-1">
             {(["signin", "signup"] as const).map((m) => (
               <button
                 key={m}
@@ -209,7 +218,7 @@ export function LoginForm() {
                 }}
                 className={cn(
                   "flex-1 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-                  mode === m ? "bg-white text-slate-900" : "text-slate-500 hover:text-slate-700",
+                  mode === m ? "bg-[#1a1a24] text-[#f0f0f5]" : "text-white/40 hover:text-white/70",
                 )}
               >
                 {m === "signin" ? "Sign in" : "Sign up"}
@@ -217,114 +226,115 @@ export function LoginForm() {
             ))}
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4" noValidate>
             {mode === "signup" ? (
-              <Field label="Full name" htmlFor="fullName" error={errors.fullName?.message}>
-                <Input
-                  id="fullName"
-                  className="shadow-none"
-                  placeholder="Ada Lovelace"
-                  {...register("fullName")}
-                />
-              </Field>
+              <div>
+                <label className={labelCls} htmlFor="fullName">
+                  Full name
+                </label>
+                <input id="fullName" className={inputCls} placeholder="Ada Lovelace" {...register("fullName")} />
+              </div>
             ) : null}
 
-            <Field label="Email" htmlFor="email" error={errors.email?.message}>
-              <Input
-                id="email"
-                type="email"
-                className="shadow-none"
-                placeholder="you@example.com"
-                {...register("email")}
-              />
-            </Field>
+            <div>
+              <label className={labelCls} htmlFor="email">
+                Email
+              </label>
+              <input id="email" type="email" className={inputCls} placeholder="you@example.com" {...register("email")} />
+              {errors.email ? (
+                <p className="mt-1 text-[11px] text-[#f87171]">{errors.email.message}</p>
+              ) : null}
+            </div>
 
             <div>
-              <Field label="Password" htmlFor="password" error={errors.password?.message}>
-                <Input
-                  id="password"
-                  type="password"
-                  className="shadow-none"
-                  placeholder="••••••••"
-                  {...register("password")}
-                />
-              </Field>
+              <label className={labelCls} htmlFor="password">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                className={inputCls}
+                placeholder="••••••••"
+                {...register("password")}
+              />
+              {errors.password ? (
+                <p className="mt-1 text-[11px] text-[#f87171]">{errors.password.message}</p>
+              ) : null}
               <div className="mt-1.5 text-right">
-                <button
-                  type="button"
-                  onClick={onForgotPassword}
-                  className="text-[12px] font-medium text-blue-600 hover:text-blue-700"
+                <Link
+                  href="/reset-password"
+                  className="text-[11px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
                 >
                   Forgot password?
-                </button>
+                </Link>
               </div>
             </div>
 
-            {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
-            {info ? <p className="text-[13px] text-emerald-600">{info}</p> : null}
+            {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+            {info ? <p className="text-[12px] text-[#34d399]">{info}</p> : null}
 
-            <Button
+            <button
               type="submit"
-              loading={isSubmitting}
-              className={cn(
-                "w-full capitalize",
-                role === "admin"
-                  ? "bg-[#3c3489] hover:bg-[#332c73] focus-visible:outline-[#3c3489]"
-                  : "bg-blue-600 hover:bg-blue-700 focus-visible:outline-blue-600",
-              )}
+              disabled={isSubmitting}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
             >
-              {submitLabel}
-            </Button>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              <span>{submitLabel}</span>
+            </button>
           </form>
 
-          {/* Admin access */}
-          <div className="my-5 border-t border-slate-100" />
-          <div
-            className="rounded-xl border p-4"
-            style={{ borderColor: `${ADMIN_PURPLE}33`, backgroundColor: `${ADMIN_PURPLE}0d` }}
-          >
+          <div className="my-5 h-px bg-white/[0.06]" />
+
+          <div className="mb-2 flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#a78bfa]" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a78bfa]">
+              Admin access
+            </span>
+          </div>
+          <div className="rounded-xl border border-[#8b5cf6]/20 bg-[#8b5cf6]/10 p-4">
             <div className="flex items-center gap-2">
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-lg"
-                style={{ backgroundColor: `${ADMIN_PURPLE}1a`, color: ADMIN_PURPLE }}
-              >
-                <KeyRound className="h-4 w-4" />
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#8b5cf6]/15 text-[#c4b5fd]">
+                <KeyRound className="h-3.5 w-3.5" />
               </span>
-              <p className="text-[13px] font-semibold" style={{ color: ADMIN_PURPLE }}>
-                Admin access
-              </p>
+              <p className="text-[12px] font-medium text-[#e9e9f0]">Enter admin access code</p>
             </div>
-            <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
-              Enter the admin access code provided by the system owner. Without it you will join as a
-              candidate.
+            <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+              Required only for admin accounts. Contact the system owner to receive your code.
+              Without it you will join as a candidate.
             </p>
             <div className="mt-3 flex gap-2">
-              <Input
+              <input
                 type="password"
                 value={adminCode}
                 onChange={(e) => {
                   setAdminCode(e.target.value);
                   setAdminError(null);
+                  setVerified(false);
                 }}
-                className="shadow-none focus:border-[#3c3489] focus:ring-[#3c3489]/20"
                 placeholder="Access code"
+                className="h-9 w-full rounded-lg border border-white/10 bg-[#0f0f13] px-3 text-[13px] text-[#f0f0f5] placeholder:text-white/25 focus:border-[#8b5cf6] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/25"
               />
-              <Button
+              <button
                 type="button"
-                variant="secondary"
-                loading={verifying}
                 onClick={onVerify}
-                className="shrink-0"
+                disabled={verifying}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-[#1a1a24] px-3 text-[13px] font-medium text-[#f0f0f5] transition-colors hover:border-white/20 disabled:opacity-60"
               >
+                {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 Verify
-              </Button>
+              </button>
             </div>
-            {adminError ? <p className="mt-1.5 text-[12px] text-red-600">{adminError}</p> : null}
+            {verified ? (
+              <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-[#34d399]">
+                <Check className="h-3.5 w-3.5" />
+                Admin access verified
+              </p>
+            ) : null}
+            {adminError ? <p className="mt-2 text-[11px] text-[#f87171]">{adminError}</p> : null}
           </div>
         </div>
 
-        <p className="mt-4 text-center text-[12px] text-slate-400">Secured by Supabase Auth</p>
+        <p className="mt-4 text-center text-[11px] text-white/25">Secured by Supabase Auth</p>
       </div>
     </div>
   );
@@ -339,48 +349,37 @@ function RoleCard({
   onClick,
 }: {
   active: boolean;
-  accent: "blue" | "purple";
+  accent: "indigo" | "purple";
   icon: LucideIcon;
   label: string;
   subtitle: string;
   onClick: () => void;
 }) {
-  const isBlue = accent === "blue";
+  const color = accent === "indigo" ? "#6366f1" : "#8b5cf6";
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex flex-col items-start rounded-xl border p-4 text-left transition-colors",
-        active
-          ? isBlue
-            ? "border-blue-600 bg-blue-50"
-            : "border-[#3c3489] bg-[#3c3489]/[0.06]"
-          : "border-slate-200 bg-white hover:border-slate-300",
+        "flex flex-col items-start rounded-xl border p-3 text-left transition-colors",
+        !active && "border-white/[0.06] hover:border-white/20",
       )}
+      style={active ? { borderColor: `${color}66`, backgroundColor: `${color}1a` } : undefined}
     >
       <span
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-lg",
-          active
-            ? isBlue
-              ? "bg-blue-600 text-white"
-              : "bg-[#3c3489] text-white"
-            : "bg-slate-100 text-slate-500",
+          !active && "bg-white/5 text-white/40",
         )}
+        style={active ? { background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff" } : undefined}
       >
         <Icon className="h-4 w-4" />
       </span>
-      <span
-        className={cn(
-          "mt-2 text-sm font-semibold",
-          active ? (isBlue ? "text-blue-700" : "text-[#3c3489]") : "text-slate-800",
-        )}
-      >
+      <span className="mt-2 text-[13px] font-medium" style={{ color: active ? color : "#f0f0f5" }}>
         {label}
       </span>
-      <span className="text-[12px] text-slate-500">{subtitle}</span>
+      <span className="text-[11px] text-white/40">{subtitle}</span>
     </button>
   );
 }
