@@ -80,6 +80,7 @@ export function ManageRequestDialog({
   const [schedDuration, setSchedDuration] = useState(request.duration_minutes);
   const [schedLink, setSchedLink] = useState(request.meeting_link ?? "");
   const [scheduling, setScheduling] = useState(false);
+  const [accepting, setAccepting] = useState(false);
 
   const [invoiceAmount, setInvoiceAmount] = useState(
     request.price_cents ? (request.price_cents / 100).toFixed(2) : "",
@@ -208,6 +209,33 @@ export function ManageRequestDialog({
     onClose();
   }
 
+  async function acceptRequestedTime() {
+    if (!request.preferred_at) return;
+    setAccepting(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ status: "scheduled", scheduled_at: request.preferred_at })
+      .eq("id", request.id);
+    if (updateError) {
+      setError(updateError.message);
+      toast({ title: "Couldn't confirm", description: updateError.message, variant: "error" });
+      setAccepting(false);
+      return;
+    }
+    await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Interview confirmed",
+      detail: `Your interview for "${request.role}" is confirmed for ${formatInTimeZone(request.preferred_at, candTz)}.`,
+      type: "approved",
+    });
+    toast({ title: "Confirmed at the requested time", variant: "success" });
+    setAccepting(false);
+    notifyChanged("interviews");
+    onClose();
+  }
+
   async function openJobDesc() {
     if (!request.job_desc_path) return;
     const supabase = createClient();
@@ -312,6 +340,16 @@ export function ManageRequestDialog({
             </div>
           ) : null}
         </dl>
+
+        {request.status === "pending" && request.preferred_at ? (
+          <div className="rounded-lg border border-[#6366f1]/25 bg-[#6366f1]/[0.08] p-3.5">
+            <p className="text-[11px] uppercase tracking-wide text-white/40">Candidate requested</p>
+            <p className="text-[13px] font-medium text-[#f0f0f5]">{formatInTimeZone(request.preferred_at, adminTimezone)}</p>
+            <Button size="sm" className="mt-2" loading={accepting} disabled={accepting} onClick={acceptRequestedTime}>
+              <CalendarClock className="h-4 w-4" /> Approve &amp; schedule this time
+            </Button>
+          </div>
+        ) : null}
 
         {canSchedule ? (
           <div className="space-y-3 border-t border-white/[0.06] pt-4">

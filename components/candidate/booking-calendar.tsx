@@ -91,6 +91,20 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
     const step = duration * 60000;
     const now = Date.now();
     const out: EventInput[] = [];
+
+    // Dimmed "unavailable" shading for busy blocks + already-taken interviews.
+    for (const b of blocked) {
+      out.push({
+        id: `blk-${b.s}-${b.e}`,
+        start: new Date(b.s),
+        end: new Date(b.e),
+        display: "background",
+        backgroundColor: "rgba(255,255,255,0.06)",
+        classNames: ["fc-busy-slot"],
+        extendedProps: { blocked: true },
+      });
+    }
+
     for (const iv of availIvals) {
       for (let t = iv.s; t + step <= iv.e && out.length < 300; t += step) {
         if (t < now) continue;
@@ -234,6 +248,8 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
             <span className="text-white/40">green = suggested</span>
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
             <span className="text-white/40">your requests</span>
+            <span className="ml-1 h-2.5 w-2.5 rounded-sm bg-white/15" />
+            <span className="text-white/40">unavailable</span>
           </span>
         )}
         <span className="text-white/30">· Times in your local timezone</span>

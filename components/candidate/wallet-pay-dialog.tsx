@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, Loader2, Send, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,11 @@ export function WalletPayDialog({
 
           {selected ? (
             <div className="space-y-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5">
+              <div className="flex justify-center">
+                <div className="rounded-lg bg-white p-2.5">
+                  <QRCodeSVG value={selected.address} size={132} level="M" />
+                </div>
+              </div>
               <div>
                 <p className="mb-1 text-[11px] uppercase tracking-wide text-white/40">
                   {walletLabel(selected)} address
