@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 
-import { CandidateNav } from "@/components/candidate-nav";
 import { MyInterviewsCard } from "@/components/my-interviews-card";
 import { NotificationsCard } from "@/components/notifications-card";
 import { RequestInterviewCard } from "@/components/request-interview-card";
-import { Topbar } from "@/components/topbar";
 import { WelcomeHeader } from "@/components/welcome-header";
 import { createClient } from "@/lib/supabase/server";
 import type { InterviewRequest, Notification, Profile } from "@/lib/types";
@@ -17,7 +15,7 @@ export default async function CandidateDashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/candidate/dashboard");
+  if (!user) redirect("/login");
 
   const { data: profileRow } = await supabase
     .from("profiles")
@@ -48,21 +46,17 @@ export default async function CandidateDashboardPage() {
   const notifications = (notificationsResult.data as Notification[] | null) ?? [];
 
   return (
-    <div className="min-h-screen">
-      <Topbar />
-      <CandidateNav />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <WelcomeHeader name={name} email={email} timezone={timezone} />
+    <div>
+      <WelcomeHeader name={name} email={email} timezone={timezone} />
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <RequestInterviewCard userId={user.id} timezone={timezone} />
-          <NotificationsCard userId={user.id} initial={notifications} />
-        </div>
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <RequestInterviewCard userId={user.id} timezone={timezone} />
+        <NotificationsCard userId={user.id} initial={notifications} />
+      </div>
 
-        <div className="mt-5">
-          <MyInterviewsCard userId={user.id} timezone={timezone} initial={interviews} />
-        </div>
-      </main>
+      <div className="mt-5">
+        <MyInterviewsCard userId={user.id} timezone={timezone} initial={interviews} />
+      </div>
     </div>
   );
 }

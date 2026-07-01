@@ -61,13 +61,13 @@ export function CheckoutDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Checkout" description={interview.role}>
       <div className="space-y-4">
-        <div className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 ring-1 ring-inset ring-amber-600/20">
+        <div className="rounded-lg bg-[#f59e0b]/10 px-3 py-2 text-[12px] text-[#fbbf24] ring-1 ring-inset ring-[#f59e0b]/30">
           Demo checkout — no real card is charged.
         </div>
 
-        <div className="flex items-baseline justify-between rounded-lg bg-slate-50 px-4 py-3">
-          <span className="text-sm text-slate-500">Amount due</span>
-          <span className="text-2xl font-semibold text-slate-900">{amount}</span>
+        <div className="flex items-baseline justify-between rounded-lg bg-white/[0.03] px-4 py-3">
+          <span className="text-sm text-white/55">Amount due</span>
+          <span className="text-2xl font-semibold text-[#f0f0f5]">{amount}</span>
         </div>
 
         <Field label="Card number" htmlFor="card">
@@ -88,13 +88,13 @@ export function CheckoutDialog({
           </Field>
         </div>
 
-        {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+        {error ? <p className="text-[13px] text-[#f87171]">{error}</p> : null}
 
         <Button className="w-full" loading={busy} onClick={pay}>
           <Lock className="h-4 w-4" />
           Pay {amount}
         </Button>
-        <p className="flex items-center justify-center gap-1 text-[12px] text-slate-400">
+        <p className="flex items-center justify-center gap-1 text-[12px] text-white/40">
           <CreditCard className="h-3.5 w-3.5" />
           Secured demo payment
         </p>

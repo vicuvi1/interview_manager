@@ -1,10 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { AccessRequired } from "@/components/admin/access-required";
 import { AdminBoard } from "@/components/admin/admin-board";
-import { AdminNav } from "@/components/admin/admin-nav";
-import { Topbar } from "@/components/topbar";
-import { isAdminUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { CandidateLite, InterviewRequest, Profile } from "@/lib/types";
 
@@ -25,10 +21,6 @@ export default async function AdminDashboardPage() {
     .maybeSingle();
   const me = meRow as Profile | null;
 
-  if (!isAdminUser(me, user.email)) {
-    return <AccessRequired email={user.email ?? ""} />;
-  }
-
   const [requestsResult, profilesResult] = await Promise.all([
     supabase
       .from("interview_requests")
@@ -44,23 +36,19 @@ export default async function AdminDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <Topbar />
-      <AdminNav />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">Admin workspace</h1>
-          <p className="text-[13px] text-slate-500">
-            Triage requests, schedule calls, invoice, and track revenue.
-          </p>
-        </div>
-        <AdminBoard
-          adminId={user.id}
-          adminTimezone={me?.timezone ?? "UTC"}
-          initialRequests={requests}
-          initialCandidates={candidates}
-        />
-      </main>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-medium text-[#f0f0f5]">Admin workspace</h1>
+        <p className="text-[12px] text-white/40">
+          Triage requests, schedule calls, invoice, and track revenue.
+        </p>
+      </div>
+      <AdminBoard
+        adminId={user.id}
+        adminTimezone={me?.timezone ?? "UTC"}
+        initialRequests={requests}
+        initialCandidates={candidates}
+      />
     </div>
   );
 }

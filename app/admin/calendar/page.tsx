@@ -1,10 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { AccessRequired } from "@/components/admin/access-required";
 import { AdminCalendar } from "@/components/admin/admin-calendar";
-import { AdminNav } from "@/components/admin/admin-nav";
-import { Topbar } from "@/components/topbar";
-import { isAdminUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { CandidateLite, InterviewRequest, Profile } from "@/lib/types";
 
@@ -25,10 +21,6 @@ export default async function AdminCalendarPage() {
     .maybeSingle();
   const me = meRow as Profile | null;
 
-  if (!isAdminUser(me, user.email)) {
-    return <AccessRequired email={user.email ?? ""} />;
-  }
-
   const [requestsResult, profilesResult] = await Promise.all([
     supabase
       .from("interview_requests")
@@ -45,16 +37,16 @@ export default async function AdminCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <Topbar />
-      <AdminNav />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <AdminCalendar
-          adminTimezone={me?.timezone ?? "UTC"}
-          initialRequests={requests}
-          initialCandidates={candidates}
-        />
-      </main>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-medium text-[#f0f0f5]">Calendar</h1>
+        <p className="text-[12px] text-white/40">All scheduled interviews.</p>
+      </div>
+      <AdminCalendar
+        adminTimezone={me?.timezone ?? "UTC"}
+        initialRequests={requests}
+        initialCandidates={candidates}
+      />
     </div>
   );
 }

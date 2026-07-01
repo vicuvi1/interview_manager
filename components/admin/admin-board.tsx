@@ -314,7 +314,7 @@ export function AdminBoard({
   return (
     <div className="space-y-5">
       <div>
-        <p className="mb-2 text-[13px] font-medium text-slate-500">Revenue</p>
+        <p className="mb-2 text-[13px] font-medium text-white/55">Revenue</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard label="Earned" value={formatMoney(revenue.earned)} icon={Wallet} tone="green" />
           <StatCard
@@ -334,7 +334,7 @@ export function AdminBoard({
       </div>
 
       <div>
-        <p className="mb-2 text-[13px] font-medium text-slate-500">Pipeline</p>
+        <p className="mb-2 text-[13px] font-medium text-white/55">Pipeline</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard label="Pending" value={counts.pending} icon={Clock} tone="amber" />
           <StatCard label="Approved" value={counts.approved} icon={CalendarCheck} tone="green" />
@@ -376,7 +376,7 @@ export function AdminBoard({
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-[12px] uppercase tracking-wide text-slate-400">
+                <tr className="border-b border-white/[0.06] text-[12px] uppercase tracking-wide text-white/40">
                   <th className="px-5 py-3 font-medium sm:px-6">Candidate</th>
                   <th className="px-3 py-3 font-medium">Role</th>
                   <th className="px-3 py-3 font-medium">Preferred</th>
@@ -385,27 +385,27 @@ export function AdminBoard({
                   <th className="px-5 py-3 font-medium sm:px-6"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/[0.06]">
                 {visible.map((r) => {
                   const c = candidates[r.candidate_id];
                   const tz = c?.timezone ?? "UTC";
                   return (
-                    <tr key={r.id} className="transition-colors hover:bg-slate-50/70">
+                    <tr key={r.id} className="transition-colors hover:bg-white/[0.03]">
                       <td className="px-5 py-3 sm:px-6">
                         <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[11px] font-semibold text-white">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[11px] font-semibold text-white">
                             {initials(c?.full_name, c?.email)}
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate font-medium text-slate-800">
+                            <p className="truncate font-medium text-[#f0f0f5]">
                               {c?.full_name || "Unknown"}
                             </p>
-                            <p className="truncate text-[12px] text-slate-400">{c?.email}</p>
+                            <p className="truncate text-[12px] text-white/40">{c?.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-slate-700">{r.role}</td>
-                      <td className="px-3 py-3 text-slate-600">
+                      <td className="px-3 py-3 text-white/80">{r.role}</td>
+                      <td className="px-3 py-3 text-white/60">
                         {formatInTimeZone(r.preferred_at, tz)}
                       </td>
                       <td className="px-3 py-3">
@@ -448,43 +448,43 @@ export function AdminBoard({
           <div className="space-y-4">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <div className="col-span-2">
-                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Candidate</dt>
-                <dd className="text-slate-800">
+                <dt className="text-[12px] uppercase tracking-wide text-white/40">Candidate</dt>
+                <dd className="text-[#f0f0f5]">
                   {selectedCandidate?.full_name || "Unknown"}{" "}
-                  <span className="text-slate-400">· {selectedCandidate?.email}</span>
+                  <span className="text-white/40">· {selectedCandidate?.email}</span>
                 </dd>
               </div>
               <div>
-                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Preferred</dt>
-                <dd className="text-slate-700">
+                <dt className="text-[12px] uppercase tracking-wide text-white/40">Preferred</dt>
+                <dd className="text-white/80">
                   {formatInTimeZone(selected.preferred_at, selectedCandidate?.timezone ?? "UTC")}
                 </dd>
               </div>
               <div>
-                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Duration</dt>
-                <dd className="text-slate-700">{selected.duration_minutes} min</dd>
+                <dt className="text-[12px] uppercase tracking-wide text-white/40">Duration</dt>
+                <dd className="text-white/80">{selected.duration_minutes} min</dd>
               </div>
               <div>
-                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Status</dt>
+                <dt className="text-[12px] uppercase tracking-wide text-white/40">Status</dt>
                 <dd>
                   <Badge tone={statusTone[selected.status] ?? "slate"}>{selected.status}</Badge>
                 </dd>
               </div>
               <div>
-                <dt className="text-[12px] uppercase tracking-wide text-slate-400">Requested</dt>
-                <dd className="text-slate-700">{relativeTime(selected.created_at)}</dd>
+                <dt className="text-[12px] uppercase tracking-wide text-white/40">Requested</dt>
+                <dd className="text-white/80">{relativeTime(selected.created_at)}</dd>
               </div>
               {selected.notes ? (
                 <div className="col-span-2">
-                  <dt className="text-[12px] uppercase tracking-wide text-slate-400">Notes</dt>
-                  <dd className="whitespace-pre-wrap text-slate-700">{selected.notes}</dd>
+                  <dt className="text-[12px] uppercase tracking-wide text-white/40">Notes</dt>
+                  <dd className="whitespace-pre-wrap text-white/80">{selected.notes}</dd>
                 </div>
               ) : null}
             </dl>
 
             {selected.status === "approved" || selected.status === "scheduled" ? (
-              <div className="space-y-3 border-t border-slate-100 pt-4">
-                <p className="text-[13px] font-medium text-slate-700">
+              <div className="space-y-3 border-t border-white/[0.06] pt-4">
+                <p className="text-[13px] font-medium text-white/80">
                   {selected.status === "scheduled" ? "Reschedule" : "Schedule a time"}
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -523,13 +523,13 @@ export function AdminBoard({
                   />
                 </Field>
                 {schedPreview ? (
-                  <p className="text-[13px] text-slate-500">
+                  <p className="text-[13px] text-white/55">
                     Candidate ({candTz}) sees:{" "}
-                    <span className="font-medium text-slate-700">{schedPreview}</span>
+                    <span className="font-medium text-white/80">{schedPreview}</span>
                   </p>
                 ) : null}
                 {schedConflict ? (
-                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                  <p className="rounded-lg bg-[#f59e0b]/10 px-3 py-2 text-[12px] text-[#fbbf24] ring-1 ring-inset ring-[#f59e0b]/30">
                     Heads up: {schedConflict}.
                   </p>
                 ) : null}
@@ -540,10 +540,10 @@ export function AdminBoard({
               </div>
             ) : null}
 
-            <div className="space-y-3 border-t border-slate-100 pt-4">
-              <p className="text-[13px] font-medium text-slate-700">Payment</p>
+            <div className="space-y-3 border-t border-white/[0.06] pt-4">
+              <p className="text-[13px] font-medium text-white/80">Payment</p>
               {selected.payment_status === "paid" ? (
-                <p className="text-[13px] font-medium text-emerald-600">
+                <p className="text-[13px] font-medium text-[#34d399]">
                   Paid {formatMoney(selected.price_cents, selected.currency)}
                   {selected.paid_at ? ` · ${relativeTime(selected.paid_at)}` : ""}
                 </p>
@@ -572,7 +572,7 @@ export function AdminBoard({
                     </Button>
                   </div>
                   {selected.price_cents ? (
-                    <p className="text-[12px] text-slate-400">
+                    <p className="text-[12px] text-white/40">
                       Invoiced {formatMoney(selected.price_cents, selected.currency)} · awaiting
                       payment
                     </p>
@@ -582,14 +582,14 @@ export function AdminBoard({
             </div>
 
             {selectedActions.length > 0 ? (
-              <div className="space-y-3 border-t border-slate-100 pt-4">
+              <div className="space-y-3 border-t border-white/[0.06] pt-4">
                 <Textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Optional message to the candidate…"
                   className="min-h-[64px]"
                 />
-                {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+                {error ? <p className="text-[13px] text-[#f87171]">{error}</p> : null}
                 <div className="flex flex-wrap gap-2">
                   {selectedActions.map((kind) => (
                     <Button
@@ -606,7 +606,7 @@ export function AdminBoard({
                 </div>
               </div>
             ) : (
-              <p className="border-t border-slate-100 pt-4 text-[13px] text-slate-500">
+              <p className="border-t border-white/[0.06] pt-4 text-[13px] text-white/55">
                 This request is {selected.status} — no further actions.
               </p>
             )}

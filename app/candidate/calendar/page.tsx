@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { CandidateCalendar } from "@/components/calendar/candidate-calendar";
-import { CandidateNav } from "@/components/candidate-nav";
-import { Topbar } from "@/components/topbar";
 import { createClient } from "@/lib/supabase/server";
 import type { InterviewRequest, Profile } from "@/lib/types";
 
@@ -31,12 +29,12 @@ export default async function CandidateCalendarPage() {
   const interviews = (data as InterviewRequest[] | null) ?? [];
 
   return (
-    <div className="min-h-screen">
-      <Topbar />
-      <CandidateNav />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <CandidateCalendar userId={user.id} timezone={timezone} initial={interviews} />
-      </main>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-medium text-[#f0f0f5]">Calendar</h1>
+        <p className="text-[12px] text-white/40">Your confirmed interviews.</p>
+      </div>
+      <CandidateCalendar userId={user.id} timezone={timezone} initial={interviews} />
     </div>
   );
 }

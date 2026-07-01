@@ -16,13 +16,13 @@ export default function GlobalError({
           alignItems: "center",
           justifyContent: "center",
           margin: 0,
-          background: "#f8fafc",
-          color: "#0f172a",
+          background: "#0f0f13",
+          color: "#f0f0f5",
         }}
       >
         <div style={{ textAlign: "center", padding: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 600 }}>Something went wrong</h1>
-          <p style={{ marginTop: 8, color: "#64748b", fontSize: 14 }}>
+          <p style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: 14 }}>
             Please try again.
           </p>
           <button
@@ -32,7 +32,7 @@ export default function GlobalError({
               padding: "9px 16px",
               borderRadius: 8,
               border: "none",
-              background: "#0f172a",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
               color: "#fff",
               fontWeight: 600,
               cursor: "pointer",

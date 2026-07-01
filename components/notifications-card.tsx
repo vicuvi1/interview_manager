@@ -120,7 +120,7 @@ export function NotificationsCard({
           <button
             type="button"
             onClick={markAllRead}
-            className="text-[13px] font-medium text-brand-600 hover:text-brand-700"
+            className="text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
           >
             Mark all read
           </button>
@@ -136,7 +136,7 @@ export function NotificationsCard({
           />
         </div>
       ) : (
-        <ul className="max-h-[360px] divide-y divide-slate-100 overflow-y-auto scrollbar-thin">
+        <ul className="max-h-[360px] divide-y divide-white/[0.06] overflow-y-auto scrollbar-thin">
           {items.map((n) => {
             const Icon = iconFor(n.type);
             return (
@@ -153,25 +153,25 @@ export function NotificationsCard({
                 tabIndex={n.read ? undefined : 0}
                 aria-label={n.read ? undefined : `Mark "${n.title}" as read`}
                 className={`flex gap-3 px-5 py-3.5 sm:px-6 ${
-                  n.read ? "" : "cursor-pointer hover:bg-slate-50/70"
+                  n.read ? "" : "cursor-pointer hover:bg-white/[0.03]"
                 }`}
               >
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-white/55">
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-slate-800">{n.title}</p>
-                    <span className="shrink-0 text-[12px] text-slate-400">
+                    <p className="truncate text-sm font-medium text-[#f0f0f5]">{n.title}</p>
+                    <span className="shrink-0 text-[12px] text-white/40">
                       {relativeTime(n.created_at)}
                     </span>
                   </div>
                   {n.detail ? (
-                    <p className="mt-0.5 text-[13px] text-slate-500">{n.detail}</p>
+                    <p className="mt-0.5 text-[13px] text-white/55">{n.detail}</p>
                   ) : null}
                 </div>
                 {!n.read ? (
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#6366f1]" />
                 ) : null}
               </li>
             );

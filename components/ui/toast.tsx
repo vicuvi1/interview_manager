@@ -66,26 +66,26 @@ const ICONS: Record<ToastVariant, typeof Info> = {
 };
 
 const ACCENTS: Record<ToastVariant, string> = {
-  success: "text-emerald-600",
-  error: "text-red-600",
-  info: "text-brand-600",
+  success: "text-[#34d399]",
+  error: "text-[#f87171]",
+  info: "text-[#a5b4fc]",
 };
 
 function ToastView({ item, onClose }: { item: ToastItem; onClose: () => void }) {
   const Icon = ICONS[item.variant];
   return (
-    <div className="pointer-events-auto flex w-full max-w-sm animate-fade-in items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-pop">
+    <div className="pointer-events-auto flex w-full max-w-sm animate-fade-in items-start gap-3 rounded-xl border border-white/[0.08] bg-[#13131a] p-4 shadow-xl shadow-black/40">
       <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", ACCENTS[item.variant])} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900">{item.title}</p>
+        <p className="text-[13px] font-medium text-[#f0f0f5]">{item.title}</p>
         {item.description ? (
-          <p className="mt-0.5 text-[13px] text-slate-500">{item.description}</p>
+          <p className="mt-0.5 text-[12px] text-white/45">{item.description}</p>
         ) : null}
       </div>
       <button
         type="button"
         onClick={onClose}
-        className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100"
+        className="rounded-md p-1 text-white/40 transition-colors hover:bg-white/[0.06]"
         aria-label="Dismiss"
       >
         <X className="h-4 w-4" />

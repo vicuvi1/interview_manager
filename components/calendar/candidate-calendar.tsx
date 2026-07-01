@@ -107,23 +107,23 @@ export function CandidateCalendar({
               />
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-white/[0.06]">
               {upcoming.map((r) => (
                 <li key={r.id} className="px-5 py-3.5 sm:px-6">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-slate-800">{r.role}</p>
+                    <p className="truncate text-sm font-medium text-[#f0f0f5]">{r.role}</p>
                     {r.meeting_link ? (
                       <a
                         href={r.meeting_link}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-brand-700"
+                        className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
                       >
                         Join <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 text-[13px] text-slate-500">
+                  <p className="mt-0.5 text-[13px] text-white/55">
                     {formatInTimeZone(r.scheduled_at, timezone)} · {r.duration_minutes} min
                   </p>
                 </li>

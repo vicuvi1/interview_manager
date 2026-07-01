@@ -3,9 +3,9 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const base =
-  "w-full rounded-lg border border-slate-300 bg-white text-sm text-slate-900 shadow-sm " +
-  "placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 " +
-  "focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:bg-slate-50";
+  "w-full rounded-lg border border-white/10 bg-[#1a1a24] text-[13px] text-[#f0f0f5] " +
+  "placeholder:text-white/25 transition-colors focus:border-[#6366f1] focus:outline-none " +
+  "focus:ring-2 focus:ring-[#6366f1]/25 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const Input = React.forwardRef<
   HTMLInputElement,

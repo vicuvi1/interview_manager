@@ -1,14 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { CandidateNav } from "@/components/candidate-nav";
 import { SettingsForm } from "@/components/settings-form";
-import { Topbar } from "@/components/topbar";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Settings" };
+export const metadata = { title: "Profile" };
 
 export default async function CandidateSettingsPage() {
   const supabase = createClient();
@@ -26,17 +24,17 @@ export default async function CandidateSettingsPage() {
   const profile = profileRow as Profile | null;
 
   return (
-    <div className="min-h-screen">
-      <Topbar />
-      <CandidateNav />
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <SettingsForm
-          userId={user.id}
-          email={user.email ?? ""}
-          initialName={profile?.full_name ?? ""}
-          initialTimezone={profile?.timezone ?? "UTC"}
-        />
-      </main>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-medium text-[#f0f0f5]">Profile</h1>
+        <p className="text-[12px] text-white/40">Manage your account details.</p>
+      </div>
+      <SettingsForm
+        userId={user.id}
+        email={user.email ?? ""}
+        initialName={profile?.full_name ?? ""}
+        initialTimezone={profile?.timezone ?? "UTC"}
+      />
     </div>
   );
 }
