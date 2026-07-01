@@ -7,19 +7,14 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field } from "@/components/ui/field";
-import { Input, Textarea } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { useToast } from "@/components/ui/toast";
-import { notifyChanged } from "@/lib/bus";
-import { INTERVIEW_TYPES } from "@/lib/interview";
 import { expandRecurring, overlaps } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import type { CandidateMaterials } from "@/lib/types";
 
 interface Range {
   starts_at: string;
@@ -41,6 +36,7 @@ interface MyRow {
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
+const SLOT_STEP = 30 * 60000; // green suggestion granularity
 
 const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = {
   scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
@@ -48,8 +44,15 @@ const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = 
   approved: { bg: "rgba(16,185,129,0.22)", border: "#10b981", text: "#6ee7b7" },
 };
 
-export function BookingCalendar({ timezone }: { timezone: string }) {
-  const { toast } = useToast();
+export function BookingCalendar({
+  userId,
+  timezone,
+  materials,
+}: {
+  userId: string;
+  timezone: string;
+  materials: CandidateMaterials;
+}) {
   const calRef = useRef<FullCalendar>(null);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
@@ -58,7 +61,6 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
   const [avail, setAvail] = useState<Availability | null>(null);
   const [mine, setMine] = useState<MyRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [duration, setDuration] = useState(30);
   const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
 
   useEffect(() => setMounted(true), []);
@@ -71,7 +73,6 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
         p_from: new Date(from).toISOString(),
         p_to: new Date(to).toISOString(),
       }),
-      // RLS returns only this candidate's own requests.
       supabase.from("interview_requests").select("id, role, status, scheduled_at, preferred_at, duration_minutes"),
     ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
@@ -88,11 +89,10 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
       ...avail.busy.flatMap((b) => expandRecurring(ms(b.starts_at), ms(b.ends_at), b.repeat_rule ?? "none", range.start, range.end)),
       ...avail.taken.map((t) => ({ s: ms(t.starts_at), e: ms(t.ends_at) })),
     ];
-    const step = duration * 60000;
     const now = Date.now();
     const out: EventInput[] = [];
 
-    // Dimmed "unavailable" shading for busy blocks + already-taken interviews.
+    // Dimmed "unavailable" shading.
     for (const b of blocked) {
       out.push({
         id: `blk-${b.s}-${b.e}`,
@@ -101,14 +101,14 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
         display: "background",
         backgroundColor: "rgba(255,255,255,0.06)",
         classNames: ["fc-busy-slot"],
-        extendedProps: { blocked: true },
       });
     }
 
+    // Green suggested open slots.
     for (const iv of availIvals) {
-      for (let t = iv.s; t + step <= iv.e && out.length < 300; t += step) {
+      for (let t = iv.s; t + SLOT_STEP <= iv.e && out.length < 400; t += SLOT_STEP) {
         if (t < now) continue;
-        const end = t + step;
+        const end = t + SLOT_STEP;
         if (blocked.some((b) => overlaps(t, end, b.s, b.e))) continue;
         out.push({
           id: `slot-${t}`,
@@ -118,11 +118,12 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
           backgroundColor: "rgba(16,185,129,0.18)",
           borderColor: "#10b981",
           textColor: "#6ee7b7",
-          extendedProps: { startISO: new Date(t).toISOString(), dur: duration },
+          extendedProps: { startISO: new Date(t).toISOString(), dur: 30 },
         });
       }
     }
-    // The candidate's own requests/interviews, so they see what they already have.
+
+    // The candidate's own requests/interviews.
     for (const r of mine) {
       if (["cancelled", "rejected", "completed"].includes(r.status)) continue;
       const at = r.scheduled_at || r.preferred_at;
@@ -141,7 +142,7 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
       });
     }
     return out;
-  }, [avail, range, duration, mine]);
+  }, [avail, range, mine]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -167,32 +168,23 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
           </div>
           <h2 className="text-sm font-medium text-[#f0f0f5]">{title}</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-white/10 bg-[#13131a] p-0.5">
-            {[
-              { v: "timeGridWeek", l: "Week" },
-              { v: "timeGridDay", l: "Day" },
-            ].map((x) => (
-              <button
-                key={x.v}
-                type="button"
-                onClick={() => {
-                  api()?.changeView(x.v);
-                  setView(x.v);
-                }}
-                className={cn("rounded-md px-2.5 py-1 text-[12px] font-medium", view === x.v ? "bg-[#6366f1]/[0.16] text-[#c7d2fe]" : "text-white/50 hover:text-white/80")}
-              >
-                {x.l}
-              </button>
-            ))}
-          </div>
-          <Select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="h-9 w-32">
-            <option value={15}>15 min</option>
-            <option value={30}>30 min</option>
-            <option value={45}>45 min</option>
-            <option value={60}>60 min</option>
-            <option value={90}>90 min</option>
-          </Select>
+        <div className="flex rounded-lg border border-white/10 bg-[#13131a] p-0.5">
+          {[
+            { v: "timeGridWeek", l: "Week" },
+            { v: "timeGridDay", l: "Day" },
+          ].map((x) => (
+            <button
+              key={x.v}
+              type="button"
+              onClick={() => {
+                api()?.changeView(x.v);
+                setView(x.v);
+              }}
+              className={cn("rounded-md px-2.5 py-1 text-[12px] font-medium", view === x.v ? "bg-[#6366f1]/[0.16] text-[#c7d2fe]" : "text-white/50 hover:text-white/80")}
+            >
+              {x.l}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -206,9 +198,12 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
             height={620}
             allDaySlot={false}
             nowIndicator
-            scrollTime="08:00:00"
+            selectable
+            selectMirror
             slotDuration="00:30:00"
+            snapDuration="00:15:00"
             expandRows
+            scrollTime="08:00:00"
             eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
             events={events}
             datesSet={(arg) => {
@@ -219,11 +214,13 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
             }}
             eventClick={(info) => {
               const p = info.event.extendedProps as { startISO?: string; dur?: number };
-              if (p.startISO) setSelected({ startISO: p.startISO, dur: p.dur ?? duration });
+              if (p.startISO) setSelected({ startISO: p.startISO, dur: p.dur ?? 30 });
             }}
-            dateClick={(info) => {
-              if (info.date.getTime() < Date.now()) return;
-              setSelected({ startISO: info.date.toISOString(), dur: duration });
+            select={(info) => {
+              api()?.unselect();
+              if (info.start.getTime() < Date.now()) return;
+              const durMin = Math.max(15, Math.round((info.end.getTime() - info.start.getTime()) / 60000));
+              setSelected({ startISO: info.start.toISOString(), dur: durMin });
             }}
           />
         ) : (
@@ -231,14 +228,14 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
         )}
       </Card>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[12px] text-white/45">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] text-white/45">
         {loading ? (
           <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading times…</span>
         ) : (
           <span className="inline-flex flex-wrap items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> Click any time to request it — the admin approves it.
+            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> Click a time, or <span className="text-white/70">drag to pick a custom range</span> — the admin approves it.
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
-            <span className="text-white/40">green = suggested</span>
+            <span className="text-white/40">suggested</span>
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
             <span className="text-white/40">your requests</span>
             <span className="ml-1 h-2.5 w-2.5 rounded-sm bg-white/15" />
@@ -249,85 +246,24 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
       </div>
 
       {selected ? (
-        <ConfirmBooking
-          startISO={selected.startISO}
-          durationMin={selected.dur}
-          timezone={timezone}
+        <Dialog
+          open
           onClose={() => setSelected(null)}
-          onBooked={() => {
-            setSelected(null);
-            if (range) load(range.start, range.end);
-          }}
-        />
+          title="Request this time"
+          description={`${formatInTimeZone(selected.startISO, timezone)} · ${selected.dur} min`}
+        >
+          <InterviewRequestForm
+            userId={userId}
+            timezone={timezone}
+            materials={materials}
+            fixedStart={{ iso: selected.startISO, durationMin: selected.dur }}
+            onDone={() => {
+              setSelected(null);
+              if (range) load(range.start, range.end);
+            }}
+          />
+        </Dialog>
       ) : null}
     </div>
-  );
-}
-
-function ConfirmBooking({
-  startISO,
-  durationMin,
-  timezone,
-  onClose,
-  onBooked,
-}: {
-  startISO: string;
-  durationMin: number;
-  timezone: string;
-  onClose: () => void;
-  onBooked: () => void;
-}) {
-  const { toast } = useToast();
-  const [role, setRole] = useState("");
-  const [type, setType] = useState(INTERVIEW_TYPES[0]);
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function confirm() {
-    if (role.trim().length < 2) return setError("Add a role or topic.");
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-    const { error: rpcError } = await supabase.rpc("book_open_slot", {
-      p_role: role.trim(),
-      p_starts_at: startISO,
-      p_duration: durationMin,
-      p_interview_type: type,
-      p_format: "video",
-      p_notes: notes.trim() || null,
-    });
-    if (rpcError) {
-      setError(rpcError.message);
-      setBusy(false);
-      return;
-    }
-    notifyChanged("interviews");
-    toast({ title: "Request sent", description: "The admin will review and confirm your time.", variant: "success" });
-    setBusy(false);
-    onBooked();
-  }
-
-  return (
-    <Dialog open onClose={onClose} title="Request this time" description={`${formatInTimeZone(startISO, timezone)} · ${durationMin} min`}>
-      <div className="space-y-4">
-        <Field label="Role / topic" htmlFor="bk-role">
-          <Input id="bk-role" placeholder="e.g. Senior Frontend Engineer" value={role} onChange={(e) => setRole(e.target.value)} />
-        </Field>
-        <Field label="Interview type" htmlFor="bk-type">
-          <Select id="bk-type" value={type} onChange={(e) => setType(e.target.value)}>
-            {INTERVIEW_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </Select>
-        </Field>
-        <Field label="Notes (optional)" htmlFor="bk-notes">
-          <Textarea id="bk-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything the interviewer should know…" />
-        </Field>
-        <p className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/45">
-          This sends a request for the admin to approve — you&apos;ll be notified once your time is confirmed.
-        </p>
-        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
-        <Button className="w-full" loading={busy} onClick={confirm}>Request this time</Button>
-      </div>
-    </Dialog>
   );
 }

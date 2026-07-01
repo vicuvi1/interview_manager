@@ -46,7 +46,7 @@ export function BookingModes({
       </div>
 
       {mode === "calendar" ? (
-        <BookingCalendar timezone={timezone} />
+        <BookingCalendar userId={userId} timezone={timezone} materials={materials} />
       ) : (
         <div className="max-w-2xl">
           <InterviewRequestForm userId={userId} timezone={timezone} materials={materials} />

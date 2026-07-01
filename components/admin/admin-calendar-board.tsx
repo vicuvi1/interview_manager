@@ -124,9 +124,10 @@ export function AdminCalendarBoard({
   initialSlots: AvailabilitySlot[];
   initialProfiles: ProfileLite[];
 }) {
+  const { toast } = useToast();
   const calendarRef = useRef<FullCalendar>(null);
   const [mounted, setMounted] = useState(false);
-  const [view, setView] = useState<string>("dayGridMonth");
+  const [view, setView] = useState<string>("timeGridWeek");
   const [title, setTitle] = useState("");
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
@@ -218,7 +219,7 @@ export function AdminCalendarBoard({
             title: s.title || SLOT_LABEL[s.slot_type] || "Blocked",
             start: new Date(o.s),
             end: new Date(o.e),
-            editable: false,
+            editable: s.repeat_rule === "none", // one-off blocks can be dragged/resized
             backgroundColor: style.bg,
             borderColor: style.border,
             textColor: style.text,
@@ -281,7 +282,33 @@ export function AdminCalendarBoard({
     event: { start: Date | null; end: Date | null; extendedProps: Record<string, unknown> };
     revert: () => void;
   }) => {
-    if (arg.event.extendedProps.kind !== "interview") {
+    const kind = arg.event.extendedProps.kind;
+    // Dragging / resizing an availability (or busy/event) block updates its time.
+    if (kind === "slot") {
+      const slotId = arg.event.extendedProps.slotId as string;
+      if (!arg.event.start || !arg.event.end) {
+        arg.revert();
+        return;
+      }
+      const startISO = arg.event.start.toISOString();
+      const endISO = arg.event.end.toISOString();
+      (async () => {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from("availability_slots")
+          .update({ starts_at: startISO, ends_at: endISO })
+          .eq("id", slotId);
+        if (error) {
+          toast({ title: "Couldn't update", description: error.message, variant: "error" });
+          arg.revert();
+        } else {
+          toast({ title: "Availability updated", variant: "success" });
+        }
+        load();
+      })();
+      return;
+    }
+    if (kind !== "interview") {
       arg.revert();
       return;
     }
@@ -365,13 +392,14 @@ export function AdminCalendarBoard({
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
+            initialView="timeGridWeek"
             headerToolbar={false}
             height={660}
             nowIndicator
             selectable
             selectMirror
             editable
+            eventResizableFromStart
             dayMaxEvents={3}
             scrollTime="08:00:00"
             eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
@@ -396,6 +424,11 @@ export function AdminCalendarBoard({
         ))}
         <span className="text-white/30">· Times shown in your local timezone</span>
       </div>
+
+      <p className="px-1 text-[12px] text-white/40">
+        Tip: <span className="text-white/60">drag across the grid</span> to add availability, and{" "}
+        <span className="text-white/60">drag a block&apos;s edge</span> to resize or move it — no typing needed.
+      </p>
 
       {add ? (
         <AddSlotDialog

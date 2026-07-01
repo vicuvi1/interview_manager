@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
 import { FORMATS, INTERVIEW_TYPES, LEVELS } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
-import { wallTimeToUtcISO } from "@/lib/time";
+import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
 import type { CandidateMaterials } from "@/lib/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -47,10 +47,16 @@ export function InterviewRequestForm({
   userId,
   timezone,
   materials,
+  fixedStart,
+  onDone,
 }: {
   userId: string;
   timezone: string;
   materials: CandidateMaterials;
+  /** When booking from the calendar, the time is locked to this slot. */
+  fixedStart?: { iso: string; durationMin: number };
+  /** Called after a successful submit (used in the calendar dialog). */
+  onDone?: () => void;
 }) {
   const { toast } = useToast();
   const router = useRouter();
@@ -110,7 +116,7 @@ export function InterviewRequestForm({
 
   async function submit() {
     if (role.trim().length < 2) return setError("Tell us the role or topic.");
-    if (!when) return setError("Pick a preferred date & time.");
+    if (!fixedStart && !when) return setError("Pick a preferred date & time.");
     setBusy(true);
     setError(null);
     const supabase = createClient();
@@ -135,8 +141,8 @@ export function InterviewRequestForm({
       level,
       focus_areas: focusAreas.length ? focusAreas : null,
       format,
-      duration_minutes: Math.max(5, Math.min(480, duration)),
-      preferred_at: wallTimeToUtcISO(when, tz),
+      duration_minutes: fixedStart ? fixedStart.durationMin : Math.max(5, Math.min(480, duration)),
+      preferred_at: fixedStart ? fixedStart.iso : wallTimeToUtcISO(when, tz),
       job_desc_url: jobDescUrl.trim() || null,
       job_desc_path: jobDescPath,
       caller_notes: callerNotes.trim() || null,
@@ -151,12 +157,12 @@ export function InterviewRequestForm({
     notifyChanged("interviews");
     toast({ title: "Request submitted", description: "We'll review it and confirm a time.", variant: "success" });
     setBusy(false);
-    router.push("/candidate/interviews");
+    if (onDone) onDone();
+    else router.push("/candidate/interviews");
   }
 
-  return (
-    <SectionCard title="Request an interview" description="Give us the details — we'll review and confirm." icon={CalendarPlus}>
-      <div className="space-y-6">
+  const content = (
+    <div className="space-y-6">
         {/* Interview */}
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>The interview</GroupLabel>
@@ -188,51 +194,61 @@ export function InterviewRequestForm({
         {/* When */}
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>Preferred time</GroupLabel>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Timezone" htmlFor="ir-tz">
-              <Select id="ir-tz" value={tz} onChange={(e) => setTz(e.target.value)}>
-                {TZ_LIST.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
-              </Select>
-            </Field>
-            <Field label="Preferred date & time" htmlFor="ir-when">
-              <Input id="ir-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
-            </Field>
-          </div>
-          <Field label="Duration" htmlFor="ir-dur">
-            <div className="flex gap-2">
-              <Select
-                id="ir-dur"
-                value={customDuration ? "custom" : String(duration)}
-                onChange={(e) => {
-                  if (e.target.value === "custom") {
-                    setCustomDuration(true);
-                  } else {
-                    setCustomDuration(false);
-                    setDuration(Number(e.target.value));
-                  }
-                }}
-              >
-                <option value="15">15 minutes</option>
-                <option value="30">30 minutes</option>
-                <option value="45">45 minutes</option>
-                <option value="60">60 minutes</option>
-                <option value="90">90 minutes</option>
-                <option value="custom">Custom…</option>
-              </Select>
-              {customDuration ? (
-                <Input
-                  type="number"
-                  min={5}
-                  max={480}
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value) || 30)}
-                  className="w-28"
-                  aria-label="Custom minutes"
-                  placeholder="min"
-                />
-              ) : null}
+          {fixedStart ? (
+            <div className="rounded-lg border border-[#6366f1]/25 bg-[#6366f1]/[0.08] px-3.5 py-2.5 text-[13px]">
+              <p className="text-white/55">Your selected time</p>
+              <p className="mt-0.5 font-medium text-[#f0f0f5]">{formatInTimeZone(fixedStart.iso, timezone)}</p>
+              <p className="mt-0.5 text-[12px] text-white/40">{fixedStart.durationMin} minutes · {timezone}</p>
             </div>
-          </Field>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Timezone" htmlFor="ir-tz">
+                  <Select id="ir-tz" value={tz} onChange={(e) => setTz(e.target.value)}>
+                    {TZ_LIST.map((z) => <option key={z} value={z}>{z.replace(/_/g, " ")}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Preferred date & time" htmlFor="ir-when">
+                  <Input id="ir-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+                </Field>
+              </div>
+              <Field label="Duration" htmlFor="ir-dur">
+                <div className="flex gap-2">
+                  <Select
+                    id="ir-dur"
+                    value={customDuration ? "custom" : String(duration)}
+                    onChange={(e) => {
+                      if (e.target.value === "custom") {
+                        setCustomDuration(true);
+                      } else {
+                        setCustomDuration(false);
+                        setDuration(Number(e.target.value));
+                      }
+                    }}
+                  >
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">60 minutes</option>
+                    <option value="90">90 minutes</option>
+                    <option value="custom">Custom…</option>
+                  </Select>
+                  {customDuration ? (
+                    <Input
+                      type="number"
+                      min={5}
+                      max={480}
+                      value={duration}
+                      onChange={(e) => setDuration(Number(e.target.value) || 30)}
+                      className="w-28"
+                      aria-label="Custom minutes"
+                      placeholder="min"
+                    />
+                  ) : null}
+                </div>
+              </Field>
+            </>
+          )}
         </div>
 
         {/* About you */}
@@ -303,9 +319,16 @@ export function InterviewRequestForm({
 
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button loading={busy} disabled={busy || uploading !== null} onClick={submit}>
-          <Send className="h-4 w-4" /> Submit request
+          <Send className="h-4 w-4" /> {fixedStart ? "Request this time" : "Submit request"}
         </Button>
-      </div>
+    </div>
+  );
+
+  return fixedStart ? (
+    content
+  ) : (
+    <SectionCard title="Request an interview" description="Give us the details — we'll review and confirm." icon={CalendarPlus}>
+      {content}
     </SectionCard>
   );
 }
