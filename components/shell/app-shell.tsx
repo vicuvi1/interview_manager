@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   Bell,
   CalendarDays,
@@ -74,6 +75,7 @@ const ADMIN_NAV: NavGroup[] = [
     label: "System",
     items: [
       { label: "Notifications", href: "/admin/notifications", icon: Bell, badge: "unread", tone: "purple" },
+      { label: "Activity", href: "/admin/activity", icon: Activity },
       { label: "Booking Links", href: "/admin/booking-links", icon: Link2 },
       { label: "Settings", href: "/admin/settings", icon: Settings },
     ],

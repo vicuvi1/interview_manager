@@ -79,6 +79,16 @@ export interface AvailabilitySlot {
   created_at: string;
 }
 
+export interface AuditLog {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  created_at: string;
+}
+
 export interface CandidateNote {
   id: string;
   candidate_id: string;
