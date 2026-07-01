@@ -49,6 +49,21 @@ export interface ProfileLite {
   created_at: string;
 }
 
+export interface Payment {
+  id: string;
+  interview_id: string | null;
+  candidate_id: string;
+  amount: number;
+  currency: string;
+  method: string | null;
+  status: string;
+  paid_at: string | null;
+  notes: string | null;
+  receipt_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
