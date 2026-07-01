@@ -31,8 +31,22 @@ interface Availability {
   busy: Range[];
   taken: { starts_at: string; ends_at: string }[];
 }
+interface MyRow {
+  id: string;
+  role: string;
+  status: string;
+  scheduled_at: string | null;
+  preferred_at: string | null;
+  duration_minutes: number;
+}
 
 const ms = (iso: string) => new Date(iso).getTime();
+
+const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = {
+  scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
+  pending: { bg: "rgba(245,158,11,0.22)", border: "#f59e0b", text: "#fbbf24" },
+  approved: { bg: "rgba(16,185,129,0.22)", border: "#10b981", text: "#6ee7b7" },
+};
 
 export function BookingCalendar({ timezone }: { timezone: string }) {
   const { toast } = useToast();
@@ -42,6 +56,7 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
   const [view, setView] = useState("timeGridWeek");
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
   const [avail, setAvail] = useState<Availability | null>(null);
+  const [mine, setMine] = useState<MyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [duration, setDuration] = useState(30);
   const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
@@ -51,11 +66,16 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
   const load = useCallback(async (from: number, to: number) => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase.rpc("get_booking_availability", {
-      p_from: new Date(from).toISOString(),
-      p_to: new Date(to).toISOString(),
-    });
+    const [{ data }, { data: mineRows }] = await Promise.all([
+      supabase.rpc("get_booking_availability", {
+        p_from: new Date(from).toISOString(),
+        p_to: new Date(to).toISOString(),
+      }),
+      // RLS returns only this candidate's own requests.
+      supabase.from("interview_requests").select("id, role, status, scheduled_at, preferred_at, duration_minutes"),
+    ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
+    setMine((mineRows as MyRow[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -88,8 +108,26 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
         });
       }
     }
+    // The candidate's own requests/interviews, so they see what they already have.
+    for (const r of mine) {
+      if (["cancelled", "rejected", "completed"].includes(r.status)) continue;
+      const at = r.scheduled_at || r.preferred_at;
+      if (!at) continue;
+      const s = ms(at);
+      const tone = MINE_TONE[r.status] ?? MINE_TONE.pending;
+      out.push({
+        id: `mine-${r.id}`,
+        title: `${r.role} · ${r.status}`,
+        start: new Date(s),
+        end: new Date(s + (r.duration_minutes || 30) * 60000),
+        backgroundColor: tone.bg,
+        borderColor: tone.border,
+        textColor: tone.text,
+        extendedProps: { own: true },
+      });
+    }
     return out;
-  }, [avail, range, duration]);
+  }, [avail, range, duration, mine]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -190,14 +228,12 @@ export function BookingCalendar({ timezone }: { timezone: string }) {
         {loading ? (
           <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading times…</span>
         ) : (
-          <span className="inline-flex items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> Click any time to book it
-            {events.length > 0 ? (
-              <>
-                <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
-                <span className="text-white/40">green = suggested open times</span>
-              </>
-            ) : null}
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> Click any time to request it — the admin approves it.
+            <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
+            <span className="text-white/40">green = suggested</span>
+            <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
+            <span className="text-white/40">your requests</span>
           </span>
         )}
         <span className="text-white/30">· Times in your local timezone</span>
@@ -258,13 +294,13 @@ function ConfirmBooking({
       return;
     }
     notifyChanged("interviews");
-    toast({ title: "Booked!", description: "Your interview is scheduled.", variant: "success" });
+    toast({ title: "Request sent", description: "The admin will review and confirm your time.", variant: "success" });
     setBusy(false);
     onBooked();
   }
 
   return (
-    <Dialog open onClose={onClose} title="Book this time" description={`${formatInTimeZone(startISO, timezone)} · ${durationMin} min`}>
+    <Dialog open onClose={onClose} title="Request this time" description={`${formatInTimeZone(startISO, timezone)} · ${durationMin} min`}>
       <div className="space-y-4">
         <Field label="Role / topic" htmlFor="bk-role">
           <Input id="bk-role" placeholder="e.g. Senior Frontend Engineer" value={role} onChange={(e) => setRole(e.target.value)} />
@@ -277,8 +313,11 @@ function ConfirmBooking({
         <Field label="Notes (optional)" htmlFor="bk-notes">
           <Textarea id="bk-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything the interviewer should know…" />
         </Field>
+        <p className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/45">
+          This sends a request for the admin to approve — you&apos;ll be notified once your time is confirmed.
+        </p>
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
-        <Button className="w-full" loading={busy} onClick={confirm}>Confirm booking</Button>
+        <Button className="w-full" loading={busy} onClick={confirm}>Request this time</Button>
       </div>
     </Dialog>
   );
