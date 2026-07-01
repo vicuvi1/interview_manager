@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AdminDashboard } from "@/components/admin/admin-dashboard";
+import { OnboardingChecklist } from "@/components/admin/onboarding-checklist";
 import { createClient } from "@/lib/supabase/server";
 import type { InterviewRequest, Profile, ProfileLite } from "@/lib/types";
 
@@ -30,10 +31,13 @@ export default async function AdminDashboardPage() {
   const profiles = (profilesResult.data as ProfileLite[] | null) ?? [];
 
   return (
-    <AdminDashboard
-      adminTimezone={me?.timezone ?? "UTC"}
-      initialRequests={requests}
-      initialProfiles={profiles}
-    />
+    <>
+      <OnboardingChecklist />
+      <AdminDashboard
+        adminTimezone={me?.timezone ?? "UTC"}
+        initialRequests={requests}
+        initialProfiles={profiles}
+      />
+    </>
   );
 }
