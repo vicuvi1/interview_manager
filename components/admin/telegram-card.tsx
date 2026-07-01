@@ -30,7 +30,8 @@ async function call(action: string, payload: Record<string, unknown> = {}) {
   return res.json();
 }
 
-export function TelegramCard() {
+export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candidate" }) {
+  const isCandidate = variant === "candidate";
   const { toast } = useToast();
   const [status, setStatus] = useState<Status | null>(null);
   const [token, setToken] = useState("");
@@ -77,7 +78,7 @@ export function TelegramCard() {
 
   async function save() {
     setBusy("save");
-    const r = await call("update", { reminderMinutes: minutes, enabled });
+    const r = await call("update", { reminderMinutes: isCandidate ? undefined : minutes, enabled });
     setBusy(null);
     if (r.error) return toast({ title: "Couldn't save", description: r.error, variant: "error" });
     toast({ title: "Preferences saved", variant: "success" });
@@ -93,7 +94,7 @@ export function TelegramCard() {
   }
 
   async function disconnect() {
-    if (!window.confirm("Disconnect Telegram reminders?")) return;
+    if (!window.confirm("Disconnect Telegram?")) return;
     setBusy("disconnect");
     const r = await call("disconnect");
     setBusy(null);
@@ -103,7 +104,11 @@ export function TelegramCard() {
   }
 
   return (
-    <SectionCard title="Telegram reminders" description="Get pinged before each interview." icon={Bell}>
+    <SectionCard
+      title="Telegram notifications"
+      description={isCandidate ? "Get interview updates in Telegram." : "Interview updates + reminders in Telegram."}
+      icon={Bell}
+    >
       {status === null ? (
         <div className="flex items-center gap-2 py-4 text-[13px] text-white/40">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -156,15 +161,17 @@ export function TelegramCard() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Remind me before" htmlFor="tg-minutes">
-              <Select id="tg-minutes" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-                {MINUTES.map((m) => (
-                  <option key={m} value={m}>
-                    {m} minutes before
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {!isCandidate ? (
+              <Field label="Remind me before" htmlFor="tg-minutes">
+                <Select id="tg-minutes" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
+                  {MINUTES.map((m) => (
+                    <option key={m} value={m}>
+                      {m} minutes before
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
             <div className="flex items-end">
               <label className="flex cursor-pointer items-center gap-2 text-[13px] text-white/80">
                 <input
@@ -173,7 +180,7 @@ export function TelegramCard() {
                   onChange={(e) => setEnabled(e.target.checked)}
                   className="h-4 w-4 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
                 />
-                Reminders enabled
+                Notifications enabled
               </label>
             </div>
           </div>
@@ -191,7 +198,9 @@ export function TelegramCard() {
           </div>
 
           <p className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/40">
-            Reminders fire once the scheduled job is enabled in Supabase (see the setup notes). Times use your profile timezone.
+            {isCandidate
+              ? "You'll get a Telegram message whenever your interview is approved, rescheduled, declined, or updated."
+              : "You'll get every notification here, plus interview reminders once the scheduled job is enabled in Supabase."}
           </p>
         </div>
       )}

@@ -1,24 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { isAdminUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 const TG = (token: string, method: string) => `https://api.telegram.org/bot${token}/${method}`;
 
-async function requireAdmin() {
+// Any signed-in user may connect their own Telegram (each owns their own row).
+async function requireUser() {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: NextResponse.json({ error: "Not signed in" }, { status: 401 }) };
-
-  const { data: profileRow } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  if (!isAdminUser(profileRow as Profile | null, user.email)) {
-    return { error: NextResponse.json({ error: "Not authorized" }, { status: 403 }) };
-  }
   return { supabase, userId: user.id };
 }
 
@@ -40,7 +34,7 @@ async function detectChatId(token: string): Promise<string | null> {
 }
 
 export async function GET() {
-  const ctx = await requireAdmin();
+  const ctx = await requireUser();
   if ("error" in ctx) return ctx.error;
 
   const { data } = await ctx.supabase
@@ -63,7 +57,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const ctx = await requireAdmin();
+  const ctx = await requireUser();
   if ("error" in ctx) return ctx.error;
   const { supabase, userId } = ctx;
 
@@ -141,7 +135,7 @@ export async function POST(request: Request) {
         cache: "no-store",
         body: JSON.stringify({
           chat_id: row.chat_id,
-          text: "✅ Interview Scheduler is connected. You'll get interview reminders here.",
+          text: "✅ Interview Scheduler is connected. You'll get your updates here.",
         }),
       });
       const json = await res.json();
