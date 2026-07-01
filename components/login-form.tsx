@@ -282,6 +282,8 @@ export function LoginForm() {
             </button>
           </form>
 
+          {role === "admin" ? (
+            <>
           <div className="my-5 h-px bg-white/[0.06]" />
 
           <div className="mb-2 flex items-center gap-1.5">
@@ -331,6 +333,8 @@ export function LoginForm() {
             ) : null}
             {adminError ? <p className="mt-2 text-[11px] text-[#f87171]">{adminError}</p> : null}
           </div>
+            </>
+          ) : null}
         </div>
 
         <p className="mt-4 text-center text-[11px] text-white/25">Secured by Supabase Auth</p>
