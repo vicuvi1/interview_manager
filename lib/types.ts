@@ -20,6 +20,7 @@ export interface Profile {
   github_url?: string | null;
   portfolio_url?: string | null;
   resume_url?: string | null;
+  resume_path?: string | null;
   bio?: string | null;
   created_at: string;
 }
@@ -31,6 +32,9 @@ export interface CandidateMaterials {
   github_url: string | null;
   portfolio_url: string | null;
   resume_url: string | null;
+  resume_path?: string | null;
+  /** A short-lived signed URL for an uploaded résumé (generated server-side for admins). */
+  resume_signed_url?: string | null;
   bio: string | null;
 }
 

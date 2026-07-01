@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
+import { FORMAT_LABEL } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
@@ -314,9 +315,17 @@ export function RequestsConsole({
                       </Link>
                     </td>
                     <td className="px-3 py-3">
-                      <p className="text-white/70">{r.role}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-white/70">{r.role}</span>
+                        {r.interview_type ? (
+                          <span className="rounded-full bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-white/50">{r.interview_type}</span>
+                        ) : null}
+                        {r.format ? (
+                          <span className="rounded-full bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-white/50">{FORMAT_LABEL[r.format] ?? r.format}</span>
+                        ) : null}
+                      </div>
                       {interviewerName(r.interviewer_id) ? (
-                        <p className="text-[11px] text-white/35">with {interviewerName(r.interviewer_id)}</p>
+                        <p className="mt-0.5 text-[11px] text-white/35">with {interviewerName(r.interviewer_id)}</p>
                       ) : null}
                     </td>
                     <td className="px-3 py-3">

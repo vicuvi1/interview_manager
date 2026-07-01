@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoney, initials } from "@/lib/utils";
+import { formatBytes, formatMoney, initials } from "@/lib/utils";
 
 describe("formatMoney", () => {
   it("formats cents as currency", () => {
@@ -9,6 +9,21 @@ describe("formatMoney", () => {
 
   it("returns a dash for null", () => {
     expect(formatMoney(null)).toBe("—");
+  });
+});
+
+describe("formatBytes", () => {
+  it("formats bytes", () => {
+    expect(formatBytes(512)).toBe("512 B");
+  });
+  it("formats kilobytes with one decimal", () => {
+    expect(formatBytes(1536)).toBe("1.5 KB");
+  });
+  it("formats megabytes", () => {
+    expect(formatBytes(5 * 1024 * 1024)).toBe("5.0 MB");
+  });
+  it("handles null", () => {
+    expect(formatBytes(null)).toBe("0 B");
   });
 });
 

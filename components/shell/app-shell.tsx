@@ -8,6 +8,7 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  Database,
   CalendarPlus,
   CalendarRange,
   CreditCard,
@@ -76,6 +77,7 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Notifications", href: "/admin/notifications", icon: Bell, badge: "unread", tone: "purple" },
       { label: "Activity", href: "/admin/activity", icon: Activity },
+      { label: "Storage", href: "/admin/storage", icon: Database },
       { label: "Booking Links", href: "/admin/booking-links", icon: Link2 },
       { label: "Settings", href: "/admin/settings", icon: Settings },
     ],

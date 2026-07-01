@@ -444,7 +444,8 @@ export function CandidateDetail({
 function MaterialsCard({ materials }: { materials?: CandidateMaterials }) {
   if (!materials) return null;
   const links = [
-    { icon: FileText, label: "Résumé / CV", href: materials.resume_url },
+    { icon: FileText, label: "Résumé (uploaded)", href: materials.resume_signed_url },
+    { icon: FileText, label: "Résumé / CV link", href: materials.resume_url },
     { icon: Globe, label: "Portfolio", href: materials.portfolio_url },
     { icon: Linkedin, label: "LinkedIn", href: materials.linkedin_url },
     { icon: Github, label: "GitHub", href: materials.github_url },

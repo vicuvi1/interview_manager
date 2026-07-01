@@ -18,6 +18,20 @@ export function formatMoney(cents: number | null | undefined, currency = "USD") 
   }
 }
 
+/** Human-readable byte size, e.g. 1536 -> "1.5 KB". */
+export function formatBytes(bytes: number | null | undefined): string {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = n / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[i]}`;
+}
+
 /** Initials for an avatar, from a name (falling back to an email). */
 export function initials(name?: string | null, email?: string | null) {
   const source = (name && name.trim()) || (email ? email.split("@")[0] : "");

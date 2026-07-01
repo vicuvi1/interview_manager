@@ -35,8 +35,13 @@ export default async function CandidateDetailPage({ params }: { params: { id: st
     github_url: full.github_url ?? null,
     portfolio_url: full.portfolio_url ?? null,
     resume_url: full.resume_url ?? null,
+    resume_path: full.resume_path ?? null,
     bio: full.bio ?? null,
   };
+  if (full.resume_path) {
+    const { data: signed } = await supabase.storage.from("resumes").createSignedUrl(full.resume_path, 3600);
+    materials.resume_signed_url = signed?.signedUrl ?? null;
+  }
 
   const [{ data: reqs }, { data: pays }, { data: notes }] = await Promise.all([
     supabase
