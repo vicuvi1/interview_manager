@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarRange, ExternalLink, Inbox, MessageSquareText, Star } from "lucide-react";
 
-import { CheckoutDialog } from "@/components/checkout-dialog";
+import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
@@ -152,7 +152,7 @@ export function MyInterviewsCard({
                       <Badge tone="green">paid</Badge>
                     ) : row.price_cents ? (
                       <Button size="sm" onClick={() => setPayTarget(row)}>
-                        Pay {formatMoney(row.price_cents, row.currency)}
+                        Pay
                       </Button>
                     ) : (
                       <span className="text-[13px] text-white/40">—</span>
@@ -179,11 +179,9 @@ export function MyInterviewsCard({
         </div>
       )}
       </SectionCard>
-      <CheckoutDialog
-        interview={payTarget}
-        open={payTarget !== null}
-        onClose={() => setPayTarget(null)}
-      />
+      {payTarget ? (
+        <WalletPayDialog interviewId={payTarget.id} role={payTarget.role} onClose={() => setPayTarget(null)} />
+      ) : null}
       {viewing ? (
         <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
           <div className="space-y-4">

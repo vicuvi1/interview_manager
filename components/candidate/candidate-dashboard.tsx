@@ -15,7 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-import { CheckoutDialog } from "@/components/checkout-dialog";
+import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
@@ -27,7 +27,7 @@ import { notifMeta } from "@/lib/notifications";
 import { STAGE_LABEL, stageTone } from "@/lib/stages";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { InterviewRequest, Notification } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
@@ -196,7 +196,7 @@ export function CandidateDashboard({
         <StatCard label="Upcoming" value={stats.upcoming} icon={CalendarClock} tone="indigo" />
         <StatCard label="Completed" value={stats.completed} icon={CheckCircle2} tone="green" />
         <StatCard label="In progress" value={stats.pending} icon={Hourglass} tone="amber" />
-        <StatCard label="Outstanding" value={formatMoney(stats.outstanding)} icon={Wallet} tone={stats.outstanding > 0 ? "red" : "slate"} />
+        <StatCard label="Payments due" value={outstandingInvoices.length} icon={Wallet} tone={outstandingInvoices.length > 0 ? "red" : "slate"} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -247,7 +247,7 @@ export function CandidateDashboard({
                       ) : null}
                       {r.payment_status !== "paid" && r.price_cents ? (
                         <Button size="sm" onClick={() => setPayTarget(r)}>
-                          Pay {formatMoney(r.price_cents, r.currency)}
+                          Pay
                         </Button>
                       ) : r.payment_status === "paid" ? (
                         <Badge tone="green">paid</Badge>
@@ -278,7 +278,7 @@ export function CandidateDashboard({
                   <li key={r.id} className="flex items-center justify-between gap-3 px-5 py-3.5 sm:px-6">
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium text-[#f0f0f5]">{r.role}</p>
-                      <p className="text-[12px] text-white/45">{formatMoney(r.price_cents, r.currency)} due</p>
+                      <p className="text-[12px] text-white/45">Payment due</p>
                     </div>
                     <Button size="sm" onClick={() => setPayTarget(r)}>
                       Pay
@@ -328,7 +328,9 @@ export function CandidateDashboard({
         </div>
       </div>
 
-      <CheckoutDialog interview={payTarget} open={payTarget !== null} onClose={() => setPayTarget(null)} />
+      {payTarget ? (
+        <WalletPayDialog interviewId={payTarget.id} role={payTarget.role} onClose={() => setPayTarget(null)} />
+      ) : null}
     </div>
   );
 }

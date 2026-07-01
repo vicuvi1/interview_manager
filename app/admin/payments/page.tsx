@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PaymentsBoard } from "@/components/admin/payments-board";
+import { WalletsManager } from "@/components/admin/wallets-manager";
 import { createClient } from "@/lib/supabase/server";
 import type { InterviewRequest, ProfileLite } from "@/lib/types";
 
@@ -31,10 +32,13 @@ export default async function AdminPaymentsPage() {
   ]);
 
   return (
-    <PaymentsBoard
-      adminTimezone={timezone}
-      initialRequests={(reqs as InterviewRequest[] | null) ?? []}
-      initialProfiles={(profs as ProfileLite[] | null) ?? []}
-    />
+    <div className="space-y-5">
+      <PaymentsBoard
+        adminTimezone={timezone}
+        initialRequests={(reqs as InterviewRequest[] | null) ?? []}
+        initialProfiles={(profs as ProfileLite[] | null) ?? []}
+      />
+      <WalletsManager />
+    </div>
   );
 }

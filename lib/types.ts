@@ -156,6 +156,17 @@ export interface CandidateNote {
   created_at: string;
 }
 
+export interface PaymentWallet {
+  id: string;
+  asset: string;
+  network: string | null;
+  address: string;
+  memo: string | null;
+  active: boolean;
+  sort: number;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
