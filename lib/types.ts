@@ -40,6 +40,15 @@ export interface CandidateLite {
   timezone: string;
 }
 
+export interface ProfileLite {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  timezone: string;
+  role: string;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
