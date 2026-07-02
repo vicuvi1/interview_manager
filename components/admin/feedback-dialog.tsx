@@ -42,6 +42,7 @@ export function FeedbackDialog({
   const [shared, setShared] = useState(false);
   const [markCompleted, setMarkCompleted] = useState(request.status !== "completed");
   const [busy, setBusy] = useState(false);
+  const [todoProgress, setTodoProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +63,11 @@ export function FeedbackDialog({
         setActionItems(f.action_items ?? "");
         setActualMinutes(f.actual_minutes != null ? String(f.actual_minutes) : "");
         setShared(f.shared);
+        const items = (f.action_items ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+        if (items.length) {
+          const done = (f.action_items_done ?? []).filter((i) => i >= 0 && i < items.length).length;
+          setTodoProgress({ done, total: items.length });
+        }
       }
       if (active) setLoading(false);
     })();
@@ -186,6 +192,12 @@ export function FeedbackDialog({
             <Textarea id="fb-concerns" value={concerns} onChange={(e) => setConcerns(e.target.value)} className="min-h-[64px]" />
           </Field>
 
+          {todoProgress ? (
+            <div className="flex items-center gap-2 rounded-lg bg-[#34d399]/[0.08] px-3 py-2 text-[12px] text-[#6ee7b7] ring-1 ring-inset ring-[#34d399]/20">
+              <ListChecks className="h-3.5 w-3.5" />
+              Candidate completed <span className="font-semibold">{todoProgress.done} of {todoProgress.total}</span> to-do items.
+            </div>
+          ) : null}
           <Field label="To-do list for the candidate" htmlFor="fb-todo" hint="Shared when you enable sharing below. One item per line.">
             <div className="relative">
               <ListChecks className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-white/30" />

@@ -68,6 +68,7 @@ export interface InterviewRequest {
   job_desc_path?: string | null;
   preferred_at: string | null;
   scheduled_at: string | null;
+  proposed_at?: string | null;
   meeting_link: string | null;
   duration_minutes: number;
   notes: string | null;
@@ -138,10 +139,18 @@ export interface InterviewFeedback {
   concerns: string | null;
   shared_feedback: string | null;
   action_items: string | null;
+  action_items_done?: number[] | null;
   actual_minutes: number | null;
   shared: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface InterviewPricing {
+  interview_type: string;
+  price_cents: number;
+  currency: string;
+  updated_at?: string;
 }
 
 export interface AuditLog {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
+import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
 
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
@@ -10,14 +10,17 @@ import { SectionCard } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone } from "@/lib/time";
+import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
+const RESCHEDULABLE = new Set(["approved", "scheduled"]);
 
 export function MyInterviewsCard({
   userId,
@@ -31,8 +34,30 @@ export function MyInterviewsCard({
   const { toast } = useToast();
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [payTarget, setPayTarget] = useState<InterviewRequest | null>(null);
+  const [reschedTarget, setReschedTarget] = useState<InterviewRequest | null>(null);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, InterviewFeedback>>({});
   const [viewing, setViewing] = useState<InterviewFeedback | null>(null);
+  const [todoDone, setTodoDone] = useState<number[]>([]);
+
+  useEffect(() => {
+    setTodoDone(viewing?.action_items_done ?? []);
+  }, [viewing]);
+
+  async function toggleTodo(i: number) {
+    if (!viewing) return;
+    const next = todoDone.includes(i) ? todoDone.filter((x) => x !== i) : [...todoDone, i];
+    setTodoDone(next);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("set_todo_progress", { p_interview_id: viewing.interview_id, p_done: next });
+    if (error) {
+      toast({ title: "Couldn't save progress", description: error.message, variant: "error" });
+      return;
+    }
+    setFeedbackMap((m) => ({
+      ...m,
+      [viewing.interview_id]: { ...m[viewing.interview_id], action_items_done: next },
+    }));
+  }
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -178,6 +203,15 @@ export function MyInterviewsCard({
                           <MessageSquareText className="h-4 w-4" /> Feedback
                         </Button>
                       ) : null}
+                      {RESCHEDULABLE.has(row.status) ? (
+                        row.proposed_at ? (
+                          <Badge tone="amber">reschedule pending</Badge>
+                        ) : (
+                          <Button variant="secondary" size="sm" onClick={() => setReschedTarget(row)}>
+                            <CalendarClock className="h-4 w-4" /> Reschedule
+                          </Button>
+                        )
+                      ) : null}
                       {CANCELLABLE.has(row.status) ? (
                         <Button variant="ghost" size="sm" onClick={() => cancelRequest(row.id)}>
                           Cancel
@@ -194,6 +228,9 @@ export function MyInterviewsCard({
       </SectionCard>
       {payTarget ? (
         <WalletPayDialog interviewId={payTarget.id} role={payTarget.role} onClose={() => setPayTarget(null)} />
+      ) : null}
+      {reschedTarget ? (
+        <RescheduleDialog request={reschedTarget} timezone={timezone} onClose={() => setReschedTarget(null)} />
       ) : null}
       {viewing ? (
         <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
@@ -221,23 +258,99 @@ export function MyInterviewsCard({
               <p className="text-[13px] text-white/50">No written feedback was shared.</p>
             )}
             {viewing.action_items ? (
-              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5">
-                <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-white/45">
-                  <ListChecks className="h-3.5 w-3.5" /> Your to-do list
-                </p>
-                <ul className="space-y-1.5">
-                  {viewing.action_items.split("\n").map((s) => s.trim()).filter(Boolean).map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[13px] text-white/80">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#a5b4fc]" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              (() => {
+                const items = viewing.action_items.split("\n").map((s) => s.trim()).filter(Boolean);
+                const doneCount = items.filter((_, i) => todoDone.includes(i)).length;
+                return (
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-white/45">
+                        <ListChecks className="h-3.5 w-3.5" /> Your to-do list
+                      </p>
+                      <span className="text-[12px] font-medium text-white/50">
+                        {doneCount}/{items.length} done
+                      </span>
+                    </div>
+                    <ul className="space-y-1">
+                      {items.map((item, i) => {
+                        const done = todoDone.includes(i);
+                        return (
+                          <li key={i}>
+                            <label className="flex cursor-pointer items-start gap-2.5 rounded-md px-1.5 py-1 text-[13px] transition-colors hover:bg-white/[0.03]">
+                              <input
+                                type="checkbox"
+                                checked={done}
+                                onChange={() => toggleTodo(i)}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-[#1a1a24] accent-[#34d399]"
+                              />
+                              <span className={cn("leading-snug", done ? "text-white/35 line-through" : "text-white/80")}>
+                                {item}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="mt-2 text-[11px] text-white/30">Your progress is shared with your interviewer.</p>
+                  </div>
+                );
+              })()
             ) : null}
           </div>
         </Dialog>
       ) : null}
     </>
+  );
+}
+
+function RescheduleDialog({
+  request,
+  timezone,
+  onClose,
+}: {
+  request: InterviewRequest;
+  timezone: string;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [when, setWhen] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!when) return setError("Pick a new date & time.");
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const iso = wallTimeToUtcISO(when, timezone);
+    const { error: rpcError } = await supabase.rpc("propose_reschedule", { p_interview_id: request.id, p_at: iso });
+    setBusy(false);
+    if (rpcError) {
+      setError(rpcError.message);
+      return;
+    }
+    toast({ title: "New time proposed", description: "We'll confirm it shortly.", variant: "success" });
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Propose a new time" description={request.role}>
+      <div className="space-y-4">
+        <div className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[13px]">
+          <p className="text-white/45">Currently scheduled</p>
+          <p className="mt-0.5 font-medium text-[#f0f0f5]">
+            {formatInTimeZone(request.scheduled_at ?? request.preferred_at, timezone)}
+          </p>
+        </div>
+        <Field label="Your proposed time" htmlFor="resched-when" hint={`Times in ${timezone}. The admin approves it.`}>
+          <Input id="resched-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+        </Field>
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+        <Button className="w-full" loading={busy} disabled={busy || !when} onClick={submit}>
+          <CalendarClock className="h-4 w-4" /> Propose this time
+        </Button>
+      </div>
+    </Dialog>
   );
 }

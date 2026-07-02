@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Trash2, Wand2 } from "lucide-react";
 
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,9 +84,25 @@ export function ManageRequestDialog({
   const [customDur, setCustomDur] = useState(!STD_DURATIONS.includes(request.duration_minutes));
   const [stage, setStage] = useState(request.interview_type ?? "");
   const [savingStage, setSavingStage] = useState(false);
+  const [pricing, setPricing] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("interview_pricing").select("interview_type, price_cents");
+      const map: Record<string, number> = {};
+      for (const row of (data as { interview_type: string; price_cents: number }[] | null) ?? []) {
+        map[row.interview_type] = row.price_cents;
+      }
+      setPricing(map);
+    })();
+  }, []);
+
+  const defaultCents = stage ? pricing[stage] : undefined;
   const [schedLink, setSchedLink] = useState(request.meeting_link ?? "");
   const [scheduling, setScheduling] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [proposedBusy, setProposedBusy] = useState<string | null>(null);
 
   const [invoiceAmount, setInvoiceAmount] = useState(
     request.price_cents ? (request.price_cents / 100).toFixed(2) : "",
@@ -346,6 +362,57 @@ export function ManageRequestDialog({
     onClose();
   }
 
+  async function acceptProposed() {
+    if (!request.proposed_at) return;
+    setProposedBusy("accept");
+    setError(null);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ scheduled_at: request.proposed_at, proposed_at: null, status: "scheduled" })
+      .eq("id", request.id);
+    if (updateError) {
+      setError(updateError.message);
+      toast({ title: "Couldn't accept", description: updateError.message, variant: "error" });
+      setProposedBusy(null);
+      return;
+    }
+    await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Interview rescheduled",
+      detail: `Your new time for "${request.role}" is confirmed: ${formatInTimeZone(request.proposed_at, candTz)}.`,
+      type: "approved",
+    });
+    toast({ title: "Rescheduled to the proposed time", variant: "success" });
+    setProposedBusy(null);
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  async function dismissProposed() {
+    setProposedBusy("dismiss");
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ proposed_at: null })
+      .eq("id", request.id);
+    if (updateError) {
+      toast({ title: "Couldn't dismiss", description: updateError.message, variant: "error" });
+      setProposedBusy(null);
+      return;
+    }
+    await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Reschedule declined",
+      detail: `Your reschedule request for "${request.role}" wasn't applied. The original time stands.`,
+      type: "info",
+    });
+    toast({ title: "Reschedule dismissed", variant: "info" });
+    setProposedBusy(null);
+    notifyChanged("interviews");
+    onClose();
+  }
+
   async function openJobDesc() {
     if (!request.job_desc_path) return;
     const supabase = createClient();
@@ -464,6 +531,22 @@ export function ManageRequestDialog({
           </div>
         ) : null}
 
+        {request.proposed_at ? (
+          <div className="rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.08] p-3.5">
+            <p className="text-[11px] uppercase tracking-wide text-white/40">Candidate proposed a new time</p>
+            <p className="text-[13px] font-medium text-[#f0f0f5]">{formatInTimeZone(request.proposed_at, adminTimezone)}</p>
+            <p className="text-[12px] text-white/45">Candidate ({candTz}) sees {formatInTimeZone(request.proposed_at, candTz)}</p>
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" loading={proposedBusy === "accept"} disabled={proposedBusy !== null} onClick={acceptProposed}>
+                <CalendarClock className="h-4 w-4" /> Accept new time
+              </Button>
+              <Button size="sm" variant="ghost" loading={proposedBusy === "dismiss"} disabled={proposedBusy !== null} onClick={dismissProposed}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {canSchedule ? (
           <div className="space-y-3 border-t border-white/[0.06] pt-4">
             <p className="text-[13px] font-medium text-white/80">
@@ -572,6 +655,15 @@ export function ManageRequestDialog({
                   {request.price_cents ? "Update invoice" : "Send invoice"}
                 </Button>
               </div>
+              {defaultCents ? (
+                <button
+                  type="button"
+                  onClick={() => setInvoiceAmount((defaultCents / 100).toFixed(2))}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
+                >
+                  <Wand2 className="h-3.5 w-3.5" /> Use default for {stage}: {formatMoney(defaultCents, "USD")}
+                </button>
+              ) : null}
               {request.price_cents ? (
                 <p className="text-[11px] text-white/40">
                   Invoiced {formatMoney(request.price_cents, request.currency)} · awaiting payment
