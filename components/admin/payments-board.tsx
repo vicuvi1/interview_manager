@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock, CreditCard, Wallet } from "lucide-react";
+import { CheckCircle2, Clock, CreditCard, Trash2, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { SectionCard } from "@/components/ui/card";
@@ -100,6 +100,29 @@ export function PaymentsBoard({
     load();
   }
 
+  async function removeInvoice(r: InterviewRequest) {
+    if (
+      !window.confirm(
+        `Remove the ${formatMoney(r.price_cents, r.currency)} invoice for "${r.role}"? This clears the payment record — the interview itself stays.`,
+      )
+    )
+      return;
+    setBusyId(r.id);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("interview_requests")
+      .update({ price_cents: null, payment_status: "unpaid", paid_at: null, payment_reported_at: null })
+      .eq("id", r.id);
+    if (error) {
+      toast({ title: "Couldn't remove", description: error.message, variant: "error" });
+      setBusyId(null);
+      return;
+    }
+    toast({ title: "Invoice removed", variant: "success" });
+    setBusyId(null);
+    load();
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -136,6 +159,16 @@ export function PaymentsBoard({
                 <Button size="sm" loading={busyId === r.id} disabled={busyId !== null} onClick={() => markPaid(r)}>
                   Mark paid
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => removeInvoice(r)}
+                  disabled={busyId !== null}
+                  className="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-[#f87171] disabled:opacity-50"
+                  aria-label="Remove invoice"
+                  title="Remove invoice"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </li>
             ))}
           </ul>
@@ -162,6 +195,16 @@ export function PaymentsBoard({
                   {formatMoney(r.price_cents, r.currency)}
                 </span>
                 <Badge tone="green">paid</Badge>
+                <button
+                  type="button"
+                  onClick={() => removeInvoice(r)}
+                  disabled={busyId !== null}
+                  className="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-[#f87171] disabled:opacity-50"
+                  aria-label="Remove from list"
+                  title="Remove from list"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </li>
             ))}
           </ul>
