@@ -133,28 +133,31 @@ export function BookingCalendar({
     const now = Date.now();
     const out: EventInput[] = [];
 
-    // Green shading = the admin's free/bookable windows (clearly visible).
+    // GREEN "Available" = the admin's free/bookable windows.
     for (const iv of availIvals) {
       if (iv.e <= now) continue;
       out.push({
         id: `av-${iv.s}-${iv.e}`,
+        title: "Available",
         start: new Date(Math.max(iv.s, now)),
         end: new Date(iv.e),
         display: "background",
-        backgroundColor: "rgba(16,185,129,0.28)",
+        backgroundColor: "rgba(16,185,129,0.26)",
         classNames: ["fc-free-slot"],
       });
     }
 
-    // Grey "unavailable" shading (busy + already-taken) on top.
+    // RED "Busy" = blocked time + already-booked (drawn on top). You can still
+    // request these — the admin decides.
     for (const b of blocked) {
       out.push({
         id: `blk-${b.s}-${b.e}`,
+        title: "Busy",
         start: new Date(b.s),
         end: new Date(b.e),
         display: "background",
-        backgroundColor: "rgba(255,255,255,0.06)",
-        classNames: ["fc-busy-slot"],
+        backgroundColor: "rgba(239,68,68,0.20)",
+        classNames: ["fc-busy-block"],
       });
     }
 
@@ -192,8 +195,17 @@ export function BookingCalendar({
 
   return (
     <div className="space-y-3">
-      {/* Make the admin's free/bookable windows clearly visible. */}
-      <style>{`.fc-free-slot{box-shadow:inset 3px 0 0 rgba(16,185,129,0.85);}`}</style>
+      {/* Clear green "Available" / red "Busy" bands with visible labels. */}
+      <style>{`
+        .fc-free-slot{box-shadow:inset 3px 0 0 rgba(16,185,129,0.9);}
+        .fc-busy-block{box-shadow:inset 3px 0 0 rgba(239,68,68,0.9);}
+        .fc-free-slot .fc-event-title,.fc-busy-block .fc-event-title{
+          font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+          padding:2px 5px;opacity:.9;font-style:normal;
+        }
+        .fc-free-slot .fc-event-title{color:#6ee7b7;}
+        .fc-busy-block .fc-event-title{color:#fca5a5;}
+      `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center rounded-lg border border-white/10 bg-[#13131a]">
@@ -291,13 +303,14 @@ export function BookingCalendar({
           <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading times…</span>
         ) : (
           <span className="inline-flex flex-wrap items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> <span className="text-white/70">Green = free to book.</span> Click or drag over it to request a time.
+            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" />
+            <span className="text-white/70">Drag over any time to request it</span> — you can ask for busy times too; the admin confirms.
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
-            <span className="text-white/40">free</span>
+            <span className="text-white/40">available</span>
+            <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#ef4444" }} />
+            <span className="text-white/40">busy</span>
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
             <span className="text-white/40">your requests</span>
-            <span className="ml-1 h-2.5 w-2.5 rounded-sm bg-white/15" />
-            <span className="text-white/40">unavailable</span>
           </span>
         )}
         <span className="text-white/30">· Times in your local timezone</span>
