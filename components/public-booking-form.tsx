@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CalendarCheck, CheckCircle2, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
 import { wallTimeToUtcISO } from "@/lib/time";
 
 const tz = (() => {
@@ -23,9 +22,11 @@ export function PublicBookingForm() {
   const [role, setRole] = useState("");
   const [when, setWhen] = useState("");
   const [notes, setNotes] = useState("");
+  const [website, setWebsite] = useState(""); // honeypot — real users leave this empty
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const loadedAt = useRef<number>(Date.now());
 
   async function submit() {
     if (name.trim().length < 2) return setError("Please enter your name.");
@@ -33,21 +34,32 @@ export function PublicBookingForm() {
     if (role.trim().length < 2) return setError("Tell us the role or topic.");
     setBusy(true);
     setError(null);
-    const supabase = createClient();
-    const { error: insertError } = await supabase.from("public_booking_requests").insert({
-      name: name.trim(),
-      email: email.trim(),
-      role: role.trim(),
-      preferred_at: when ? wallTimeToUtcISO(when, tz) : null,
-      timezone: tz,
-      notes: notes.trim() || null,
-    });
-    setBusy(false);
-    if (insertError) {
-      setError("Sorry — something went wrong. Please try again.");
-      return;
+    try {
+      const res = await fetch("/api/public-booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          role: role.trim(),
+          preferred_at: when ? wallTimeToUtcISO(when, tz) : null,
+          timezone: tz,
+          notes: notes.trim() || null,
+          website,
+          elapsedMs: Date.now() - loadedAt.current,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setBusy(false);
+      if (!res.ok) {
+        setError(data?.error ?? "Sorry — something went wrong. Please try again.");
+        return;
+      }
+      setDone(true);
+    } catch {
+      setBusy(false);
+      setError("Couldn't reach the server. Please try again.");
     }
-    setDone(true);
   }
 
   if (done) {
@@ -95,6 +107,18 @@ export function PublicBookingForm() {
         <Field label="Anything else? (optional)" htmlFor="pb-notes">
           <Textarea id="pb-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What you'd like to focus on, links, constraints…" />
         </Field>
+        {/* Honeypot: hidden from real users; bots that fill it are silently dropped. */}
+        <div aria-hidden className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" tabIndex={-1}>
+          <label htmlFor="pb-website">Website</label>
+          <input
+            id="pb-website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+          />
+        </div>
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button className="w-full" loading={busy} disabled={busy} onClick={submit}>
           <Send className="h-4 w-4" /> Send request
