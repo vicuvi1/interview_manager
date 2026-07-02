@@ -31,6 +31,7 @@ import {
   X,
 } from "lucide-react";
 
+import { FeedbackWidget } from "@/components/candidate/feedback-widget";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { UpcomingBanner } from "@/components/upcoming-banner";
@@ -82,6 +83,7 @@ const ADMIN_NAV: NavGroup[] = [
       { label: "Activity", href: "/admin/activity", icon: Activity },
       { label: "Storage", href: "/admin/storage", icon: Database },
       { label: "Booking Links", href: "/admin/booking-links", icon: Link2 },
+      { label: "Feedback", href: "/admin/feedback", icon: Inbox },
       { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },
@@ -246,6 +248,7 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} variant={variant} userId={userId} />
+      {variant === "candidate" ? <FeedbackWidget userId={userId} name={user.name} email={user.email} /> : null}
     </div>
   );
 }
