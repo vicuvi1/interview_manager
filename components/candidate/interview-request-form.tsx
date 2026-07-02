@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, Check, FileText, Send, Upload, User, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
 import { FORMATS, INTERVIEW_TYPES, LEVELS } from "@/lib/interview";
+import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
 import type { CandidateMaterials } from "@/lib/types";
@@ -94,6 +95,18 @@ export function InterviewRequestForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Admin-configured field requirements (Required / Optional / Hidden).
+  const [fields, setFields] = useState<FieldConfig>({});
+  const lvl = (k: string) => fieldLevel(fields, k);
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("app_settings").select("request_fields").eq("id", 1).maybeSingle();
+      const cfg = (data as { request_fields?: FieldConfig } | null)?.request_fields;
+      if (cfg) setFields(cfg);
+    })();
+  }, []);
+
   async function upload(file: File, kind: "resume" | "jd"): Promise<string | null> {
     if (file.size > MAX_BYTES) {
       toast({ title: "File too large", description: "Files must be under 5 MB.", variant: "error" });
@@ -117,10 +130,20 @@ export function InterviewRequestForm({
   }
 
   async function submit() {
-    // CV / résumé is the only required field — everything else is optional.
-    if (!resumePath && !resumeUrl.trim()) {
-      return setError("Please attach your CV / résumé — that's all we need to get started.");
-    }
+    // Enforce whatever the admin marked as required.
+    const req = (k: string) => lvl(k) === "required";
+    const missing: string[] = [];
+    if (req("cv") && !resumePath && !resumeUrl.trim()) missing.push("Résumé / CV");
+    if (req("role") && role.trim().length < 2) missing.push("Role / topic");
+    if (req("focus") && !focus.trim()) missing.push("Focus areas / skills");
+    if (req("job_desc") && !jobDescUrl.trim() && !jobDescPath) missing.push("Job description");
+    if (req("caller_notes") && !callerNotes.trim()) missing.push("Notes for the caller");
+    if (req("notes") && !notes.trim()) missing.push("Anything else");
+    if (req("phone") && !phone.trim()) missing.push("Phone");
+    if (req("portfolio") && !portfolioUrl.trim()) missing.push("Portfolio");
+    if (req("linkedin") && !linkedinUrl.trim()) missing.push("LinkedIn");
+    if (req("github") && !githubUrl.trim()) missing.push("GitHub");
+    if (missing.length) return setError(`Please complete: ${missing.join(", ")}.`);
     if (!fixedStart && !when) return setError("Pick a preferred date & time.");
     setBusy(true);
     setError(null);
@@ -172,30 +195,42 @@ export function InterviewRequestForm({
         {/* Interview */}
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>The interview</GroupLabel>
-          <Field label="Role / topic (optional)" htmlFor="ir-role">
-            <Input id="ir-role" placeholder="e.g. Senior Frontend Engineer" value={role} onChange={(e) => setRole(e.target.value)} />
-          </Field>
+          {lvl("role") !== "hidden" ? (
+            <Field label={`Role / topic${levelSuffix(lvl("role"))}`} htmlFor="ir-role">
+              <Input id="ir-role" placeholder="e.g. Senior Frontend Engineer" value={role} onChange={(e) => setRole(e.target.value)} />
+            </Field>
+          ) : null}
+          {lvl("interview_type") !== "hidden" || lvl("level") !== "hidden" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {lvl("interview_type") !== "hidden" ? (
+                <Field label="Interview type" htmlFor="ir-type">
+                  <Select id="ir-type" value={interviewType} onChange={(e) => setInterviewType(e.target.value)}>
+                    {INTERVIEW_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </Select>
+                </Field>
+              ) : null}
+              {lvl("level") !== "hidden" ? (
+                <Field label="Level" htmlFor="ir-level">
+                  <Select id="ir-level" value={level} onChange={(e) => setLevel(e.target.value)}>
+                    {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                  </Select>
+                </Field>
+              ) : null}
+            </div>
+          ) : null}
+          {lvl("focus") !== "hidden" ? (
+            <Field label={`Focus areas / skills${levelSuffix(lvl("focus"))}`} htmlFor="ir-focus" hint="Comma separated.">
+              <Input id="ir-focus" placeholder="e.g. React, System design, Algorithms" value={focus} onChange={(e) => setFocus(e.target.value)} />
+            </Field>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Interview type" htmlFor="ir-type">
-              <Select id="ir-type" value={interviewType} onChange={(e) => setInterviewType(e.target.value)}>
-                {INTERVIEW_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </Select>
-            </Field>
-            <Field label="Level" htmlFor="ir-level">
-              <Select id="ir-level" value={level} onChange={(e) => setLevel(e.target.value)}>
-                {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-              </Select>
-            </Field>
-          </div>
-          <Field label="Focus areas / skills (optional)" htmlFor="ir-focus" hint="Comma separated.">
-            <Input id="ir-focus" placeholder="e.g. React, System design, Algorithms" value={focus} onChange={(e) => setFocus(e.target.value)} />
-          </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Format" htmlFor="ir-format">
-              <Select id="ir-format" value={format} onChange={(e) => setFormat(e.target.value)}>
-                {FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </Select>
-            </Field>
+            {lvl("format") !== "hidden" ? (
+              <Field label="Format" htmlFor="ir-format">
+                <Select id="ir-format" value={format} onChange={(e) => setFormat(e.target.value)}>
+                  {FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </Select>
+              </Field>
+            ) : null}
             <Field label="Color tag (optional)" htmlFor="ir-color" hint="Shows on this interview in your list & calendar.">
               <div className="pt-1.5">
                 <ColorPicker value={color} onChange={setColor} />
@@ -269,66 +304,86 @@ export function InterviewRequestForm({
           <GroupLabel icon={User}>About you</GroupLabel>
           <p className="-mt-1 text-[12px] text-white/40">Saved to your profile so you don&apos;t retype it next time.</p>
 
-          <DocField
-            label="Résumé / CV — required"
-            path={resumePath}
-            uploading={uploading === "resume"}
-            inputRef={resumeRef}
-            onPick={async (f) => {
-              const p = await upload(f, "resume");
-              if (p) setResumePath(p);
-            }}
-            onRemove={() => setResumePath(null)}
-          />
-          <Field label="…or link to your résumé (optional)" htmlFor="ir-resume">
-            <Input id="ir-resume" placeholder="https://… (optional)" value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} />
-          </Field>
+          {lvl("cv") !== "hidden" ? (
+            <>
+              <DocField
+                label={`Résumé / CV${levelSuffix(lvl("cv"))}`}
+                path={resumePath}
+                uploading={uploading === "resume"}
+                inputRef={resumeRef}
+                onPick={async (f) => {
+                  const p = await upload(f, "resume");
+                  if (p) setResumePath(p);
+                }}
+                onRemove={() => setResumePath(null)}
+              />
+              <Field label="…or link to your résumé" htmlFor="ir-resume">
+                <Input id="ir-resume" placeholder="https://…" value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} />
+              </Field>
+            </>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Portfolio / website (optional)" htmlFor="ir-portfolio">
-              <Input id="ir-portfolio" placeholder="https://… (optional)" value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} />
-            </Field>
-            <Field label="LinkedIn (optional)" htmlFor="ir-linkedin">
-              <Input id="ir-linkedin" placeholder="https://linkedin.com/in/… (optional)" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
-            </Field>
-            <Field label="GitHub (optional)" htmlFor="ir-github">
-              <Input id="ir-github" placeholder="https://github.com/… (optional)" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
-            </Field>
-            <Field label="Phone (optional)" htmlFor="ir-phone">
-              <Input id="ir-phone" placeholder="Optional" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
+            {lvl("portfolio") !== "hidden" ? (
+              <Field label={`Portfolio / website${levelSuffix(lvl("portfolio"))}`} htmlFor="ir-portfolio">
+                <Input id="ir-portfolio" placeholder="https://…" value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} />
+              </Field>
+            ) : null}
+            {lvl("linkedin") !== "hidden" ? (
+              <Field label={`LinkedIn${levelSuffix(lvl("linkedin"))}`} htmlFor="ir-linkedin">
+                <Input id="ir-linkedin" placeholder="https://linkedin.com/in/…" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+              </Field>
+            ) : null}
+            {lvl("github") !== "hidden" ? (
+              <Field label={`GitHub${levelSuffix(lvl("github"))}`} htmlFor="ir-github">
+                <Input id="ir-github" placeholder="https://github.com/…" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
+              </Field>
+            ) : null}
+            {lvl("phone") !== "hidden" ? (
+              <Field label={`Phone${levelSuffix(lvl("phone"))}`} htmlFor="ir-phone">
+                <Input id="ir-phone" placeholder="Your number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </Field>
+            ) : null}
           </div>
         </div>
 
         {/* Job description */}
-        <div className="space-y-4">
-          <GroupLabel icon={FileText}>Job description</GroupLabel>
-          <DocField
-            label="Upload the job description"
-            path={jobDescPath}
-            uploading={uploading === "jd"}
-            inputRef={jdRef}
-            onPick={async (f) => {
-              const p = await upload(f, "jd");
-              if (p) setJobDescPath(p);
-            }}
-            onRemove={() => setJobDescPath(null)}
-          />
-          <Field label="…or paste a link (optional)" htmlFor="ir-jd-url">
-            <Input id="ir-jd-url" placeholder="https://… (optional)" value={jobDescUrl} onChange={(e) => setJobDescUrl(e.target.value)} />
-          </Field>
-        </div>
+        {lvl("job_desc") !== "hidden" ? (
+          <div className="space-y-4">
+            <GroupLabel icon={FileText}>Job description{levelSuffix(lvl("job_desc")) === " — required" ? " — required" : ""}</GroupLabel>
+            <DocField
+              label="Upload the job description"
+              path={jobDescPath}
+              uploading={uploading === "jd"}
+              inputRef={jdRef}
+              onPick={async (f) => {
+                const p = await upload(f, "jd");
+                if (p) setJobDescPath(p);
+              }}
+              onRemove={() => setJobDescPath(null)}
+            />
+            <Field label="…or paste a link" htmlFor="ir-jd-url">
+              <Input id="ir-jd-url" placeholder="https://…" value={jobDescUrl} onChange={(e) => setJobDescUrl(e.target.value)} />
+            </Field>
+          </div>
+        ) : null}
 
         {/* Context */}
-        <div className="space-y-4">
-          <GroupLabel icon={FileText}>Notes</GroupLabel>
-          <Field label="Notes for the caller (optional)" htmlFor="ir-caller" hint="Important info for whoever runs the interview.">
-            <Textarea id="ir-caller" value={callerNotes} onChange={(e) => setCallerNotes(e.target.value)} placeholder="e.g. Please focus on backend; I'm interviewing for a fintech role." />
-          </Field>
-          <Field label="Anything else (optional)" htmlFor="ir-notes" hint="Accommodations, extra links…">
-            <Textarea id="ir-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </Field>
-        </div>
+        {lvl("caller_notes") !== "hidden" || lvl("notes") !== "hidden" ? (
+          <div className="space-y-4">
+            <GroupLabel icon={FileText}>Notes</GroupLabel>
+            {lvl("caller_notes") !== "hidden" ? (
+              <Field label={`Notes for the caller${levelSuffix(lvl("caller_notes"))}`} htmlFor="ir-caller" hint="Important info for whoever runs the interview.">
+                <Textarea id="ir-caller" value={callerNotes} onChange={(e) => setCallerNotes(e.target.value)} placeholder="e.g. Please focus on backend; I'm interviewing for a fintech role." />
+              </Field>
+            ) : null}
+            {lvl("notes") !== "hidden" ? (
+              <Field label={`Anything else${levelSuffix(lvl("notes"))}`} htmlFor="ir-notes" hint="Accommodations, extra links…">
+                <Textarea id="ir-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </Field>
+            ) : null}
+          </div>
+        ) : null}
 
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button loading={busy} disabled={busy || uploading !== null} onClick={submit}>

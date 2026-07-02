@@ -4,6 +4,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { SettingsForm } from "@/components/settings-form";
 import { BookingRulesCard } from "@/components/admin/booking-rules-card";
 import { EmailCard } from "@/components/admin/email-card";
+import { RequestFieldsCard } from "@/components/admin/request-fields-card";
 import { StagePricingCard } from "@/components/admin/stage-pricing-card";
 import { TelegramCard } from "@/components/admin/telegram-card";
 import { TemplatesCard } from "@/components/admin/templates-card";
@@ -46,6 +47,7 @@ export default async function AdminSettingsPage() {
             initialTimezone={profile?.timezone ?? "UTC"}
           />
           <TemplatesCard />
+          <RequestFieldsCard />
           <StagePricingCard />
           <BookingRulesCard />
           <TelegramCard />
