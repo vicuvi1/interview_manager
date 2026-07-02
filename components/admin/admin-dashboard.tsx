@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   CalendarClock,
   Clock,
   ExternalLink,
@@ -128,6 +129,18 @@ export function AdminDashboard({
     return { ivThis, ivLast, revThis, revLast, pending, pendingToday, cand, candNew };
   }, [requests, profiles, adminTimezone, todayKey, thisMonth, lastMonth]);
 
+  const attention = useMemo(() => {
+    const items: { r: InterviewRequest; kind: string; label: string; tone: Tone; icon: LucideIcon }[] = [];
+    for (const r of requests) {
+      if (r.status === "pending") items.push({ r, kind: "pending", label: "Pending approval", tone: "indigo", icon: Clock });
+      if (r.proposed_at) items.push({ r, kind: "reschedule", label: "Reschedule proposed", tone: "amber", icon: CalendarClock });
+      if (r.payment_reported_at && r.payment_status !== "paid")
+        items.push({ r, kind: "payment", label: "Payment to confirm", tone: "green", icon: Wallet });
+    }
+    const order: Record<string, number> = { payment: 0, reschedule: 1, pending: 2 };
+    return items.sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
+  }, [requests]);
+
   const scheduled = useMemo(
     () => requests.filter((r) => r.scheduled_at && r.status === "scheduled"),
     [requests],
@@ -211,6 +224,43 @@ export function AdminDashboard({
         <h1 className="text-xl font-medium text-[#f0f0f5]">Dashboard</h1>
         <p className="text-[12px] text-white/40">Triage requests, schedule calls, and track revenue.</p>
       </div>
+
+      {/* Needs attention */}
+      {attention.length > 0 ? (
+        <SectionCard
+          title="Needs attention"
+          description="Requests, reschedules, and payments waiting on you."
+          icon={AlertTriangle}
+          bodyClassName="p-0 sm:p-0"
+          action={<Badge tone="amber">{attention.length}</Badge>}
+        >
+          <ul className="divide-y divide-white/[0.06]">
+            {attention.slice(0, 12).map(({ r, kind, label, tone, icon: Icon }) => {
+              const c = candidates[r.candidate_id];
+              return (
+                <li key={`${kind}-${r.id}`}>
+                  <button
+                    type="button"
+                    onClick={() => setManaged(r)}
+                    className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-white/[0.03] sm:px-6"
+                  >
+                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", dotBg(tone))}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] text-[#f0f0f5]">
+                        {c?.full_name || "Candidate"} · <span className="text-white/55">{r.role}</span>
+                      </p>
+                      <p className="truncate text-[11px] text-white/40">{label}</p>
+                    </div>
+                    <Badge tone={tone}>{label.split(" ")[0]}</Badge>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </SectionCard>
+      ) : null}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -457,6 +507,20 @@ export function AdminDashboard({
       ) : null}
     </div>
   );
+}
+
+function dotBg(tone: Tone): string {
+  const map: Record<string, string> = {
+    indigo: "bg-[#6366f1]/12 text-[#a5b4fc]",
+    green: "bg-[#10b981]/12 text-[#34d399]",
+    amber: "bg-[#f59e0b]/12 text-[#fbbf24]",
+    red: "bg-[#ef4444]/12 text-[#f87171]",
+    slate: "bg-white/[0.06] text-white/60",
+    blue: "bg-[#3b82f6]/12 text-[#93c5fd]",
+    pink: "bg-[#ec4899]/12 text-[#f9a8d4]",
+    purple: "bg-[#8b5cf6]/12 text-[#c4b5fd]",
+  };
+  return map[tone] ?? "bg-white/[0.06] text-white/60";
 }
 
 function dotClass(tone: Tone): string {

@@ -85,16 +85,21 @@ export function ManageRequestDialog({
   const [stage, setStage] = useState(request.interview_type ?? "");
   const [savingStage, setSavingStage] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
+  const [bufferMin, setBufferMin] = useState(0);
 
   useEffect(() => {
     (async () => {
       const supabase = createClient();
-      const { data } = await supabase.from("interview_pricing").select("interview_type, price_cents");
+      const [{ data: prices }, { data: settings }] = await Promise.all([
+        supabase.from("interview_pricing").select("interview_type, price_cents"),
+        supabase.from("app_settings").select("buffer_minutes").eq("id", 1).maybeSingle(),
+      ]);
       const map: Record<string, number> = {};
-      for (const row of (data as { interview_type: string; price_cents: number }[] | null) ?? []) {
+      for (const row of (prices as { interview_type: string; price_cents: number }[] | null) ?? []) {
         map[row.interview_type] = row.price_cents;
       }
       setPricing(map);
+      setBufferMin((settings as { buffer_minutes?: number } | null)?.buffer_minutes ?? 0);
     })();
   }, []);
 
@@ -124,15 +129,18 @@ export function ManageRequestDialog({
     try {
       const startIso = wallTimeToUtcISO(schedAt, adminTimezone);
       schedPreview = formatInTimeZone(startIso, candTz);
+      const bufMs = bufferMin * 60000;
       const start = new Date(startIso).getTime();
       const end = start + schedDuration * 60000;
       for (const r of requests) {
         if (r.id === request.id || r.status !== "scheduled" || !r.scheduled_at) continue;
         const otherStart = new Date(r.scheduled_at).getTime();
         const otherEnd = otherStart + (r.duration_minutes ?? 0) * 60000;
-        if (start < otherEnd && otherStart < end) {
+        // Widen the new interval by the configured buffer so back-to-backs are flagged.
+        if (start - bufMs < otherEnd && otherStart < end + bufMs) {
           const who = candidates[r.candidate_id]?.full_name || "another candidate";
-          schedConflict = `Overlaps ${who} at ${formatInTimeZone(r.scheduled_at, adminTimezone)}`;
+          const overlaps = start < otherEnd && otherStart < end;
+          schedConflict = `${overlaps ? "Overlaps" : `Within ${bufferMin} min of`} ${who} at ${formatInTimeZone(r.scheduled_at, adminTimezone)}`;
           break;
         }
       }

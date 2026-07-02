@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
 
+import { CalendarInvite } from "@/components/calendar-invite";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,15 @@ export function MyInterviewsCard({
                             <CopyButton value={row.meeting_link} title="Copy meeting link" className="h-6 w-6" />
                           </span>
                         ) : null}
+                        <div className="mt-0.5">
+                          <CalendarInvite
+                            title={`Interview: ${row.role}`}
+                            startISO={row.scheduled_at}
+                            durationMin={row.duration_minutes || 30}
+                            location={row.meeting_link}
+                            details={`Your interview for "${row.role}".`}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <span className="text-white/55">

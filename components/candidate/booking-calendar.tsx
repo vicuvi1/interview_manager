@@ -10,11 +10,17 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { expandRecurring } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { CandidateMaterials } from "@/lib/types";
+
+interface BookingRules {
+  min_notice_hours: number;
+  booking_horizon_days: number;
+}
 
 interface Range {
   starts_at: string;
@@ -52,6 +58,7 @@ export function BookingCalendar({
   timezone: string;
   materials: CandidateMaterials;
 }) {
+  const { toast } = useToast();
   const calRef = useRef<FullCalendar>(null);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
@@ -61,8 +68,36 @@ export function BookingCalendar({
   const [mine, setMine] = useState<MyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
+  const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("app_settings")
+        .select("min_notice_hours, booking_horizon_days")
+        .eq("id", 1)
+        .maybeSingle();
+      if (data) setRules({ min_notice_hours: data.min_notice_hours ?? 0, booking_horizon_days: data.booking_horizon_days ?? 0 });
+    })();
+  }, []);
+
+  /** Returns an error message if the chosen start violates the admin's booking rules. */
+  const ruleViolation = useCallback(
+    (startMs: number): string | null => {
+      const now = Date.now();
+      if (rules.min_notice_hours > 0 && startMs < now + rules.min_notice_hours * 3600_000) {
+        return `Please book at least ${rules.min_notice_hours} hour${rules.min_notice_hours === 1 ? "" : "s"} in advance.`;
+      }
+      if (rules.booking_horizon_days > 0 && startMs > now + rules.booking_horizon_days * 86400_000) {
+        return `You can only book up to ${rules.booking_horizon_days} day${rules.booking_horizon_days === 1 ? "" : "s"} ahead.`;
+      }
+      return null;
+    },
+    [rules],
+  );
 
   const load = useCallback(async (from: number, to: number) => {
     setLoading(true);
@@ -211,6 +246,11 @@ export function BookingCalendar({
             select={(info) => {
               api()?.unselect();
               if (info.start.getTime() < Date.now()) return;
+              const violation = ruleViolation(info.start.getTime());
+              if (violation) {
+                toast({ title: "Can't book that time", description: violation, variant: "info" });
+                return;
+              }
               const durMin = Math.max(5, Math.round((info.end.getTime() - info.start.getTime()) / 60000));
               setSelected({ startISO: info.start.toISOString(), dur: durMin });
             }}

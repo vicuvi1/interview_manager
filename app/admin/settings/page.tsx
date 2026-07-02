@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { KeyRound, ShieldCheck } from "lucide-react";
 
 import { SettingsForm } from "@/components/settings-form";
+import { BookingRulesCard } from "@/components/admin/booking-rules-card";
 import { EmailCard } from "@/components/admin/email-card";
 import { StagePricingCard } from "@/components/admin/stage-pricing-card";
 import { TelegramCard } from "@/components/admin/telegram-card";
@@ -46,6 +47,7 @@ export default async function AdminSettingsPage() {
           />
           <TemplatesCard />
           <StagePricingCard />
+          <BookingRulesCard />
           <TelegramCard />
           <EmailCard />
         </div>
