@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock, CreditCard, Trash2, Wallet } from "lucide-react";
+import { CheckCircle2, Clock, CreditCard, Eye, EyeOff, Trash2, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { SectionCard } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
-import { formatMoney, initials } from "@/lib/utils";
+import { cn, formatMoney, initials } from "@/lib/utils";
 import type { CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
 
 export function PaymentsBoard({
@@ -30,6 +30,7 @@ export function PaymentsBoard({
   const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
   const [profiles, setProfiles] = useState<ProfileLite[]>(initialProfiles);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
 
   const candidates = useMemo(() => {
     const map: Record<string, CandidateLite> = {};
@@ -66,6 +67,9 @@ export function PaymentsBoard({
     () => invoiced.filter((r) => r.payment_status === "paid").sort((a, b) => (b.paid_at ?? "").localeCompare(a.paid_at ?? "")),
     [invoiced],
   );
+  const paidVisible = useMemo(() => paid.filter((r) => !r.payment_hidden), [paid]);
+  const hiddenCount = paid.length - paidVisible.length;
+  const paidList = showHidden ? paid : paidVisible;
 
   const kpis = useMemo(() => {
     const month = todayKeyInTimeZone(adminTimezone).slice(0, 7);
@@ -123,6 +127,20 @@ export function PaymentsBoard({
     load();
   }
 
+  async function hidePayment(r: InterviewRequest, hidden: boolean) {
+    setBusyId(r.id);
+    const supabase = createClient();
+    const { error } = await supabase.from("interview_requests").update({ payment_hidden: hidden }).eq("id", r.id);
+    if (error) {
+      toast({ title: "Couldn't update", description: error.message, variant: "error" });
+      setBusyId(null);
+      return;
+    }
+    toast({ title: hidden ? "Hidden from the board" : "Shown again", variant: "success" });
+    setBusyId(null);
+    load();
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -175,15 +193,32 @@ export function PaymentsBoard({
         )}
       </SectionCard>
 
-      <SectionCard title="Recently paid" description="Settled invoices." icon={CheckCircle2} bodyClassName="p-0 sm:p-0">
-        {paid.length === 0 ? (
+      <SectionCard
+        title="Recently paid"
+        description="Settled invoices."
+        icon={CheckCircle2}
+        bodyClassName="p-0 sm:p-0"
+        action={
+          hiddenCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowHidden((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-[12px] font-medium text-white/50 transition-colors hover:text-white/80"
+            >
+              {showHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {showHidden ? "Hide hidden" : `Show hidden (${hiddenCount})`}
+            </button>
+          ) : undefined
+        }
+      >
+        {paidList.length === 0 ? (
           <div className="p-5 sm:p-6">
-            <EmptyState icon={Wallet} title="No payments yet" />
+            <EmptyState icon={Wallet} title={paid.length === 0 ? "No payments yet" : "All tidy"} description={paid.length === 0 ? undefined : "Everything paid is hidden."} />
           </div>
         ) : (
           <ul className="divide-y divide-white/[0.06]">
-            {paid.slice(0, 12).map((r) => (
-              <li key={r.id} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+            {paidList.slice(0, 20).map((r) => (
+              <li key={r.id} className={cn("flex items-center gap-3 px-5 py-3.5 sm:px-6", r.payment_hidden && "opacity-55")}>
                 <Row candidate={candidates[r.candidate_id]} name={candName(r.candidate_id)} candidateId={r.candidate_id} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium text-[#f0f0f5]">{candName(r.candidate_id)}</p>
@@ -194,16 +229,16 @@ export function PaymentsBoard({
                 <span className="shrink-0 text-[13px] font-medium tabular-nums text-[#34d399]">
                   {formatMoney(r.price_cents, r.currency)}
                 </span>
-                <Badge tone="green">paid</Badge>
+                {r.payment_hidden ? <Badge tone="slate">hidden</Badge> : <Badge tone="green">paid</Badge>}
                 <button
                   type="button"
-                  onClick={() => removeInvoice(r)}
+                  onClick={() => hidePayment(r, !r.payment_hidden)}
                   disabled={busyId !== null}
-                  className="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-[#f87171] disabled:opacity-50"
-                  aria-label="Remove from list"
-                  title="Remove from list"
+                  className="shrink-0 rounded-md p-1.5 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/80 disabled:opacity-50"
+                  aria-label={r.payment_hidden ? "Show on board" : "Hide from board"}
+                  title={r.payment_hidden ? "Show on board" : "Hide from board"}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {r.payment_hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </button>
               </li>
             ))}
