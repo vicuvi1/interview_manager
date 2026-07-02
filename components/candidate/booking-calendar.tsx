@@ -250,15 +250,23 @@ export function BookingCalendar({
       {/* Clear green "Available" / red "Busy" bands with visible labels. */}
       <style>{`
         /* FullCalendar dims background events to 0.3 by default — force full strength. */
-        .fc-free-slot,.fc-busy-block{opacity:1!important;}
-        .fc-free-slot{box-shadow:inset 5px 0 0 #16a34a;}
-        .fc-busy-block{box-shadow:inset 5px 0 0 #dc2626;}
-        .fc-free-slot .fc-event-title,.fc-busy-block .fc-event-title{
-          font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
-          padding:3px 7px;opacity:1;font-style:normal;
+        .fc-free-slot,.fc-busy-block{opacity:1!important;border-radius:8px;margin:0 3px;}
+        .fc-free-slot{
+          background:linear-gradient(180deg,rgba(34,197,94,0.30),rgba(34,197,94,0.20))!important;
+          box-shadow:inset 4px 0 0 #22c55e;
         }
-        .fc-free-slot .fc-event-title{color:#dcfce7;}
-        .fc-busy-block .fc-event-title{color:#fee2e2;}
+        .fc-busy-block{
+          background:rgba(239,68,68,0.16)!important;
+          box-shadow:inset 4px 0 0 #ef4444;
+          background-image:repeating-linear-gradient(135deg,rgba(239,68,68,0.16) 0,rgba(239,68,68,0.16) 8px,rgba(239,68,68,0.05) 8px,rgba(239,68,68,0.05) 16px)!important;
+        }
+        .fc-free-slot .fc-event-title,.fc-busy-block .fc-event-title{
+          display:inline-flex;align-items:center;gap:5px;margin:5px 0 0 8px;
+          font-size:10.5px;font-weight:700;letter-spacing:.02em;
+          padding:2px 8px;border-radius:999px;font-style:normal;
+        }
+        .fc-free-slot .fc-event-title{color:#dcfce7;background:rgba(22,163,74,0.55);}
+        .fc-busy-block .fc-event-title{color:#fee2e2;background:rgba(220,38,38,0.5);}
       `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -271,9 +279,9 @@ export function BookingCalendar({
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <h2 className="text-sm font-medium text-[#f0f0f5]">{title}</h2>
+          <h2 className="text-[15px] font-semibold text-[#f0f0f5]">{title}</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-white/10 bg-[#13131a] p-0.5">
             {[
               { v: "timeGridWeek", l: "Week" },
