@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeDollarSign, CheckCircle2, Clock, Inbox, Wallet } from "lucide-react";
+import { BadgeDollarSign, Clock, Inbox, Wallet } from "lucide-react";
 
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -59,20 +59,18 @@ export function CandidatePayments({
     };
   }, [userId, load]);
 
-  const { unpaid, paid, dueCents } = useMemo(() => {
+  const { unpaid, dueCents } = useMemo(() => {
     const active = rows.filter((r) => ACTIVE.has(r.status));
     const unpaid = active.filter((r) => r.payment_status !== "paid");
-    const paid = active.filter((r) => r.payment_status === "paid");
     const dueCents = unpaid.reduce((sum, r) => sum + (r.price_cents ?? 0), 0);
-    return { unpaid, paid, dueCents };
+    return { unpaid, dueCents };
   }, [rows]);
 
   return (
     <>
-      <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="mb-5 grid grid-cols-2 gap-4">
         <StatCard label="To pay" value={unpaid.length} icon={Clock} tone="amber" />
         <StatCard label="Amount due" value={dueCents ? formatMoney(dueCents, "USD") : "—"} icon={BadgeDollarSign} tone="indigo" />
-        <StatCard label="Paid" value={paid.length} icon={CheckCircle2} tone="green" />
       </div>
 
       <SectionCard
@@ -116,30 +114,6 @@ export function CandidatePayments({
           </ul>
         )}
       </SectionCard>
-
-      {paid.length > 0 ? (
-        <div className="mt-5">
-          <SectionCard title="Paid" description="Payments we've confirmed." icon={CheckCircle2} bodyClassName="p-0 sm:p-0">
-            <ul className="divide-y divide-white/[0.06]">
-              {paid.map((r) => (
-                <li key={r.id} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#34d399]" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-white/80">{r.role}</p>
-                    <p className="text-[12px] text-white/40">
-                      {r.paid_at ? `Paid ${formatInTimeZone(r.paid_at, timezone)}` : "Paid"}
-                    </p>
-                  </div>
-                  {r.price_cents ? (
-                    <span className="tabular-nums text-[13px] text-white/60">{formatMoney(r.price_cents, r.currency)}</span>
-                  ) : null}
-                  <Badge tone="green">paid</Badge>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-        </div>
-      ) : null}
 
       {payTarget ? (
         <WalletPayDialog interviewId={payTarget.id} role={payTarget.role} onClose={() => setPayTarget(null)} />
