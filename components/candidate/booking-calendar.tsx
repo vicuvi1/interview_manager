@@ -63,6 +63,7 @@ export function BookingCalendar({
 }) {
   const { toast } = useToast();
   const calRef = useRef<FullCalendar>(null);
+  const rangeRef = useRef<{ start: number; end: number } | null>(null);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
   const [view, setView] = useState("timeGridWeek");
@@ -120,6 +121,29 @@ export function BookingCalendar({
     setMine((mineRows as MyRow[]) ?? []);
     setLoading(false);
   }, []);
+
+  // Live-refresh when the admin edits availability/blocks or an interview changes,
+  // so the green "available" / red "busy" bands update without a page reload.
+  useEffect(() => {
+    const supabase = createClient();
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const reload = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        const r = rangeRef.current;
+        if (r) load(r.start, r.end);
+      }, 300);
+    };
+    const channel = supabase
+      .channel(`cand-booking-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "availability_slots" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, reload)
+      .subscribe();
+    return () => {
+      if (t) clearTimeout(t);
+      supabase.removeChannel(channel);
+    };
+  }, [userId, load]);
 
   const events = useMemo<EventInput[]>(() => {
     if (!avail || !range) return [];
@@ -266,6 +290,7 @@ export function BookingCalendar({
             slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
             datesSet={(arg) => {
+              rangeRef.current = { start: arg.start.getTime(), end: arg.end.getTime() };
               setRange({ start: arg.start.getTime(), end: arg.end.getTime() });
               setTitle(arg.view.title);
               setView(arg.view.type);
