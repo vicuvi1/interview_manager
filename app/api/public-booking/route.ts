@@ -1,36 +1,23 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 
+import { vetSubmission } from "@/lib/public-booking";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { name, email, role, preferred_at, timezone, notes, website, elapsedMs } = body ?? {};
 
-  // Honeypot — a hidden field only a bot would fill. Pretend success, drop it.
-  if (typeof website === "string" && website.trim() !== "") {
-    return NextResponse.json({ ok: true });
+  const vetted = vetSubmission(body ?? {});
+  if (!vetted.ok) {
+    // Bot-like → pretend success so we don't tip them off; else a real error.
+    return vetted.drop
+      ? NextResponse.json({ ok: true })
+      : NextResponse.json({ error: vetted.error }, { status: 400 });
   }
-  // Submitted implausibly fast (< 2.5s) → almost certainly a bot. Silently drop.
-  if (typeof elapsedMs === "number" && elapsedMs >= 0 && elapsedMs < 2500) {
-    return NextResponse.json({ ok: true });
-  }
-
-  // Server-side validation.
-  if (!name || String(name).trim().length < 2) {
-    return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
-  }
-  if (!EMAIL_RE.test(String(email ?? "").trim())) {
-    return NextResponse.json({ error: "Please enter a valid email." }, { status: 400 });
-  }
-  if (!role || String(role).trim().length < 2) {
-    return NextResponse.json({ error: "Tell us the role or topic." }, { status: 400 });
-  }
+  const v = vetted.values;
 
   // Hash the client IP for per-IP rate limiting (no raw IP stored).
   const fwd = request.headers.get("x-forwarded-for") ?? "";
@@ -39,12 +26,12 @@ export async function POST(request: Request) {
 
   const supabase = createClient();
   const { error } = await supabase.rpc("submit_public_booking", {
-    p_name: String(name).slice(0, 100),
-    p_email: String(email).slice(0, 200),
-    p_role: String(role).slice(0, 120),
-    p_preferred_at: preferred_at || null,
-    p_timezone: timezone ? String(timezone).slice(0, 60) : null,
-    p_notes: notes ? String(notes).slice(0, 2000) : null,
+    p_name: v.name,
+    p_email: v.email,
+    p_role: v.role,
+    p_preferred_at: v.preferred_at,
+    p_timezone: v.timezone,
+    p_notes: v.notes,
     p_ip_hash: ipHash,
   });
 
