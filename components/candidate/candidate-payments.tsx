@@ -15,7 +15,8 @@ import { formatInTimeZone } from "@/lib/time";
 import { formatMoney } from "@/lib/utils";
 import type { InterviewRequest } from "@/lib/types";
 
-const ACTIVE = new Set(["pending", "approved", "scheduled", "completed"]);
+// Payable once the admin has accepted (approved/scheduled) or it's completed.
+const ACTIVE = new Set(["approved", "scheduled", "completed"]);
 
 export function CandidatePayments({
   userId,

@@ -22,6 +22,9 @@ import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
 const RESCHEDULABLE = new Set(["approved", "scheduled"]);
+// Once the admin accepts (approved/scheduled) or it's done, the candidate can pay —
+// no invoice needed; they pay by crypto and report the amount.
+const PAYABLE = new Set(["approved", "scheduled", "completed"]);
 
 export function MyInterviewsCard({
   userId,
@@ -198,7 +201,7 @@ export function MyInterviewsCard({
                   <td className="px-3 py-3">
                     {row.payment_status === "paid" ? (
                       <Badge tone="green">paid</Badge>
-                    ) : row.price_cents ? (
+                    ) : PAYABLE.has(row.status) ? (
                       <Button size="sm" onClick={() => setPayTarget(row)}>
                         Pay
                       </Button>

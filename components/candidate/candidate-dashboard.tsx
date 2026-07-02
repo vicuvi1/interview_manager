@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import type { InterviewRequest, Notification } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
+const PAYABLE = new Set(["approved", "scheduled", "completed"]);
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -245,12 +246,12 @@ export function CandidateDashboard({
                           Join <ExternalLink className="h-3 w-3" />
                         </a>
                       ) : null}
-                      {r.payment_status !== "paid" && r.price_cents ? (
+                      {r.payment_status === "paid" ? (
+                        <Badge tone="green">paid</Badge>
+                      ) : PAYABLE.has(r.status) ? (
                         <Button size="sm" onClick={() => setPayTarget(r)}>
                           Pay
                         </Button>
-                      ) : r.payment_status === "paid" ? (
-                        <Badge tone="green">paid</Badge>
                       ) : null}
                       {CANCELLABLE.has(r.status) ? (
                         <Button variant="ghost" size="sm" onClick={() => cancelRequest(r.id)}>

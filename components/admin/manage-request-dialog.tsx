@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Trash2, Wand2 } from "lucide-react";
+import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Send, Trash2, Wand2 } from "lucide-react";
 
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -123,6 +123,7 @@ export function ManageRequestDialog({
   const [invoicing, setInvoicing] = useState(false);
   const [marking, setMarking] = useState(false);
   const [unmarking, setUnmarking] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [color, setColor] = useState<string | null>(request.color ?? null);
   const [savingColor, setSavingColor] = useState(false);
@@ -292,6 +293,26 @@ export function ManageRequestDialog({
     setMarking(false);
     notifyChanged("interviews");
     onClose();
+  }
+
+  async function sendPaymentRequest() {
+    setRequesting(true);
+    const supabase = createClient();
+    const { error: notifyError } = await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Payment ready",
+      detail:
+        `You can now pay for your interview "${request.role}"` +
+        (request.price_cents ? ` (${formatMoney(request.price_cents, request.currency)})` : "") +
+        `. Open Payments to pay by crypto.`,
+      type: "alert",
+    });
+    setRequesting(false);
+    if (notifyError) {
+      toast({ title: "Couldn't send", description: notifyError.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Payment request sent", description: "The candidate can pay now.", variant: "success" });
   }
 
   async function markUnpaid() {
@@ -718,11 +739,16 @@ export function ManageRequestDialog({
                   Invoiced {formatMoney(request.price_cents, request.currency)} · awaiting payment
                 </p>
               ) : null}
-              <Button size="sm" loading={marking} disabled={marking} onClick={markPaid}>
-                <Check className="h-4 w-4" /> Mark as paid
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" loading={marking} disabled={marking} onClick={markPaid}>
+                  <Check className="h-4 w-4" /> Mark as paid
+                </Button>
+                <Button variant="secondary" size="sm" loading={requesting} disabled={requesting} onClick={sendPaymentRequest}>
+                  <Send className="h-4 w-4" /> Send payment request
+                </Button>
+              </div>
               <p className="text-[11px] text-white/40">
-                Confirms you received the money and notifies the candidate.
+                The candidate can already pay once accepted — &ldquo;Send payment request&rdquo; just pings them (re-send anytime).
               </p>
             </>
           )}
