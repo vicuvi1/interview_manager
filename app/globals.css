@@ -10,6 +10,13 @@
   body {
     @apply bg-[#0f0f13] text-[#f0f0f5] antialiased;
   }
+  /* Accessibility: always show a clear focus ring for keyboard users, even where
+     `focus:outline-none` is used (that only removes the mouse-focus outline). */
+  :focus-visible {
+    outline: 2px solid #818cf8 !important;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
 @layer utilities {
