@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { ScheduleCalendar } from "@/components/candidate/schedule-calendar";
+import { ScheduleCalendarLoader } from "@/components/candidate/schedule-calendar-loader";
 import { createClient } from "@/lib/supabase/server";
 import type { InterviewRequest, Profile } from "@/lib/types";
 
@@ -34,7 +34,7 @@ export default async function CandidateCalendarPage() {
         <h1 className="text-xl font-medium text-[#f0f0f5]">Calendar</h1>
         <p className="text-[12px] text-white/40">All your interviews — pending, scheduled, and past.</p>
       </div>
-      <ScheduleCalendar userId={user.id} timezone={timezone} initial={interviews} />
+      <ScheduleCalendarLoader userId={user.id} timezone={timezone} initial={interviews} />
     </div>
   );
 }

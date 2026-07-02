@@ -54,6 +54,7 @@ export function ScheduleCalendar({
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [detail, setDetail] = useState<InterviewRequest | null>(null);
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
+  const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -89,6 +90,10 @@ export function ScheduleCalendar({
       const at = r.scheduled_at || r.preferred_at;
       if (!at) continue;
       const start = new Date(at);
+      if (range) {
+        const endMs = start.getTime() + (r.duration_minutes || 30) * 60000;
+        if (endMs < range.start || start.getTime() > range.end) continue;
+      }
       const c = COLORS[r.status] ?? COLORS.pending;
       out.push({
         id: r.id,
@@ -102,7 +107,7 @@ export function ScheduleCalendar({
       });
     }
     return out;
-  }, [rows, prefs.hiddenStatuses]);
+  }, [rows, prefs.hiddenStatuses, range]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -173,6 +178,7 @@ export function ScheduleCalendar({
             datesSet={(arg) => {
               setTitle(arg.view.title);
               setView(arg.view.type);
+              setRange({ start: arg.start.getTime(), end: arg.end.getTime() });
               setPrefs((p) => {
                 if (p.scheduleView === arg.view.type) return p;
                 const next = { ...p, scheduleView: arg.view.type };

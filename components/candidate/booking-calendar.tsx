@@ -158,18 +158,20 @@ export function BookingCalendar({
       });
     }
 
-    // The candidate's own requests/interviews.
+    // The candidate's own requests/interviews (only within the visible window).
     for (const r of mine) {
       if (["cancelled", "rejected", "completed"].includes(r.status)) continue;
       const at = r.scheduled_at || r.preferred_at;
       if (!at) continue;
       const s = ms(at);
+      const e = s + (r.duration_minutes || 30) * 60000;
+      if (e < range.start || s > range.end) continue;
       const tone = MINE_TONE[r.status] ?? MINE_TONE.pending;
       out.push({
         id: `mine-${r.id}`,
         title: `${r.role} · ${r.status}`,
         start: new Date(s),
-        end: new Date(s + (r.duration_minutes || 30) * 60000),
+        end: new Date(e),
         backgroundColor: tone.bg,
         borderColor: tone.border,
         textColor: tone.text,

@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { CalendarClock, FileText } from "lucide-react";
 
-import { BookingCalendar } from "@/components/candidate/booking-calendar";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { cn } from "@/lib/utils";
 import type { CandidateMaterials } from "@/lib/types";
+
+// Defer the heavy FullCalendar bundle until the "Pick a time" tab renders.
+const BookingCalendar = dynamic(
+  () => import("@/components/candidate/booking-calendar").then((m) => m.BookingCalendar),
+  {
+    ssr: false,
+    loading: () => <div className="h-[620px] animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.02]" />,
+  },
+);
 
 export function BookingModes({
   userId,
