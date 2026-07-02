@@ -17,6 +17,7 @@ interface Status {
   connected: boolean;
   reminderMinutes: number;
   enabled: boolean;
+  commandsEnabled: boolean;
 }
 
 const MINUTES = [5, 10, 15, 20, 30, 45, 60];
@@ -91,6 +92,16 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
     setBusy(null);
     if (r.error) return toast({ title: "Test failed", description: r.error, variant: "error" });
     toast({ title: "Test message sent", description: "Check Telegram.", variant: "success" });
+  }
+
+  async function toggleCommands() {
+    const turnOn = !status?.commandsEnabled;
+    setBusy("commands");
+    const r = await call(turnOn ? "enable-commands" : "disable-commands");
+    setBusy(null);
+    if (r.error) return toast({ title: "Couldn't update commands", description: r.error, variant: "error" });
+    toast({ title: turnOn ? "Commands enabled" : "Commands disabled", variant: "success" });
+    refreshStatus();
   }
 
   async function disconnect() {
@@ -186,6 +197,31 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
                 />
                 Notifications enabled
               </label>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white/[0.03] px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-white/80">
+                  Two-way commands {status.commandsEnabled ? <span className="text-[#34d399]">· on</span> : null}
+                </p>
+                <p className="text-[12px] text-white/45">
+                  Reply in Telegram: <span className="text-white/70">/next</span>,{" "}
+                  <span className="text-white/70">/interviews</span>
+                  {isCandidate ? <>, <span className="text-white/70">/pay</span></> : null},{" "}
+                  <span className="text-white/70">/help</span>.
+                </p>
+              </div>
+              <Button
+                variant={status.commandsEnabled ? "ghost" : "secondary"}
+                size="sm"
+                loading={busy === "commands"}
+                disabled={busy !== null}
+                onClick={toggleCommands}
+              >
+                {status.commandsEnabled ? "Disable" : "Enable"}
+              </Button>
             </div>
           </div>
 

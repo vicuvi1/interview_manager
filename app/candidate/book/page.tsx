@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AvailabilityShare } from "@/components/candidate/availability-share";
 import { BookingModes } from "@/components/candidate/booking-modes";
 import { createClient } from "@/lib/supabase/server";
 import type { CandidateMaterials, Profile } from "@/lib/types";
@@ -42,6 +43,9 @@ export default async function BookInterviewPage() {
         </p>
       </div>
       <BookingModes userId={user.id} timezone={timezone} materials={materials} />
+      <div className="mt-5 max-w-2xl">
+        <AvailabilityShare userId={user.id} timezone={timezone} />
+      </div>
     </div>
   );
 }

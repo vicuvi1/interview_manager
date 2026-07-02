@@ -86,13 +86,20 @@ export function ManageRequestDialog({
   const [savingStage, setSavingStage] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
   const [bufferMin, setBufferMin] = useState(0);
+  const [candAvail, setCandAvail] = useState<{ id: string; starts_at: string; ends_at: string; note: string | null }[]>([]);
 
   useEffect(() => {
     (async () => {
       const supabase = createClient();
-      const [{ data: prices }, { data: settings }] = await Promise.all([
+      const [{ data: prices }, { data: settings }, { data: avail }] = await Promise.all([
         supabase.from("interview_pricing").select("interview_type, price_cents"),
         supabase.from("app_settings").select("buffer_minutes").eq("id", 1).maybeSingle(),
+        supabase
+          .from("candidate_availability")
+          .select("id, starts_at, ends_at, note")
+          .eq("candidate_id", request.candidate_id)
+          .gte("ends_at", new Date().toISOString())
+          .order("starts_at", { ascending: true }),
       ]);
       const map: Record<string, number> = {};
       for (const row of (prices as { interview_type: string; price_cents: number }[] | null) ?? []) {
@@ -100,8 +107,9 @@ export function ManageRequestDialog({
       }
       setPricing(map);
       setBufferMin((settings as { buffer_minutes?: number } | null)?.buffer_minutes ?? 0);
+      setCandAvail((avail as { id: string; starts_at: string; ends_at: string; note: string | null }[] | null) ?? []);
     })();
-  }, []);
+  }, [request.candidate_id]);
 
   const defaultCents = stage ? pricing[stage] : undefined;
   const [schedLink, setSchedLink] = useState(request.meeting_link ?? "");
@@ -560,6 +568,24 @@ export function ManageRequestDialog({
             <p className="text-[13px] font-medium text-white/80">
               {request.status === "scheduled" ? "Reschedule" : "Schedule a time"}
             </p>
+            {candAvail.length > 0 ? (
+              <div className="rounded-lg border border-[#10b981]/25 bg-[#10b981]/[0.06] p-3">
+                <p className="mb-2 text-[11px] uppercase tracking-wide text-white/40">Candidate is free — tap to use</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {candAvail.map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => setSchedAt(utcToLocalInput(w.starts_at, adminTimezone))}
+                      title={w.note ?? undefined}
+                      className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[12px] text-[#6ee7b7] transition-colors hover:bg-[#10b981]/20"
+                    >
+                      {formatInTimeZone(w.starts_at, adminTimezone)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={`Date & time (${adminTimezone})`} htmlFor="schedAt">
                 <Input

@@ -39,12 +39,18 @@ export async function GET() {
 
   const { data } = await ctx.supabase
     .from("telegram_settings")
-    .select("bot_username, chat_id, reminder_minutes, enabled")
+    .select("bot_username, chat_id, reminder_minutes, enabled, webhook_secret")
     .eq("user_id", ctx.userId)
     .maybeSingle();
 
   const row = data as
-    | { bot_username: string | null; chat_id: string | null; reminder_minutes: number; enabled: boolean }
+    | {
+        bot_username: string | null;
+        chat_id: string | null;
+        reminder_minutes: number;
+        enabled: boolean;
+        webhook_secret: string | null;
+      }
     | null;
 
   return NextResponse.json({
@@ -53,6 +59,7 @@ export async function GET() {
     connected: !!row?.chat_id,
     reminderMinutes: row?.reminder_minutes ?? 15,
     enabled: row?.enabled ?? true,
+    commandsEnabled: !!row?.webhook_secret,
   });
 }
 
@@ -149,7 +156,61 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "enable-commands") {
+    const { data } = await supabase.from("telegram_settings").select("bot_token").eq("user_id", userId).maybeSingle();
+    const token = (data as { bot_token?: string } | null)?.bot_token;
+    if (!token) return NextResponse.json({ error: "Connect a bot first." }, { status: 400 });
+
+    const secret = crypto.randomUUID().replace(/-/g, "");
+    const webhookUrl = `${new URL(request.url).origin}/api/telegram/webhook`;
+    try {
+      const res = await fetch(TG(token, "setWebhook"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ url: webhookUrl, secret_token: secret, allowed_updates: ["message"] }),
+      });
+      const json = await res.json();
+      if (!json.ok) return NextResponse.json({ error: json.description ?? "Telegram rejected the webhook." }, { status: 400 });
+    } catch {
+      return NextResponse.json({ error: "Couldn't reach Telegram." }, { status: 502 });
+    }
+    const { error } = await supabase
+      .from("telegram_settings")
+      .update({ webhook_secret: secret, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, commandsEnabled: true });
+  }
+
+  if (action === "disable-commands") {
+    const { data } = await supabase.from("telegram_settings").select("bot_token").eq("user_id", userId).maybeSingle();
+    const token = (data as { bot_token?: string } | null)?.bot_token;
+    if (token) {
+      try {
+        await fetch(TG(token, "deleteWebhook"), { method: "POST", cache: "no-store" });
+      } catch {
+        /* ignore — clear the secret regardless */
+      }
+    }
+    await supabase
+      .from("telegram_settings")
+      .update({ webhook_secret: null, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    return NextResponse.json({ ok: true, commandsEnabled: false });
+  }
+
   if (action === "disconnect") {
+    // Best-effort: drop any webhook we set so the old bot stops calling us.
+    const { data } = await supabase.from("telegram_settings").select("bot_token").eq("user_id", userId).maybeSingle();
+    const token = (data as { bot_token?: string } | null)?.bot_token;
+    if (token) {
+      try {
+        await fetch(TG(token, "deleteWebhook"), { method: "POST", cache: "no-store" });
+      } catch {
+        /* ignore */
+      }
+    }
     const { error } = await supabase.from("telegram_settings").delete().eq("user_id", userId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });

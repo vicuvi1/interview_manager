@@ -10,6 +10,7 @@ import type { EventInput } from "@fullcalendar/core";
 import {
   Ban,
   CalendarPlus,
+  CalendarRange,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -137,6 +138,7 @@ export function AdminCalendarBoard({
   const [profiles, setProfiles] = useState<ProfileLite[]>(initialProfiles);
 
   const [add, setAdd] = useState<{ type: string; start: string; end: string } | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [manageRequest, setManageRequest] = useState<InterviewRequest | null>(null);
   const [slotDetail, setSlotDetail] = useState<AvailabilitySlot | null>(null);
   const [move, setMove] = useState<{
@@ -384,6 +386,9 @@ export function AdminCalendarBoard({
           <Button size="sm" variant="secondary" onClick={() => openAdd("event")}>
             <CalendarPlus className="h-4 w-4" /> Event
           </Button>
+          <Button size="sm" variant="secondary" onClick={() => setTemplateOpen(true)}>
+            <CalendarRange className="h-4 w-4" /> Template
+          </Button>
           <Button size="sm" onClick={() => openAdd("available")}>
             <Plus className="h-4 w-4" /> Availability
           </Button>
@@ -443,6 +448,10 @@ export function AdminCalendarBoard({
           onClose={() => setAdd(null)}
           onDone={load}
         />
+      ) : null}
+
+      {templateOpen ? (
+        <TemplateDialog adminId={adminId} onClose={() => setTemplateOpen(false)} onDone={load} />
       ) : null}
 
       {slotDetail ? (
@@ -606,6 +615,126 @@ function AddSlotDialog({
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button className="w-full" loading={busy} onClick={save}>
           Add to calendar
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const PRESETS: { label: string; days: number[] }[] = [
+  { label: "Weekdays", days: [1, 2, 3, 4, 5] },
+  { label: "Every day", days: [0, 1, 2, 3, 4, 5, 6] },
+  { label: "Weekends", days: [0, 6] },
+];
+
+function TemplateDialog({
+  adminId,
+  onClose,
+  onDone,
+}: {
+  adminId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleDay = (d: number) => setDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()));
+
+  async function save() {
+    if (!days.length) return setError("Pick at least one day.");
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    if (eh * 60 + em <= sh * 60 + sm) return setError("End time must be after start time.");
+    setBusy(true);
+    setError(null);
+
+    // For each chosen weekday, anchor to its next occurrence and make it weekly.
+    const now = new Date();
+    const rows = days.map((d) => {
+      const start = new Date(now);
+      const delta = (d - now.getDay() + 7) % 7;
+      start.setDate(now.getDate() + delta);
+      start.setHours(sh, sm, 0, 0);
+      const end = new Date(start);
+      end.setHours(eh, em, 0, 0);
+      return {
+        title: "Available",
+        slot_type: "available",
+        starts_at: start.toISOString(),
+        ends_at: end.toISOString(),
+        repeat_rule: "weekly",
+        is_booked: false,
+        created_by: adminId,
+      };
+    });
+
+    const supabase = createClient();
+    const { error: insertError } = await supabase.from("availability_slots").insert(rows);
+    if (insertError) {
+      setError(insertError.message);
+      setBusy(false);
+      return;
+    }
+    toast({ title: `Added weekly availability for ${days.length} day${days.length === 1 ? "" : "s"}`, variant: "success" });
+    setBusy(false);
+    onDone();
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Availability template" description="Lay down a repeating weekly schedule in one click.">
+      <div className="space-y-4">
+        <div>
+          <p className="mb-1.5 text-[12px] font-medium text-white/55">Quick pick</p>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => setDays(p.days)}
+                className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[12px] text-white/70 transition-colors hover:bg-white/[0.1]"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-[12px] font-medium text-white/55">Days</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DAY_LABELS.map((label, d) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => toggleDay(d)}
+                className={cn(
+                  "h-9 w-11 rounded-lg text-[12px] font-medium transition-colors",
+                  days.includes(d) ? "bg-[#6366f1]/20 text-[#c7d2fe] ring-1 ring-inset ring-[#6366f1]/40" : "bg-white/[0.04] text-white/50 hover:text-white/80",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Start time" htmlFor="tpl-start">
+            <Input id="tpl-start" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          </Field>
+          <Field label="End time" htmlFor="tpl-end">
+            <Input id="tpl-end" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </Field>
+        </div>
+        <p className="text-[11px] text-white/35">Creates a weekly-repeating available block for each selected day.</p>
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+        <Button className="w-full" loading={busy} onClick={save}>
+          Add weekly availability
         </Button>
       </div>
     </Dialog>
