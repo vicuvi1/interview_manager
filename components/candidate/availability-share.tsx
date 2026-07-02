@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, Clock, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Clock, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
@@ -100,27 +100,26 @@ export function AvailabilityShare({ userId, timezone }: { userId: string; timezo
         </div>
 
         {rows.length > 0 ? (
-          <ul className="space-y-2 border-t border-white/[0.06] pt-3">
+          <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-3">
             {rows.map((w) => (
-              <li key={w.id} className="group flex items-center gap-3 rounded-lg bg-white/[0.03] px-3.5 py-2.5">
-                <Clock className="h-4 w-4 shrink-0 text-[#a5b4fc]" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] text-white/80">
-                    {formatInTimeZone(w.starts_at, timezone)} — {formatInTimeZone(w.ends_at, timezone)}
-                  </p>
-                  {w.note ? <p className="truncate text-[11px] text-white/40">{w.note}</p> : null}
-                </div>
+              <span
+                key={w.id}
+                title={w.note ?? undefined}
+                className="inline-flex items-center gap-2 rounded-full border border-[#6366f1]/25 bg-[#6366f1]/[0.08] py-1.5 pl-3 pr-2 text-[12px] font-medium text-[#c7d2fe]"
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0 text-[#a5b4fc]" />
+                {formatInTimeZone(w.starts_at, timezone)} — {formatInTimeZone(w.ends_at, timezone)}
                 <button
                   type="button"
                   onClick={() => remove(w.id)}
-                  className="shrink-0 rounded-md p-1 text-white/30 opacity-0 transition hover:bg-white/[0.06] hover:text-[#f87171] group-hover:opacity-100"
+                  className="shrink-0 rounded-full p-0.5 text-white/40 transition hover:bg-white/[0.1] hover:text-[#f87171]"
                   aria-label="Remove window"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              </li>
+              </span>
             ))}
-          </ul>
+          </div>
         ) : null}
       </div>
     </SectionCard>

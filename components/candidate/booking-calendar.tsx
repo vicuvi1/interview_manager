@@ -194,7 +194,6 @@ export function BookingCalendar({
         start: new Date(Math.max(iv.s, now)),
         end: new Date(iv.e),
         display: "background",
-        backgroundColor: "rgba(34,197,94,0.55)",
         classNames: ["fc-free-slot"],
       });
     }
@@ -208,7 +207,6 @@ export function BookingCalendar({
         start: new Date(b.s),
         end: new Date(b.e),
         display: "background",
-        backgroundColor: "rgba(239,68,68,0.5)",
         classNames: ["fc-busy-block"],
       });
     }
@@ -221,15 +219,12 @@ export function BookingCalendar({
       const s = ms(at);
       const e = s + (r.duration_minutes || 30) * 60000;
       if (e < range.start || s > range.end) continue;
-      const tone = MINE_TONE[r.status] ?? MINE_TONE.pending;
       out.push({
         id: `mine-${r.id}`,
-        title: `${r.role} · ${r.status}`,
+        title: r.role,
         start: new Date(s),
         end: new Date(e),
-        backgroundColor: tone.bg,
-        borderColor: tone.border,
-        textColor: tone.text,
+        classNames: [`mine-${r.status}`],
         extendedProps: { own: true, rowId: r.id },
       });
     }
@@ -247,27 +242,6 @@ export function BookingCalendar({
 
   return (
     <div className="space-y-3">
-      {/* Clear green "Available" / red "Busy" bands with visible labels. */}
-      <style>{`
-        /* FullCalendar dims background events to 0.3 by default — force full strength. */
-        .fc-free-slot,.fc-busy-block{opacity:1!important;border-radius:8px;margin:0 3px;}
-        .fc-free-slot{
-          background:linear-gradient(180deg,rgba(34,197,94,0.30),rgba(34,197,94,0.20))!important;
-          box-shadow:inset 4px 0 0 #22c55e;
-        }
-        .fc-busy-block{
-          background:rgba(239,68,68,0.16)!important;
-          box-shadow:inset 4px 0 0 #ef4444;
-          background-image:repeating-linear-gradient(135deg,rgba(239,68,68,0.16) 0,rgba(239,68,68,0.16) 8px,rgba(239,68,68,0.05) 8px,rgba(239,68,68,0.05) 16px)!important;
-        }
-        .fc-free-slot .fc-event-title,.fc-busy-block .fc-event-title{
-          display:inline-flex;align-items:center;gap:5px;margin:5px 0 0 8px;
-          font-size:10.5px;font-weight:700;letter-spacing:.02em;
-          padding:2px 8px;border-radius:999px;font-style:normal;
-        }
-        .fc-free-slot .fc-event-title{color:#dcfce7;background:rgba(22,163,74,0.55);}
-        .fc-busy-block .fc-event-title{color:#fee2e2;background:rgba(220,38,38,0.5);}
-      `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center rounded-lg border border-white/10 bg-[#13131a]">
@@ -306,6 +280,20 @@ export function BookingCalendar({
           />
           <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 px-1 text-[12px] text-white/50">
+        {[
+          { c: "#10b981", l: "Available" },
+          { c: "#ef4444", l: "Busy" },
+          { c: "#f59e0b", l: "Your requests" },
+          { c: "#6366f1", l: "Scheduled" },
+        ].map((x) => (
+          <span key={x.l} className="inline-flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: x.c }} />
+            {x.l}
+          </span>
+        ))}
       </div>
 
       <Card className="p-3 sm:p-4">
@@ -376,15 +364,8 @@ export function BookingCalendar({
           <span className="inline-flex flex-wrap items-center gap-1.5">
             <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" />
             <span className="text-white/70">Drag over any time to request it</span> — you can ask for busy times too; the admin confirms.
-            <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
-            <span className="text-white/40">available</span>
-            <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#ef4444" }} />
-            <span className="text-white/40">busy</span>
-            <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
-            <span className="text-white/40">your requests</span>
           </span>
         )}
-        <span className="text-white/30">· Times in your local timezone</span>
       </div>
 
       {selected ? (

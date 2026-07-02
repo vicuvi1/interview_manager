@@ -37,10 +37,11 @@ export default async function BookInterviewPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-medium text-[#f0f0f5]">Book an interview</h1>
-        <p className="text-[12px] text-white/40">
+        <h1 className="text-[22px] font-medium text-[#f0f0f5]">Book an Interview</h1>
+        <p className="mt-0.5 text-[13px] text-white/40">
           Pick an open time from the calendar, or send a detailed request.
         </p>
+        <div className="mt-2.5 h-0.5 w-10 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]" />
       </div>
       <BookingModes userId={user.id} timezone={timezone} materials={materials} />
       <div className="mt-5 max-w-2xl">

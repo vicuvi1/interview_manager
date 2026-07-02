@@ -155,3 +155,119 @@
 .fc .fc-timegrid-now-indicator-arrow {
   display: none;
 }
+
+/* ==== Book Interview — calendar redesign (subtle, premium) ==== */
+.fc {
+  --fc-now-indicator-color: #6366f1;
+  --fc-today-bg-color: rgba(99, 102, 241, 0.05);
+}
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+.fc .fc-timegrid-slot {
+  border-color: rgba(255, 255, 255, 0.035) !important;
+}
+/* Column headers */
+.fc .fc-col-header-cell {
+  background: #13131a;
+}
+.fc .fc-col-header-cell-cushion {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+  text-decoration: none !important;
+}
+.fc .fc-day-today .fc-col-header-cell-cushion {
+  color: #a5b4fc !important;
+}
+/* Time labels */
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
+  color: rgba(255, 255, 255, 0.3);
+}
+/* Now indicator — indigo line + dot */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #6366f1 !important;
+  border-width: 2px 0 0 !important;
+  position: relative;
+}
+.fc .fc-timegrid-now-indicator-line::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #6366f1;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+
+/* Candidate's own events — subtle tint + left accent */
+.fc .fc-event.mine-pending {
+  background: rgba(245, 158, 11, 0.1) !important;
+  box-shadow: inset 3px 0 0 rgba(245, 158, 11, 0.65) !important;
+  color: #fbbf24 !important;
+}
+.fc .fc-event.mine-approved {
+  background: rgba(16, 185, 129, 0.1) !important;
+  box-shadow: inset 3px 0 0 rgba(16, 185, 129, 0.65) !important;
+  color: #34d399 !important;
+}
+.fc .fc-event.mine-scheduled {
+  background: rgba(99, 102, 241, 0.12) !important;
+  box-shadow: inset 3px 0 0 #6366f1 !important;
+  color: #a5b4fc !important;
+}
+
+/* Background events — Available / Busy (subtle) */
+.fc .fc-bg-event.fc-free-slot {
+  opacity: 1 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  background-image: none !important;
+  box-shadow: inset 4px 0 0 rgba(16, 185, 129, 0.6) !important;
+  border-radius: 6px;
+}
+.fc .fc-bg-event.fc-busy-block {
+  opacity: 1 !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  background-image: none !important;
+  box-shadow: inset 3px 0 0 rgba(239, 68, 68, 0.55) !important;
+  border-radius: 6px;
+}
+.fc .fc-free-slot .fc-event-title,
+.fc .fc-busy-block .fc-event-title {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 4px 8px !important;
+  margin: 0 !important;
+  font-style: normal !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+.fc .fc-free-slot .fc-event-title {
+  color: #34d399 !important;
+}
+.fc .fc-busy-block .fc-event-title {
+  color: #f87171 !important;
+}
+.fc .fc-busy-block .fc-event-title::before {
+  content: "🔒";
+  margin-right: 5px;
+  font-size: 9px;
+  opacity: 0.7;
+}
+/* Scrollbar */
+.fc-scroller::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.fc-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fc-scroller::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}

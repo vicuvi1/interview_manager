@@ -35,7 +35,7 @@ export function BookingModes({
 
   return (
     <div className="space-y-4">
-      <div className="inline-flex rounded-lg border border-white/[0.06] bg-[#0f0f13] p-1">
+      <div className="inline-flex rounded-[10px] border border-white/[0.08] bg-[#13131a] p-1">
         {tabs.map((t) => {
           const Icon = t.icon;
           return (
@@ -44,8 +44,8 @@ export function BookingModes({
               type="button"
               onClick={() => setMode(t.v)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-                mode === t.v ? "bg-[#1a1a24] text-[#f0f0f5]" : "text-white/40 hover:text-white/70",
+                "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors",
+                mode === t.v ? "bg-[#6366f1]/[0.15] text-[#a5b4fc]" : "text-white/40 hover:text-white/70",
               )}
             >
               <Icon className="h-4 w-4" /> {t.l}
