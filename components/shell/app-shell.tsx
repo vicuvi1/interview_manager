@@ -9,6 +9,7 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  ChevronRight,
   Database,
   CalendarPlus,
   CalendarRange,
@@ -208,10 +209,10 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
             <Menu className="h-4 w-4" />
           </button>
 
-          <nav className="hidden items-center gap-1.5 text-[12px] text-white/40 sm:flex">
-            <span>Home</span>
-            <span className="text-white/20">/</span>
-            <span className="text-white/70">{breadcrumb}</span>
+          <nav className="hidden items-center gap-1 text-[12px] sm:flex">
+            <span className="text-white/30">Home</span>
+            <ChevronRight className="h-3.5 w-3.5 text-white/20" />
+            <span className="font-medium text-[#f0f0f5]">{breadcrumb}</span>
           </nav>
 
           <button
