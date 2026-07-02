@@ -47,6 +47,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { useDebouncedCallback } from "@/lib/use-debounced";
 import { OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/feedback";
 import { METHOD_LABEL, PAYMENT_METHODS, PAYMENT_STATUS_TONE, formatAmount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/client";
@@ -132,19 +133,20 @@ export function CandidateDetail({
     }
   }, [candidate.id]);
 
+  const reload = useDebouncedCallback(load);
   useEffect(() => {
     const supabase = createClient();
     const filter = `candidate_id=eq.${candidate.id}`;
     const channel = supabase
       .channel(`candidate-${candidate.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests", filter }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidate_notes", filter }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests", filter }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidate_notes", filter }, reload)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [candidate.id, load]);
+  }, [candidate.id, reload]);
   useDataChanged("interviews", load);
 
   const kpis = useMemo(() => {

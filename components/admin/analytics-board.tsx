@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/admin/stat-card";
 import { completionRate, computeFunnel, lastMonths, statusCounts, sumPaid } from "@/lib/analytics";
 import { useDataChanged } from "@/lib/bus";
+import { useDebouncedCallback } from "@/lib/use-debounced";
 import { MONTH_NAMES, dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatAmount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/client";
@@ -47,6 +48,8 @@ export function AnalyticsBoard({
     if (fb) setFeedback(fb as InterviewFeedback[]);
   }, []);
 
+  const reload = useDebouncedCallback(load);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -55,14 +58,14 @@ export function AnalyticsBoard({
     const supabase = createClient();
     const channel = supabase
       .channel("admin-analytics")
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_feedback" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_feedback" }, reload)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [load]);
+  }, [reload]);
   useDataChanged("interviews", load);
 
   const total = requests.length;

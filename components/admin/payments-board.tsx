@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/admin/stat-card";
 import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
+import { useDebouncedCallback } from "@/lib/use-debounced";
 import { createClient } from "@/lib/supabase/client";
 import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
@@ -49,16 +50,17 @@ export function PaymentsBoard({
     if (profs) setProfiles(profs as ProfileLite[]);
   }, []);
 
+  const reload = useDebouncedCallback(load);
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
       .channel("admin-payments-board")
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, reload)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [load]);
+  }, [reload]);
   useDataChanged("interviews", load);
 
   const invoiced = useMemo(() => requests.filter((r) => r.price_cents != null), [requests]);

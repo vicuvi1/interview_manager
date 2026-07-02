@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
+import { useDebouncedCallback } from "@/lib/use-debounced";
 import { FORMAT_LABEL } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
@@ -119,16 +120,17 @@ export function RequestsConsole({
     if (sl) setSlots(sl as AvailabilitySlot[]);
   }, []);
 
+  const reload = useDebouncedCallback(load);
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
       .channel("admin-requests-console")
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, reload)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [load]);
+  }, [reload]);
   useDataChanged("interviews", load);
 
   const counts = useMemo(() => {

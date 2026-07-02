@@ -14,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
 import { FORMAT_LABEL, INTERVIEW_TYPES } from "@/lib/interview";
+import { autoMeetingLink } from "@/lib/meeting";
 import { createClient } from "@/lib/supabase/client";
 import {
   formatInTimeZone,
@@ -112,7 +113,7 @@ export function ManageRequestDialog({
   }, [request.candidate_id]);
 
   const defaultCents = stage ? pricing[stage] : undefined;
-  const [schedLink, setSchedLink] = useState(request.meeting_link ?? "");
+  const [schedLink, setSchedLink] = useState(request.meeting_link ?? autoMeetingLink(request.id));
   const [scheduling, setScheduling] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [proposedBusy, setProposedBusy] = useState<string | null>(null);
@@ -201,7 +202,7 @@ export function ManageRequestDialog({
       .from("interview_requests")
       .update({
         scheduled_at: scheduledUtc,
-        meeting_link: schedLink.trim() || null,
+        meeting_link: schedLink.trim() || autoMeetingLink(request.id),
         duration_minutes: schedDuration,
         status: "scheduled",
         ...(autoInvoice ? { price_cents: autoInvoice, currency: "USD" } : {}),
@@ -390,7 +391,11 @@ export function ManageRequestDialog({
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from("interview_requests")
-      .update({ status: "scheduled", scheduled_at: request.preferred_at })
+      .update({
+        status: "scheduled",
+        scheduled_at: request.preferred_at,
+        meeting_link: request.meeting_link || autoMeetingLink(request.id),
+      })
       .eq("id", request.id);
     if (updateError) {
       setError(updateError.message);
@@ -417,7 +422,12 @@ export function ManageRequestDialog({
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from("interview_requests")
-      .update({ scheduled_at: request.proposed_at, proposed_at: null, status: "scheduled" })
+      .update({
+        scheduled_at: request.proposed_at,
+        proposed_at: null,
+        status: "scheduled",
+        meeting_link: request.meeting_link || autoMeetingLink(request.id),
+      })
       .eq("id", request.id);
     if (updateError) {
       setError(updateError.message);
@@ -666,7 +676,7 @@ export function ManageRequestDialog({
                 </div>
               </Field>
             </div>
-            <Field label="Meeting link" htmlFor="schedLink" hint="Optional — shared with the candidate.">
+            <Field label="Meeting link" htmlFor="schedLink" hint="Auto-created (free video room) — or paste your own.">
               <div className="flex items-center gap-1.5">
                 <Input
                   id="schedLink"

@@ -23,6 +23,7 @@ import { useToast } from "@/components/ui/toast";
 import { MONTH_NAMES, dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { METHOD_LABEL, PAYMENT_METHODS, PAYMENT_STATUS_TONE, formatAmount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/client";
+import { useDebouncedCallback } from "@/lib/use-debounced";
 import { formatInTimeZone } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
 import type { CandidateLite, Payment, ProfileLite } from "@/lib/types";
@@ -70,16 +71,17 @@ export function RevenueBoard({
     if (profs) setProfiles(profs as ProfileLite[]);
   }, []);
 
+  const reload = useDebouncedCallback(load);
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
       .channel("admin-revenue")
-      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, reload)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [load]);
+  }, [reload]);
 
   const monthKey = todayKeyInTimeZone(adminTimezone).slice(0, 7);
   const lastMonthKey = prevMonth(monthKey);
