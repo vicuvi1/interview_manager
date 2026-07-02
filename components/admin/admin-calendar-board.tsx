@@ -235,6 +235,8 @@ export function AdminCalendarBoard({
     await supabase.from("profiles").update({ calendar_color: color }).eq("id", id);
   }, []);
 
+  const gotoDate = useCallback((d: Date) => calendarRef.current?.getApi()?.gotoDate(d), []);
+
   const persistHidden = (next: Set<string>) => {
     try {
       window.localStorage.setItem("admin-cal-hidden-users", JSON.stringify(Array.from(next)));
@@ -299,6 +301,8 @@ export function AdminCalendarBoard({
       if (!at) continue;
       const start = new Date(at);
       const end = new Date(start.getTime() + (r.duration_minutes ?? 30) * 60000);
+      // Only feed FullCalendar events in the visible window — keeps it light.
+      if (range && (end.getTime() < range.start || start.getTime() > range.end)) continue;
       const style = INTERVIEW_STYLES[r.status] ?? INTERVIEW_STYLES.pending;
       // Color priority: per-request tag → per-user calendar color → status color.
       const tint = r.color ?? userColors[r.candidate_id] ?? null;
@@ -541,7 +545,7 @@ export function AdminCalendarBoard({
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <aside className="hidden w-56 shrink-0 space-y-4 lg:block">
-          <MiniMonth selected={currentDate} weekStart={prefs.weekStart} onPick={(d) => api()?.gotoDate(d)} />
+          <MiniMonth selected={currentDate} weekStart={prefs.weekStart} onPick={gotoDate} />
           <CalendarPeople
             people={people}
             hidden={hiddenUsers}

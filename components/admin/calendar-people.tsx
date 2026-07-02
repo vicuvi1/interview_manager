@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 
 import { ColorPicker } from "@/components/ui/color-picker";
 import { EVENT_COLORS } from "@/lib/colors";
@@ -13,7 +13,7 @@ export interface CalPerson {
 }
 
 /** Google-Calendar-style list: per-candidate show/hide checkbox + custom color. */
-export function CalendarPeople({
+function CalendarPeopleImpl({
   people,
   hidden,
   onToggle,
@@ -98,3 +98,5 @@ export function CalendarPeople({
     </div>
   );
 }
+
+export const CalendarPeople = memo(CalendarPeopleImpl);

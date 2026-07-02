@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ function sameDay(a: Date, b: Date): boolean {
 }
 
 /** A compact clickable month grid (Google-style date navigator). */
-export function MiniMonth({
+function MiniMonthImpl({
   selected,
   weekStart = 0,
   onPick,
@@ -96,3 +96,5 @@ export function MiniMonth({
     </div>
   );
 }
+
+export const MiniMonth = memo(MiniMonthImpl);

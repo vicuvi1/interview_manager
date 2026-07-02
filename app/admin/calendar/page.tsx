@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { AdminCalendarBoard } from "@/components/admin/admin-calendar-board";
+import { AdminCalendarLoader } from "@/components/admin/admin-calendar-loader";
 import { createClient } from "@/lib/supabase/server";
 import type { AvailabilitySlot, InterviewRequest, Profile, ProfileLite } from "@/lib/types";
 
@@ -37,7 +37,7 @@ export default async function AdminCalendarPage() {
           </p>
         </div>
       </div>
-      <AdminCalendarBoard
+      <AdminCalendarLoader
         adminId={user.id}
         adminTimezone={me?.timezone ?? "UTC"}
         initialRequests={(requestsResult.data as InterviewRequest[] | null) ?? []}
