@@ -98,6 +98,7 @@ export interface ProfileLite {
   blocked?: boolean;
   stage?: string | null;
   tags?: string[] | null;
+  calendar_color?: string | null;
   created_at: string;
 }
 

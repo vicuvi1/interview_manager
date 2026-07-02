@@ -21,6 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { CalendarPeople } from "@/components/admin/calendar-people";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { MiniMonth } from "@/components/admin/mini-month";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +159,7 @@ export function AdminCalendarBoard({
   const [templateOpen, setTemplateOpen] = useState(false);
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+  const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
 
   const savePref = (patch: Partial<CalendarPrefs>) => {
     setPrefs((p) => {
@@ -179,6 +181,12 @@ export function AdminCalendarBoard({
   useEffect(() => {
     setMounted(true);
     setPrefs(loadPrefs());
+    try {
+      const raw = window.localStorage.getItem("admin-cal-hidden-users");
+      if (raw) setHiddenUsers(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const candidates = useMemo(() => {
@@ -191,12 +199,48 @@ export function AdminCalendarBoard({
     [candidates],
   );
 
+  // Per-user (candidate) calendar colors, Google-style.
+  const userColors = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const p of profiles) map[p.id] = p.calendar_color ?? null;
+    return map;
+  }, [profiles]);
+
+  // The candidate "calendars" list: everyone who has an interview.
+  const people = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of requests) if (r.candidate_id) ids.add(r.candidate_id);
+    return Array.from(ids)
+      .map((id) => ({ id, name: candName(id), color: userColors[id] ?? null }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [requests, candName, userColors]);
+
+  const toggleUser = useCallback((id: string) => {
+    setHiddenUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        window.localStorage.setItem("admin-cal-hidden-users", JSON.stringify(Array.from(next)));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const setUserColor = useCallback(async (id: string, color: string | null) => {
+    setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, calendar_color: color } : p)));
+    const supabase = createClient();
+    await supabase.from("profiles").update({ calendar_color: color }).eq("id", id);
+  }, []);
+
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: reqs }, { data: sl }, { data: profs }] = await Promise.all([
       supabase.from("interview_requests").select("*"),
       supabase.from("availability_slots").select("*"),
-      supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+      supabase.from("profiles").select("id, full_name, email, timezone, role, created_at, calendar_color"),
     ]);
     if (reqs) setRequests(reqs as InterviewRequest[]);
     if (sl) setSlots(sl as AvailabilitySlot[]);
@@ -204,6 +248,7 @@ export function AdminCalendarBoard({
   }, []);
 
   useEffect(() => {
+    load();
     const supabase = createClient();
     const channel = supabase
       .channel("admin-calendar-board")
@@ -221,21 +266,22 @@ export function AdminCalendarBoard({
     for (const r of requests) {
       if (r.status === "cancelled" || r.status === "rejected") continue;
       if (prefs.hiddenStatuses.includes(r.status)) continue;
+      if (hiddenUsers.has(r.candidate_id)) continue; // person's calendar toggled off
       const at = r.scheduled_at ?? r.preferred_at;
       if (!at) continue;
       const start = new Date(at);
       const end = new Date(start.getTime() + (r.duration_minutes ?? 30) * 60000);
       const style = INTERVIEW_STYLES[r.status] ?? INTERVIEW_STYLES.pending;
+      // Color priority: per-request tag → per-user calendar color → status color.
+      const tint = r.color ?? userColors[r.candidate_id] ?? null;
       out.push({
         id: `iv:${r.id}`,
         title: `${candName(r.candidate_id)} · ${r.role}${r.status !== "scheduled" ? ` (${r.status})` : ""}`,
         start,
         end,
         editable: r.status === "scheduled",
-        // Custom color (if the candidate/admin tagged it) fills the event; the
-        // status still shows as the border + the "(status)" suffix in the title.
-        backgroundColor: r.color ? colorBg(r.color, 0.32) : style.bg,
-        borderColor: r.color ?? style.border,
+        backgroundColor: tint ? colorBg(tint, 0.32) : style.bg,
+        borderColor: tint ?? style.border,
         textColor: style.text,
         extendedProps: { kind: "interview", requestId: r.id },
       });
@@ -268,7 +314,7 @@ export function AdminCalendarBoard({
       }
     }
     return out;
-  }, [requests, slots, range, candName, prefs.hiddenStatuses]);
+  }, [requests, slots, range, candName, prefs.hiddenStatuses, hiddenUsers, userColors]);
 
   const api = () => calendarRef.current?.getApi();
   const nav = (dir: "prev" | "next" | "today") => {
@@ -466,8 +512,9 @@ export function AdminCalendarBoard({
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row">
-        <aside className="hidden w-56 shrink-0 lg:block">
+        <aside className="hidden w-56 shrink-0 space-y-4 lg:block">
           <MiniMonth selected={currentDate} weekStart={prefs.weekStart} onPick={(d) => api()?.gotoDate(d)} />
+          <CalendarPeople people={people} hidden={hiddenUsers} onToggle={toggleUser} onColor={setUserColor} />
         </aside>
         <Card className="min-w-0 flex-1 p-3 sm:p-4">
           <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 1.5}em` } as CSSProperties}>
