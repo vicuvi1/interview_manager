@@ -42,6 +42,8 @@ interface MyRow {
   scheduled_at: string | null;
   preferred_at: string | null;
   duration_minutes: number;
+  meeting_link: string | null;
+  interview_type: string | null;
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
@@ -72,6 +74,7 @@ export function BookingCalendar({
   const [mine, setMine] = useState<MyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
+  const [detail, setDetail] = useState<MyRow | null>(null);
   const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
 
@@ -115,7 +118,7 @@ export function BookingCalendar({
         p_from: new Date(from).toISOString(),
         p_to: new Date(to).toISOString(),
       }),
-      supabase.from("interview_requests").select("id, role, status, scheduled_at, preferred_at, duration_minutes"),
+      supabase.from("interview_requests").select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type"),
     ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
     setMine((mineRows as MyRow[]) ?? []);
@@ -202,7 +205,7 @@ export function BookingCalendar({
         backgroundColor: tone.bg,
         borderColor: tone.border,
         textColor: tone.text,
-        extendedProps: { own: true },
+        extendedProps: { own: true, rowId: r.id },
       });
     }
     return out;
@@ -303,8 +306,13 @@ export function BookingCalendar({
               });
             }}
             eventClick={(info) => {
-              const p = info.event.extendedProps as { startISO?: string; dur?: number };
-              if (p.startISO) setSelected({ startISO: p.startISO, dur: p.dur ?? 30 });
+              const p = info.event.extendedProps as { startISO?: string; dur?: number; rowId?: string };
+              if (p.rowId) {
+                const row = mine.find((m) => m.id === p.rowId);
+                if (row) setDetail(row);
+              } else if (p.startISO) {
+                setSelected({ startISO: p.startISO, dur: p.dur ?? 30 });
+              }
             }}
             select={(info) => {
               api()?.unselect();
@@ -358,6 +366,53 @@ export function BookingCalendar({
               if (range) load(range.start, range.end);
             }}
           />
+        </Dialog>
+      ) : null}
+
+      {detail ? (
+        <Dialog open onClose={() => setDetail(null)} title={detail.role} description={detail.interview_type ?? "Your interview"}>
+          <div className="space-y-3 text-[13px]">
+            <div className="flex items-center gap-2">
+              <span
+                className="rounded-full px-2 py-0.5 text-[12px] font-medium capitalize"
+                style={{
+                  backgroundColor: (MINE_TONE[detail.status] ?? MINE_TONE.pending).bg,
+                  color: (MINE_TONE[detail.status] ?? MINE_TONE.pending).text,
+                }}
+              >
+                {detail.status}
+              </span>
+              <span className="text-white/50">{detail.duration_minutes} min</span>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-white/40">
+                {detail.scheduled_at ? "Scheduled" : "Requested time"}
+              </p>
+              <p className="mt-0.5 font-medium text-[#f0f0f5]">
+                {formatInTimeZone(detail.scheduled_at ?? detail.preferred_at, timezone)}
+              </p>
+            </div>
+            {detail.meeting_link ? (
+              <a
+                href={detail.meeting_link}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#5457e5]"
+              >
+                Join meeting
+              </a>
+            ) : (
+              <p className="text-[12px] text-white/40">
+                {detail.status === "pending"
+                  ? "Waiting for the admin to confirm this time."
+                  : "The meeting link will appear here once it's added."}
+              </p>
+            )}
+            <p className="rounded-lg bg-white/[0.03] px-3 py-2 text-[12px] text-white/45">
+              Manage this interview (cancel, reschedule, feedback) from{" "}
+              <span className="text-white/70">My interviews</span>.
+            </p>
+          </div>
         </Dialog>
       ) : null}
     </div>
