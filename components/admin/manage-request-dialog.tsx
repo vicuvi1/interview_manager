@@ -468,6 +468,10 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Duration</dt>
             <dd className="text-white/80">{request.duration_minutes} min</dd>
           </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-white/40">Candidate timezone</dt>
+            <dd className="text-white/80">{candTz}</dd>
+          </div>
           {request.interview_type ? (
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-white/40">Type</dt>

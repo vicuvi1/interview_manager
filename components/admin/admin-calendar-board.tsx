@@ -6,6 +6,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
 import {
   Ban,
@@ -29,6 +30,8 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
+import { CalendarSettings } from "@/components/calendar-settings";
 import { colorBg } from "@/lib/colors";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
@@ -67,14 +70,15 @@ const SLOT_LABEL: Record<string, string> = {
   event: "Event",
 };
 
+// key = interview status OR slot_type; used for the clickable filter legend.
 const LEGEND = [
-  { color: "#f59e0b", label: "Pending" },
-  { color: "#10b981", label: "Approved" },
-  { color: "#6366f1", label: "Scheduled" },
-  { color: "rgba(255,255,255,0.3)", label: "Completed" },
-  { color: "rgba(16,185,129,0.45)", label: "Available" },
-  { color: "rgba(255,255,255,0.3)", label: "Blocked" },
-  { color: "#8b5cf6", label: "Event" },
+  { key: "pending", color: "#f59e0b", label: "Pending" },
+  { key: "approved", color: "#10b981", label: "Approved" },
+  { key: "scheduled", color: "#6366f1", label: "Scheduled" },
+  { key: "completed", color: "rgba(255,255,255,0.3)", label: "Completed" },
+  { key: "available", color: "rgba(16,185,129,0.45)", label: "Available" },
+  { key: "busy", color: "rgba(255,255,255,0.3)", label: "Blocked" },
+  { key: "event", color: "#8b5cf6", label: "Event" },
 ];
 
 const DAY = 86400000;
@@ -139,6 +143,7 @@ export function AdminCalendarBoard({
 
   const [add, setAdd] = useState<{ type: string; start: string; end: string } | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [manageRequest, setManageRequest] = useState<InterviewRequest | null>(null);
   const [slotDetail, setSlotDetail] = useState<AvailabilitySlot | null>(null);
   const [move, setMove] = useState<{
@@ -148,7 +153,10 @@ export function AdminCalendarBoard({
     revert: () => void;
   } | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    setPrefs(loadPrefs());
+  }, []);
 
   const candidates = useMemo(() => {
     const map: Record<string, CandidateLite> = {};
@@ -189,6 +197,7 @@ export function AdminCalendarBoard({
     const out: EventInput[] = [];
     for (const r of requests) {
       if (r.status === "cancelled" || r.status === "rejected") continue;
+      if (prefs.hiddenStatuses.includes(r.status)) continue;
       const at = r.scheduled_at ?? r.preferred_at;
       if (!at) continue;
       const start = new Date(at);
@@ -210,6 +219,7 @@ export function AdminCalendarBoard({
     }
     if (range) {
       for (const s of slots) {
+        if (prefs.hiddenStatuses.includes(s.slot_type)) continue;
         const style = SLOT_STYLES[s.slot_type] ?? SLOT_STYLES.event;
         const occ = expandRecurring(
           new Date(s.starts_at).getTime(),
@@ -235,7 +245,7 @@ export function AdminCalendarBoard({
       }
     }
     return out;
-  }, [requests, slots, range, candName]);
+  }, [requests, slots, range, candName, prefs.hiddenStatuses]);
 
   const api = () => calendarRef.current?.getApi();
   const nav = (dir: "prev" | "next" | "today") => {
@@ -380,6 +390,7 @@ export function AdminCalendarBoard({
               </button>
             ))}
           </div>
+          <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
           <Button size="sm" variant="secondary" onClick={() => openAdd("busy")}>
             <Ban className="h-4 w-4" /> Block
           </Button>
@@ -399,8 +410,9 @@ export function AdminCalendarBoard({
         {mounted ? (
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxonPlugin]}
             initialView="timeGridWeek"
+            timeZone={prefs.timeZone}
             headerToolbar={false}
             height={660}
             nowIndicator
@@ -411,8 +423,12 @@ export function AdminCalendarBoard({
             slotDuration="00:30:00"
             snapDuration="00:05:00"
             dayMaxEvents={3}
-            scrollTime="08:00:00"
-            eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+            firstDay={prefs.weekStart}
+            slotMinTime={hourStr(prefs.dayStart)}
+            slotMaxTime={hourStr(prefs.dayEnd)}
+            scrollTime={hourStr(prefs.dayStart)}
+            eventTimeFormat={timeFormat(prefs.hour12)}
+            slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
             datesSet={onDatesSet}
             select={onSelect}
@@ -425,14 +441,36 @@ export function AdminCalendarBoard({
         )}
       </Card>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-[12px] text-white/50">
-        {LEGEND.map((l) => (
-          <span key={l.label} className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
-            {l.label}
-          </span>
-        ))}
-        <span className="text-white/30">· Times shown in your local timezone</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-1 text-[12px] text-white/50">
+        <span className="text-white/30">Show:</span>
+        {LEGEND.map((l) => {
+          const hidden = prefs.hiddenStatuses.includes(l.key);
+          return (
+            <button
+              key={l.key}
+              type="button"
+              onClick={() => {
+                const next = {
+                  ...prefs,
+                  hiddenStatuses: hidden
+                    ? prefs.hiddenStatuses.filter((s) => s !== l.key)
+                    : [...prefs.hiddenStatuses, l.key],
+                };
+                setPrefs(next);
+                savePrefs(next);
+              }}
+              title={hidden ? `Show ${l.label}` : `Hide ${l.label}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors hover:bg-white/[0.06]",
+                hidden && "opacity-40",
+              )}
+            >
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
+              <span className={cn(hidden && "line-through")}>{l.label}</span>
+            </button>
+          );
+        })}
+        <span className="text-white/30">· Times in {prefs.timeZone === "local" ? "your local zone" : prefs.timeZone}</span>
       </div>
 
       <p className="px-1 text-[12px] text-white/40">

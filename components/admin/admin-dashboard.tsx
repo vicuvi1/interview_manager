@@ -102,7 +102,8 @@ export function AdminDashboard({
   const lastMonth = prevMonth(thisMonth);
 
   const stats = useMemo(() => {
-    let ivThis = 0, ivLast = 0, revThis = 0, revLast = 0, pending = 0, pendingToday = 0;
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    let ivThis = 0, ivLast = 0, revThis = 0, revLast = 0, revToday = 0, rev7d = 0, pending = 0, pendingToday = 0;
     for (const r of requests) {
       if (r.status === "pending") {
         pending++;
@@ -114,9 +115,13 @@ export function AdminDashboard({
         else if (mk === lastMonth) ivLast++;
       }
       if (r.payment_status === "paid" && r.paid_at) {
-        const mk = dateKeyInTimeZone(r.paid_at, adminTimezone).slice(0, 7);
-        if (mk === thisMonth) revThis += r.price_cents ?? 0;
-        else if (mk === lastMonth) revLast += r.price_cents ?? 0;
+        const cents = r.price_cents ?? 0;
+        const dk = dateKeyInTimeZone(r.paid_at, adminTimezone);
+        const mk = dk.slice(0, 7);
+        if (mk === thisMonth) revThis += cents;
+        else if (mk === lastMonth) revLast += cents;
+        if (dk === todayKey) revToday += cents;
+        if (new Date(r.paid_at).getTime() >= weekAgo) rev7d += cents;
       }
     }
     let cand = 0, candNew = 0;
@@ -126,7 +131,7 @@ export function AdminDashboard({
         if (p.created_at && dateKeyInTimeZone(p.created_at, adminTimezone).slice(0, 7) === thisMonth) candNew++;
       }
     }
-    return { ivThis, ivLast, revThis, revLast, pending, pendingToday, cand, candNew };
+    return { ivThis, ivLast, revThis, revLast, revToday, rev7d, pending, pendingToday, cand, candNew };
   }, [requests, profiles, adminTimezone, todayKey, thisMonth, lastMonth]);
 
   const attention = useMemo(() => {
@@ -263,7 +268,28 @@ export function AdminDashboard({
       ) : null}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <Kpi
+          label="Collected today"
+          value={formatMoney(stats.revToday)}
+          icon={Wallet}
+          tone="green"
+          trend={{ text: "paid today", dir: stats.revToday > 0 ? "up" : "flat" }}
+        />
+        <Kpi
+          label="Collected (last 7 days)"
+          value={formatMoney(stats.rev7d)}
+          icon={Wallet}
+          tone="green"
+          trend={{ text: "rolling 7 days", dir: stats.rev7d > 0 ? "up" : "flat" }}
+        />
+        <Kpi
+          label="Revenue this month"
+          value={formatMoney(stats.revThis)}
+          icon={Wallet}
+          tone="green"
+          trend={pct(stats.revThis, stats.revLast)}
+        />
         <Kpi
           label="Interviews this month"
           value={String(stats.ivThis)}
@@ -277,13 +303,6 @@ export function AdminDashboard({
           icon={Clock}
           tone="amber"
           trend={{ text: `+${stats.pendingToday} today`, dir: stats.pendingToday > 0 ? "up" : "flat" }}
-        />
-        <Kpi
-          label="Revenue this month"
-          value={formatMoney(stats.revThis)}
-          icon={Wallet}
-          tone="green"
-          trend={pct(stats.revThis, stats.revLast)}
         />
         <Kpi
           label="Total candidates"

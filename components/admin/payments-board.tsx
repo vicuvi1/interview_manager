@@ -72,13 +72,20 @@ export function PaymentsBoard({
   const paidList = showHidden ? paid : paidVisible;
 
   const kpis = useMemo(() => {
-    const month = todayKeyInTimeZone(adminTimezone).slice(0, 7);
-    let outstanding = 0, collectedMonth = 0;
+    const todayKey = todayKeyInTimeZone(adminTimezone);
+    const month = todayKey.slice(0, 7);
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    let outstanding = 0, collectedMonth = 0, collectedToday = 0, collected7d = 0;
     for (const r of awaiting) outstanding += r.price_cents ?? 0;
     for (const r of paid) {
-      if (r.paid_at && dateKeyInTimeZone(r.paid_at, adminTimezone).slice(0, 7) === month) collectedMonth += r.price_cents ?? 0;
+      if (!r.paid_at) continue;
+      const cents = r.price_cents ?? 0;
+      const dk = dateKeyInTimeZone(r.paid_at, adminTimezone);
+      if (dk.slice(0, 7) === month) collectedMonth += cents;
+      if (dk === todayKey) collectedToday += cents;
+      if (new Date(r.paid_at).getTime() >= weekAgo) collected7d += cents;
     }
-    return { outstanding, collectedMonth };
+    return { outstanding, collectedMonth, collectedToday, collected7d };
   }, [awaiting, paid, adminTimezone]);
 
   async function markPaid(r: InterviewRequest) {
@@ -148,9 +155,11 @@ export function PaymentsBoard({
         <p className="text-[12px] text-white/40">Collections — who owes what, and what&apos;s been paid.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Outstanding" value={formatMoney(kpis.outstanding)} icon={Clock} tone={kpis.outstanding > 0 ? "amber" : "slate"} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatCard label="Collected today" value={formatMoney(kpis.collectedToday)} icon={Wallet} tone="green" />
+        <StatCard label="Collected (last 7 days)" value={formatMoney(kpis.collected7d)} icon={Wallet} tone="green" />
         <StatCard label="Collected this month" value={formatMoney(kpis.collectedMonth)} icon={Wallet} tone="green" />
+        <StatCard label="Outstanding" value={formatMoney(kpis.outstanding)} icon={Clock} tone={kpis.outstanding > 0 ? "amber" : "slate"} />
         <StatCard label="Awaiting payment" value={awaiting.length} icon={CreditCard} tone="red" />
         <StatCard label="Paid invoices" value={paid.length} icon={CheckCircle2} tone="indigo" />
       </div>

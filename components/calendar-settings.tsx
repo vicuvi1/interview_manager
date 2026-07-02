@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Settings2 } from "lucide-react";
 
-import { type CalendarPrefs, timezoneList } from "@/lib/calendar-prefs";
+import { type CalendarPrefs, DEFAULT_PREFS, timezoneList } from "@/lib/calendar-prefs";
 import { cn } from "@/lib/utils";
 
 function hourLabel(h: number): string {
@@ -95,6 +95,14 @@ export function CalendarSettings({
               <HourSelect value={value.dayEnd} min={value.dayStart + 1} max={24} onPick={(h) => set({ dayEnd: h })} />
             </Row>
           </div>
+
+          <button
+            type="button"
+            onClick={() => onChange({ ...DEFAULT_PREFS, timeZone: value.timeZone, hiddenStatuses: value.hiddenStatuses })}
+            className="mt-3 w-full rounded-lg border border-white/10 py-1.5 text-[12px] text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+          >
+            Reset to defaults
+          </button>
         </div>
       ) : null}
     </div>
