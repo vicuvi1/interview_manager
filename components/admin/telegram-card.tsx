@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle2, Loader2, Send, Unplug } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Loader2, Send, Unplug } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { createClient } from "@/lib/supabase/client";
 
 interface Status {
   hasToken: boolean;
@@ -92,6 +93,20 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
     setBusy(null);
     if (r.error) return toast({ title: "Test failed", description: r.error, variant: "error" });
     toast({ title: "Test message sent", description: "Check Telegram.", variant: "success" });
+  }
+
+  // End-to-end: creates a real notification (bell + Telegram-forward + email).
+  async function testPipeline() {
+    setBusy("pipeline");
+    const supabase = createClient();
+    const { error } = await supabase.rpc("send_self_test_notification");
+    setBusy(null);
+    if (error) return toast({ title: "Couldn't send", description: error.message, variant: "error" });
+    toast({
+      title: "Test notification sent",
+      description: "Check your Telegram and the in-app bell.",
+      variant: "success",
+    });
   }
 
   async function toggleCommands() {
@@ -232,10 +247,18 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
             <Button variant="secondary" loading={busy === "test"} disabled={busy !== null} onClick={test}>
               <Send className="h-4 w-4" /> Send test
             </Button>
+            <Button variant="secondary" loading={busy === "pipeline"} disabled={busy !== null} onClick={testPipeline}>
+              <BellRing className="h-4 w-4" /> Test a notification
+            </Button>
             <Button variant="ghost" disabled={busy !== null} onClick={disconnect}>
               <Unplug className="h-4 w-4" /> Disconnect
             </Button>
           </div>
+          <p className="text-[11px] text-white/40">
+            <span className="text-white/60">Send test</span> checks the bot connection.{" "}
+            <span className="text-white/60">Test a notification</span> fires a real notification through the whole
+            pipeline — if it reaches Telegram, everything works.
+          </p>
 
           <p className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/40">
             {isCandidate

@@ -193,7 +193,7 @@ export function BookingCalendar({
         start: new Date(Math.max(iv.s, now)),
         end: new Date(iv.e),
         display: "background",
-        backgroundColor: "rgba(34,197,94,0.38)",
+        backgroundColor: "rgba(34,197,94,0.55)",
         classNames: ["fc-free-slot"],
       });
     }
@@ -207,7 +207,7 @@ export function BookingCalendar({
         start: new Date(b.s),
         end: new Date(b.e),
         display: "background",
-        backgroundColor: "rgba(239,68,68,0.34)",
+        backgroundColor: "rgba(239,68,68,0.5)",
         classNames: ["fc-busy-block"],
       });
     }
@@ -248,14 +248,16 @@ export function BookingCalendar({
     <div className="space-y-3">
       {/* Clear green "Available" / red "Busy" bands with visible labels. */}
       <style>{`
-        .fc-free-slot{box-shadow:inset 4px 0 0 #22c55e;}
-        .fc-busy-block{box-shadow:inset 4px 0 0 #ef4444;}
+        /* FullCalendar dims background events to 0.3 by default — force full strength. */
+        .fc-free-slot,.fc-busy-block{opacity:1!important;}
+        .fc-free-slot{box-shadow:inset 5px 0 0 #16a34a;}
+        .fc-busy-block{box-shadow:inset 5px 0 0 #dc2626;}
         .fc-free-slot .fc-event-title,.fc-busy-block .fc-event-title{
-          font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
-          padding:2px 6px;opacity:1;font-style:normal;
+          font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+          padding:3px 7px;opacity:1;font-style:normal;
         }
-        .fc-free-slot .fc-event-title{color:#86efac;}
-        .fc-busy-block .fc-event-title{color:#fecaca;}
+        .fc-free-slot .fc-event-title{color:#dcfce7;}
+        .fc-busy-block .fc-event-title{color:#fee2e2;}
       `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
