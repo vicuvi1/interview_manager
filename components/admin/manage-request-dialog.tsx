@@ -13,7 +13,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
-import { FORMAT_LABEL } from "@/lib/interview";
+import { FORMAT_LABEL, INTERVIEW_TYPES } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import {
   formatInTimeZone,
@@ -79,7 +79,11 @@ export function ManageRequestDialog({
   const [schedAt, setSchedAt] = useState(
     request.scheduled_at ? utcToLocalInput(request.scheduled_at, adminTimezone) : "",
   );
+  const STD_DURATIONS = [15, 30, 45, 60, 90];
   const [schedDuration, setSchedDuration] = useState(request.duration_minutes);
+  const [customDur, setCustomDur] = useState(!STD_DURATIONS.includes(request.duration_minutes));
+  const [stage, setStage] = useState(request.interview_type ?? "");
+  const [savingStage, setSavingStage] = useState(false);
   const [schedLink, setSchedLink] = useState(request.meeting_link ?? "");
   const [scheduling, setScheduling] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -283,6 +287,22 @@ export function ManageRequestDialog({
     onClose();
   }
 
+  async function saveStage(next: string) {
+    setStage(next);
+    setSavingStage(true);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ interview_type: next || null })
+      .eq("id", request.id);
+    setSavingStage(false);
+    if (updateError) {
+      toast({ title: "Couldn't update stage", description: updateError.message, variant: "error" });
+      return;
+    }
+    notifyChanged("interviews");
+  }
+
   async function saveColor(next: string | null) {
     setColor(next);
     setSavingColor(true);
@@ -459,17 +479,38 @@ export function ManageRequestDialog({
                 />
               </Field>
               <Field label="Duration" htmlFor="schedDur">
-                <Select
-                  id="schedDur"
-                  value={schedDuration}
-                  onChange={(e) => setSchedDuration(Number(e.target.value))}
-                >
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes</option>
-                  <option value={45}>45 minutes</option>
-                  <option value={60}>60 minutes</option>
-                  <option value={90}>90 minutes</option>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    id="schedDur"
+                    value={customDur ? "custom" : String(schedDuration)}
+                    onChange={(e) => {
+                      if (e.target.value === "custom") {
+                        setCustomDur(true);
+                      } else {
+                        setCustomDur(false);
+                        setSchedDuration(Number(e.target.value));
+                      }
+                    }}
+                  >
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">60 minutes</option>
+                    <option value="90">90 minutes</option>
+                    <option value="custom">Custom…</option>
+                  </Select>
+                  {customDur ? (
+                    <Input
+                      type="number"
+                      min={5}
+                      max={480}
+                      value={schedDuration}
+                      onChange={(e) => setSchedDuration(Math.max(5, Math.min(480, Number(e.target.value) || 5)))}
+                      className="w-24"
+                      aria-label="Custom minutes"
+                    />
+                  ) : null}
+                </div>
               </Field>
             </div>
             <Field label="Meeting link" htmlFor="schedLink" hint="Optional — shared with the candidate.">
@@ -544,6 +585,20 @@ export function ManageRequestDialog({
               </p>
             </>
           )}
+        </div>
+
+        <div className="space-y-2 border-t border-white/[0.06] pt-4">
+          <p className="text-[13px] font-medium text-white/80">
+            Stage / type {savingStage ? <span className="text-white/40">· saving…</span> : null}
+          </p>
+          <Select value={stage} onChange={(e) => saveStage(e.target.value)} disabled={savingStage} aria-label="Interview stage or type">
+            <option value="">— Not set —</option>
+            {INTERVIEW_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </Select>
         </div>
 
         <div className="space-y-2 border-t border-white/[0.06] pt-4">

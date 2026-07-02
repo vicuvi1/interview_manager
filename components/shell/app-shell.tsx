@@ -94,6 +94,7 @@ const CANDIDATE_NAV: NavGroup[] = [
       { label: "My Interviews", href: "/candidate/interviews", icon: CalendarRange },
       { label: "Book Interview", href: "/candidate/book", icon: CalendarPlus },
       { label: "Calendar", href: "/candidate/calendar", icon: CalendarDays },
+      { label: "Payments", href: "/candidate/payments", icon: Wallet },
     ],
   },
   {

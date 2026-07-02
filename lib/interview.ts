@@ -1,9 +1,14 @@
 /** Option lists for the interview request form + labels for display. */
 
 export const INTERVIEW_TYPES = [
+  "Screening",
+  "Phone screen",
   "Technical",
   "Coding",
+  "Live coding",
   "System design",
+  "Take-home review",
+  "Panel",
   "Behavioral",
   "HR / Recruiter screen",
   "Case study",

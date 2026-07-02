@@ -118,6 +118,8 @@ export function InterviewRequestForm({
 
   async function submit() {
     if (role.trim().length < 2) return setError("Tell us the role or topic.");
+    if (focus.trim().length < 2) return setError("Add at least one focus area or skill.");
+    if (callerNotes.trim().length < 5) return setError("Add notes for the caller so we can prepare — a detailed request helps us match you.");
     if (!fixedStart && !when) return setError("Pick a preferred date & time.");
     setBusy(true);
     setError(null);
@@ -184,8 +186,8 @@ export function InterviewRequestForm({
               </Select>
             </Field>
           </div>
-          <Field label="Focus areas / skills (optional)" htmlFor="ir-focus">
-            <Input id="ir-focus" placeholder="Optional — e.g. React, System design" value={focus} onChange={(e) => setFocus(e.target.value)} />
+          <Field label="Focus areas / skills" htmlFor="ir-focus" hint="Required — comma separated.">
+            <Input id="ir-focus" placeholder="e.g. React, System design, Algorithms" value={focus} onChange={(e) => setFocus(e.target.value)} />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Format" htmlFor="ir-format">
@@ -319,7 +321,7 @@ export function InterviewRequestForm({
         {/* Context */}
         <div className="space-y-4">
           <GroupLabel icon={FileText}>Notes</GroupLabel>
-          <Field label="Notes for the caller" htmlFor="ir-caller" hint="Important info for whoever runs the interview.">
+          <Field label="Notes for the caller" htmlFor="ir-caller" hint="Required — important info for whoever runs the interview.">
             <Textarea id="ir-caller" value={callerNotes} onChange={(e) => setCallerNotes(e.target.value)} placeholder="e.g. Please focus on backend; I'm interviewing for a fintech role." />
           </Field>
           <Field label="Anything else (optional)" htmlFor="ir-notes" hint="Accommodations, extra links…">

@@ -193,7 +193,7 @@ export function BookingCalendar({
             selectable
             selectMirror
             slotDuration="00:30:00"
-            snapDuration="00:15:00"
+            snapDuration="00:05:00"
             expandRows
             scrollTime="08:00:00"
             eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
@@ -211,7 +211,7 @@ export function BookingCalendar({
             select={(info) => {
               api()?.unselect();
               if (info.start.getTime() < Date.now()) return;
-              const durMin = Math.max(15, Math.round((info.end.getTime() - info.start.getTime()) / 60000));
+              const durMin = Math.max(5, Math.round((info.end.getTime() - info.start.getTime()) / 60000));
               setSelected({ startISO: info.start.toISOString(), dur: durMin });
             }}
           />

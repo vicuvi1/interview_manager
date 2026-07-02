@@ -403,6 +403,8 @@ export function AdminCalendarBoard({
             selectMirror
             editable
             eventResizableFromStart
+            slotDuration="00:30:00"
+            snapDuration="00:05:00"
             dayMaxEvents={3}
             scrollTime="08:00:00"
             eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
