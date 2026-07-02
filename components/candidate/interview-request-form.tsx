@@ -117,9 +117,10 @@ export function InterviewRequestForm({
   }
 
   async function submit() {
-    if (role.trim().length < 2) return setError("Tell us the role or topic.");
-    if (focus.trim().length < 2) return setError("Add at least one focus area or skill.");
-    if (callerNotes.trim().length < 5) return setError("Add notes for the caller so we can prepare — a detailed request helps us match you.");
+    // CV / résumé is the only required field — everything else is optional.
+    if (!resumePath && !resumeUrl.trim()) {
+      return setError("Please attach your CV / résumé — that's all we need to get started.");
+    }
     if (!fixedStart && !when) return setError("Pick a preferred date & time.");
     setBusy(true);
     setError(null);
@@ -140,7 +141,7 @@ export function InterviewRequestForm({
     const focusAreas = focus.split(",").map((s) => s.trim()).filter(Boolean);
     const { error: insertError } = await supabase.from("interview_requests").insert({
       candidate_id: userId,
-      role: role.trim(),
+      role: role.trim() || interviewType,
       interview_type: interviewType,
       level,
       focus_areas: focusAreas.length ? focusAreas : null,
@@ -171,7 +172,7 @@ export function InterviewRequestForm({
         {/* Interview */}
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>The interview</GroupLabel>
-          <Field label="Role / topic" htmlFor="ir-role">
+          <Field label="Role / topic (optional)" htmlFor="ir-role">
             <Input id="ir-role" placeholder="e.g. Senior Frontend Engineer" value={role} onChange={(e) => setRole(e.target.value)} />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -186,7 +187,7 @@ export function InterviewRequestForm({
               </Select>
             </Field>
           </div>
-          <Field label="Focus areas / skills" htmlFor="ir-focus" hint="Required — comma separated.">
+          <Field label="Focus areas / skills (optional)" htmlFor="ir-focus" hint="Comma separated.">
             <Input id="ir-focus" placeholder="e.g. React, System design, Algorithms" value={focus} onChange={(e) => setFocus(e.target.value)} />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -269,7 +270,7 @@ export function InterviewRequestForm({
           <p className="-mt-1 text-[12px] text-white/40">Saved to your profile so you don&apos;t retype it next time.</p>
 
           <DocField
-            label="Résumé / CV"
+            label="Résumé / CV — required"
             path={resumePath}
             uploading={uploading === "resume"}
             inputRef={resumeRef}
@@ -321,7 +322,7 @@ export function InterviewRequestForm({
         {/* Context */}
         <div className="space-y-4">
           <GroupLabel icon={FileText}>Notes</GroupLabel>
-          <Field label="Notes for the caller" htmlFor="ir-caller" hint="Required — important info for whoever runs the interview.">
+          <Field label="Notes for the caller (optional)" htmlFor="ir-caller" hint="Important info for whoever runs the interview.">
             <Textarea id="ir-caller" value={callerNotes} onChange={(e) => setCallerNotes(e.target.value)} placeholder="e.g. Please focus on backend; I'm interviewing for a fintech role." />
           </Field>
           <Field label="Anything else (optional)" htmlFor="ir-notes" hint="Accommodations, extra links…">

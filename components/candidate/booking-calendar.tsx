@@ -10,13 +10,15 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { expandRecurring } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone } from "@/lib/time";
+import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { CandidateMaterials } from "@/lib/types";
 
@@ -75,6 +77,8 @@ export function BookingCalendar({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
   const [detail, setDetail] = useState<MyRow | null>(null);
+  const [editWhen, setEditWhen] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
 
@@ -109,6 +113,26 @@ export function BookingCalendar({
     },
     [rules],
   );
+
+  async function proposeEdit() {
+    if (!detail || !editWhen) return;
+    setSavingEdit(true);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("propose_reschedule", {
+      p_interview_id: detail.id,
+      p_at: wallTimeToUtcISO(editWhen, timezone),
+    });
+    setSavingEdit(false);
+    if (error) {
+      toast({ title: "Couldn't send", description: error.message, variant: "error" });
+      return;
+    }
+    toast({ title: "New time sent to the admin", description: "They'll review and confirm it.", variant: "success" });
+    setDetail(null);
+    setEditWhen("");
+    const r = rangeRef.current;
+    if (r) load(r.start, r.end);
+  }
 
   const load = useCallback(async (from: number, to: number) => {
     setLoading(true);
@@ -169,7 +193,7 @@ export function BookingCalendar({
         start: new Date(Math.max(iv.s, now)),
         end: new Date(iv.e),
         display: "background",
-        backgroundColor: "rgba(16,185,129,0.26)",
+        backgroundColor: "rgba(34,197,94,0.38)",
         classNames: ["fc-free-slot"],
       });
     }
@@ -183,7 +207,7 @@ export function BookingCalendar({
         start: new Date(b.s),
         end: new Date(b.e),
         display: "background",
-        backgroundColor: "rgba(239,68,68,0.20)",
+        backgroundColor: "rgba(239,68,68,0.34)",
         classNames: ["fc-busy-block"],
       });
     }
@@ -224,14 +248,14 @@ export function BookingCalendar({
     <div className="space-y-3">
       {/* Clear green "Available" / red "Busy" bands with visible labels. */}
       <style>{`
-        .fc-free-slot{box-shadow:inset 3px 0 0 rgba(16,185,129,0.9);}
-        .fc-busy-block{box-shadow:inset 3px 0 0 rgba(239,68,68,0.9);}
+        .fc-free-slot{box-shadow:inset 4px 0 0 #22c55e;}
+        .fc-busy-block{box-shadow:inset 4px 0 0 #ef4444;}
         .fc-free-slot .fc-event-title,.fc-busy-block .fc-event-title{
-          font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
-          padding:2px 5px;opacity:.9;font-style:normal;
+          font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+          padding:2px 6px;opacity:1;font-style:normal;
         }
-        .fc-free-slot .fc-event-title{color:#6ee7b7;}
-        .fc-busy-block .fc-event-title{color:#fca5a5;}
+        .fc-free-slot .fc-event-title{color:#86efac;}
+        .fc-busy-block .fc-event-title{color:#fecaca;}
       `}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -370,7 +394,7 @@ export function BookingCalendar({
       ) : null}
 
       {detail ? (
-        <Dialog open onClose={() => setDetail(null)} title={detail.role} description={detail.interview_type ?? "Your interview"}>
+        <Dialog open onClose={() => { setDetail(null); setEditWhen(""); }} title={detail.role} description={detail.interview_type ?? "Your interview"}>
           <div className="space-y-3 text-[13px]">
             <div className="flex items-center gap-2">
               <span
@@ -408,9 +432,24 @@ export function BookingCalendar({
                   : "The meeting link will appear here once it's added."}
               </p>
             )}
-            <p className="rounded-lg bg-white/[0.03] px-3 py-2 text-[12px] text-white/45">
-              Manage this interview (cancel, reschedule, feedback) from{" "}
-              <span className="text-white/70">My interviews</span>.
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <p className="text-[12px] font-medium text-white/70">Need a different time?</p>
+              <p className="mb-2 text-[11px] text-white/40">Pick a new time and we&apos;ll send it to the admin to confirm.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="datetime-local"
+                  value={editWhen}
+                  onChange={(e) => setEditWhen(e.target.value)}
+                  className="h-9 flex-1"
+                  aria-label="New time"
+                />
+                <Button size="sm" loading={savingEdit} disabled={savingEdit || !editWhen} onClick={proposeEdit}>
+                  Send to admin
+                </Button>
+              </div>
+            </div>
+            <p className="text-[11px] text-white/35">
+              You can also cancel or leave notes from <span className="text-white/60">My interviews</span>.
             </p>
           </div>
         </Dialog>
