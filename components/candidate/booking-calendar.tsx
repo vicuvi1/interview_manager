@@ -303,14 +303,13 @@ export function BookingCalendar({
             initialView={prefs.bookingView}
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={620}
+            height={660}
             allDaySlot={false}
             nowIndicator
             selectable
             selectMirror
             slotDuration="00:30:00"
             snapDuration="00:05:00"
-            expandRows
             firstDay={prefs.weekStart}
             slotMinTime={hourStr(prefs.dayStart)}
             slotMaxTime={hourStr(prefs.dayEnd)}
