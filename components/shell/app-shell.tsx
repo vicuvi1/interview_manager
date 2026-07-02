@@ -33,6 +33,7 @@ import {
 
 import { CommandPalette } from "@/components/shell/command-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
+import { UpcomingBanner } from "@/components/upcoming-banner";
 import { createClient } from "@/lib/supabase/client";
 import { cn, initials } from "@/lib/utils";
 
@@ -238,7 +239,10 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+          <UpcomingBanner />
+          {children}
+        </main>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} variant={variant} userId={userId} />

@@ -3,11 +3,18 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, Link2, Share2 } from "lucide-react";
 
+import { PublicLeads } from "@/components/admin/public-leads";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 
 const LINKS = [
+  {
+    key: "public",
+    label: "Public booking link — no account needed",
+    description: "Anyone can request an interview here without signing up. Requests land under “Incoming requests” below.",
+    path: "/book",
+  },
   {
     key: "portal",
     label: "Candidate portal",
@@ -77,9 +84,14 @@ export function BookingLinks() {
           })}
         </div>
         <p className="mt-4 rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/45">
-          Candidates need an account to book — the portal link handles sign-up and sign-in in one place.
+          Share the <span className="text-white/70">public booking link</span> anywhere — no account required. Convert a
+          request into an interview (and account) with one click below.
         </p>
       </SectionCard>
+
+      <div className="mt-5">
+        <PublicLeads />
+      </div>
     </div>
   );
 }

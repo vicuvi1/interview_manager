@@ -194,6 +194,8 @@ export function ManageRequestDialog({
     setError(null);
     const supabase = createClient();
     const scheduledUtc = wallTimeToUtcISO(schedAt, adminTimezone);
+    // Auto-invoice from the stage's default price if this interview isn't priced yet.
+    const autoInvoice = !request.price_cents && defaultCents ? defaultCents : null;
     const { error: updateError } = await supabase
       .from("interview_requests")
       .update({
@@ -201,6 +203,7 @@ export function ManageRequestDialog({
         meeting_link: schedLink.trim() || null,
         duration_minutes: schedDuration,
         status: "scheduled",
+        ...(autoInvoice ? { price_cents: autoInvoice, currency: "USD" } : {}),
       })
       .eq("id", request.id);
     if (updateError) {
@@ -215,7 +218,15 @@ export function ManageRequestDialog({
       detail: `Your interview for "${request.role}" is set for ${formatInTimeZone(scheduledUtc, candTz)}.`,
       type: "approved",
     });
-    toast({ title: "Interview scheduled", variant: "success" });
+    if (autoInvoice) {
+      await supabase.from("notifications").insert({
+        user_id: request.candidate_id,
+        title: "Payment requested",
+        detail: `A payment of ${formatMoney(autoInvoice, "USD")} is due for "${request.role}".`,
+        type: "alert",
+      });
+    }
+    toast({ title: autoInvoice ? `Scheduled · invoiced ${formatMoney(autoInvoice, "USD")}` : "Interview scheduled", variant: "success" });
     setScheduling(false);
     notifyChanged("interviews");
     onClose();
