@@ -315,6 +315,7 @@ export function AdminCalendarBoard({
         backgroundColor: tint ? colorBg(tint, 0.32) : style.bg,
         borderColor: tint ?? style.border,
         textColor: style.text,
+        classNames: r.status === "pending" ? ["fc-pending-req"] : undefined,
         extendedProps: { kind: "interview", requestId: r.id },
       });
     }
@@ -347,6 +348,22 @@ export function AdminCalendarBoard({
     }
     return out;
   }, [requests, slots, range, candName, prefs.hiddenStatuses, hiddenUsers, userColors]);
+
+  // Auto-expand the visible hours so no request is ever clipped by the day range,
+  // while respecting the gear's day-start/end as a minimum window.
+  const hourBounds = useMemo(() => {
+    let lo = prefs.dayStart;
+    let hi = prefs.dayEnd;
+    for (const e of events) {
+      const s = e.start instanceof Date ? e.start : new Date(e.start as string);
+      const en = e.end instanceof Date ? e.end : new Date((e.end as string) ?? s);
+      lo = Math.min(lo, s.getHours());
+      hi = Math.max(hi, en.getHours() + (en.getMinutes() > 0 ? 1 : 0));
+    }
+    lo = Math.max(0, lo);
+    hi = Math.min(24, Math.max(hi, lo + 1));
+    return { lo, hi };
+  }, [events, prefs.dayStart, prefs.dayEnd]);
 
   const api = () => calendarRef.current?.getApi();
   const nav = (dir: "prev" | "next" | "today") => {
@@ -557,7 +574,10 @@ export function AdminCalendarBoard({
         </aside>
         <Card className="min-w-0 flex-1 p-3 sm:p-4">
           <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 1.5}em` } as CSSProperties}>
-            <style>{`.gcal-cal .fc-timegrid-slot{height:var(--slh)!important}`}</style>
+            <style>{`
+              .gcal-cal .fc-timegrid-slot{height:var(--slh)!important}
+              .gcal-cal .fc-pending-req{border-style:dashed!important;border-width:2px!important;}
+            `}</style>
             {mounted ? (
               <FullCalendar
                 ref={calendarRef}
@@ -575,8 +595,8 @@ export function AdminCalendarBoard({
             snapDuration="00:05:00"
             dayMaxEvents={3}
             firstDay={prefs.weekStart}
-            slotMinTime={hourStr(prefs.dayStart)}
-            slotMaxTime={hourStr(prefs.dayEnd)}
+            slotMinTime={hourStr(hourBounds.lo)}
+            slotMaxTime={hourStr(hourBounds.hi)}
             scrollTime={hourStr(prefs.dayStart)}
             eventTimeFormat={timeFormat(prefs.hour12)}
             slotLabelFormat={timeFormat(prefs.hour12)}
