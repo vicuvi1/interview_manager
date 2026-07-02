@@ -8,11 +8,13 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lucide-react";
 
+import { CalendarSettings } from "@/components/calendar-settings";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { useDataChanged } from "@/lib/bus";
+import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { colorBg } from "@/lib/colors";
 import { FORMAT_LABEL } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
@@ -50,8 +52,12 @@ export function ScheduleCalendar({
   const [view, setView] = useState("dayGridMonth");
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [detail, setDetail] = useState<InterviewRequest | null>(null);
+  const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    setPrefs(loadPrefs());
+  }, []);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -136,6 +142,7 @@ export function ScheduleCalendar({
               </button>
             ))}
           </div>
+          <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
           <Link href="/candidate/book">
             <Button size="sm"><CalendarPlus className="h-4 w-4" /> Book</Button>
           </Link>
@@ -153,8 +160,12 @@ export function ScheduleCalendar({
             allDaySlot={false}
             nowIndicator
             dayMaxEvents={3}
-            scrollTime="08:00:00"
-            eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+            firstDay={prefs.weekStart}
+            slotMinTime={hourStr(prefs.dayStart)}
+            slotMaxTime={hourStr(prefs.dayEnd)}
+            scrollTime={hourStr(prefs.dayStart)}
+            eventTimeFormat={timeFormat(prefs.hour12)}
+            slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
             datesSet={(arg) => {
               setTitle(arg.view.title);

@@ -7,10 +7,12 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
+import { CalendarSettings } from "@/components/calendar-settings";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { expandRecurring } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
@@ -69,8 +71,12 @@ export function BookingCalendar({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
   const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
+  const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    setPrefs(loadPrefs());
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -195,23 +201,26 @@ export function BookingCalendar({
           </div>
           <h2 className="text-sm font-medium text-[#f0f0f5]">{title}</h2>
         </div>
-        <div className="flex rounded-lg border border-white/10 bg-[#13131a] p-0.5">
-          {[
-            { v: "timeGridWeek", l: "Week" },
-            { v: "timeGridDay", l: "Day" },
-          ].map((x) => (
-            <button
-              key={x.v}
-              type="button"
-              onClick={() => {
-                api()?.changeView(x.v);
-                setView(x.v);
-              }}
-              className={cn("rounded-md px-2.5 py-1 text-[12px] font-medium", view === x.v ? "bg-[#6366f1]/[0.16] text-[#c7d2fe]" : "text-white/50 hover:text-white/80")}
-            >
-              {x.l}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-white/10 bg-[#13131a] p-0.5">
+            {[
+              { v: "timeGridWeek", l: "Week" },
+              { v: "timeGridDay", l: "Day" },
+            ].map((x) => (
+              <button
+                key={x.v}
+                type="button"
+                onClick={() => {
+                  api()?.changeView(x.v);
+                  setView(x.v);
+                }}
+                className={cn("rounded-md px-2.5 py-1 text-[12px] font-medium", view === x.v ? "bg-[#6366f1]/[0.16] text-[#c7d2fe]" : "text-white/50 hover:text-white/80")}
+              >
+                {x.l}
+              </button>
+            ))}
+          </div>
+          <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
         </div>
       </div>
 
@@ -230,8 +239,12 @@ export function BookingCalendar({
             slotDuration="00:30:00"
             snapDuration="00:05:00"
             expandRows
-            scrollTime="08:00:00"
-            eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+            firstDay={prefs.weekStart}
+            slotMinTime={hourStr(prefs.dayStart)}
+            slotMaxTime={hourStr(prefs.dayEnd)}
+            scrollTime={hourStr(prefs.dayStart)}
+            eventTimeFormat={timeFormat(prefs.hour12)}
+            slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
             datesSet={(arg) => {
               setRange({ start: arg.start.getTime(), end: arg.end.getTime() });
