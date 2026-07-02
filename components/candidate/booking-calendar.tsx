@@ -133,7 +133,7 @@ export function BookingCalendar({
     const now = Date.now();
     const out: EventInput[] = [];
 
-    // Green "suggested" shading = available windows (one event each — light + fast).
+    // Green shading = the admin's free/bookable windows (clearly visible).
     for (const iv of availIvals) {
       if (iv.e <= now) continue;
       out.push({
@@ -141,7 +141,8 @@ export function BookingCalendar({
         start: new Date(Math.max(iv.s, now)),
         end: new Date(iv.e),
         display: "background",
-        backgroundColor: "rgba(16,185,129,0.14)",
+        backgroundColor: "rgba(16,185,129,0.28)",
+        classNames: ["fc-free-slot"],
       });
     }
 
@@ -189,6 +190,8 @@ export function BookingCalendar({
 
   return (
     <div className="space-y-3">
+      {/* Make the admin's free/bookable windows clearly visible. */}
+      <style>{`.fc-free-slot{box-shadow:inset 3px 0 0 rgba(16,185,129,0.85);}`}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center rounded-lg border border-white/10 bg-[#13131a]">
@@ -286,9 +289,9 @@ export function BookingCalendar({
           <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading times…</span>
         ) : (
           <span className="inline-flex flex-wrap items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> Click a time, or <span className="text-white/70">drag to pick a custom range</span> — the admin approves it.
+            <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" /> <span className="text-white/70">Green = free to book.</span> Click or drag over it to request a time.
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#10b981" }} />
-            <span className="text-white/40">suggested</span>
+            <span className="text-white/40">free</span>
             <span className="ml-1 h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "#f59e0b" }} />
             <span className="text-white/40">your requests</span>
             <span className="ml-1 h-2.5 w-2.5 rounded-sm bg-white/15" />
