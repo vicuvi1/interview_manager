@@ -18,6 +18,7 @@ export interface CalendarEvent {
   time: string;
   label: string;
   link?: string | null;
+  color?: string | null;
 }
 
 export function Calendar({
@@ -123,7 +124,7 @@ export function Calendar({
               {evs.length ? (
                 <span className="mt-0.5 flex gap-0.5">
                   {evs.slice(0, 3).map((e) => (
-                    <span key={e.id} className="h-1.5 w-1.5 rounded-full bg-[#6366f1]" />
+                    <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: e.color ?? "#6366f1" }} />
                   ))}
                 </span>
               ) : null}
@@ -143,6 +144,7 @@ export function Calendar({
                 key={e.id}
                 className="flex items-center gap-3 rounded-lg border border-white/[0.06] px-3 py-2"
               >
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: e.color ?? "#6366f1" }} />
                 <span className="text-[13px] font-medium tabular-nums text-white/80">
                   {e.time}
                 </span>

@@ -24,7 +24,7 @@ export default async function AdminDashboardPage() {
 
   const [requestsResult, profilesResult] = await Promise.all([
     supabase.from("interview_requests").select("*").order("created_at", { ascending: false }),
-    supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+    supabase.from("profiles").select("id, full_name, email, timezone, role, created_at, calendar_color"),
   ]);
 
   const requests = (requestsResult.data as InterviewRequest[] | null) ?? [];

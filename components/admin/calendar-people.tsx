@@ -18,11 +18,15 @@ export function CalendarPeople({
   hidden,
   onToggle,
   onColor,
+  onShowAll,
+  onHideAll,
 }: {
   people: CalPerson[];
   hidden: Set<string>;
   onToggle: (id: string) => void;
   onColor: (id: string, color: string | null) => void;
+  onShowAll: () => void;
+  onHideAll: () => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -37,7 +41,18 @@ export function CalendarPeople({
 
   return (
     <div className="rounded-xl border border-white/[0.06] bg-[#13131a] p-3">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-white/40">People</p>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">People</p>
+        <div className="flex items-center gap-1 text-[11px] font-medium">
+          <button type="button" onClick={onShowAll} className="rounded px-1.5 py-0.5 text-white/50 hover:bg-white/[0.06] hover:text-white/80">
+            All
+          </button>
+          <span className="text-white/20">·</span>
+          <button type="button" onClick={onHideAll} className="rounded px-1.5 py-0.5 text-white/50 hover:bg-white/[0.06] hover:text-white/80">
+            None
+          </button>
+        </div>
+      </div>
       <ul className="space-y-0.5">
         {people.map((p) => {
           const shown = !hidden.has(p.id);

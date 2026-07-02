@@ -75,11 +75,17 @@ export function AdminDashboard({
     return map;
   }, [profiles]);
 
+  const colorByCandidate = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const p of profiles) map[p.id] = p.calendar_color ?? null;
+    return map;
+  }, [profiles]);
+
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: reqs }, { data: profs }] = await Promise.all([
       supabase.from("interview_requests").select("*").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+      supabase.from("profiles").select("id, full_name, email, timezone, role, created_at, calendar_color"),
     ]);
     if (reqs) setRequests(reqs as InterviewRequest[]);
     if (profs) setProfiles(profs as ProfileLite[]);
@@ -87,12 +93,19 @@ export function AdminDashboard({
 
   useDataChanged("interviews", load);
   useEffect(() => {
+    // Debounce live reloads so a burst of changes triggers one refresh.
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(load, 300);
+    };
     const supabase = createClient();
     const channel = supabase
       .channel("admin-dashboard")
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, debounced)
       .subscribe();
     return () => {
+      if (t) clearTimeout(t);
       supabase.removeChannel(channel);
     };
   }, [load]);
@@ -158,8 +171,9 @@ export function AdminDashboard({
         time: timeInTimeZone(r.scheduled_at as string, adminTimezone),
         label: `${candidates[r.candidate_id]?.full_name || "Candidate"} · ${r.role}`,
         link: r.meeting_link,
+        color: r.color ?? colorByCandidate[r.candidate_id] ?? null,
       })),
-    [scheduled, candidates, adminTimezone],
+    [scheduled, candidates, adminTimezone, colorByCandidate],
   );
   const todayEvents = useMemo(
     () =>

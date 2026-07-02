@@ -24,7 +24,7 @@ export default async function AdminCalendarPage() {
   const [requestsResult, slotsResult, profilesResult] = await Promise.all([
     supabase.from("interview_requests").select("*"),
     supabase.from("availability_slots").select("*"),
-    supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
+    supabase.from("profiles").select("id, full_name, email, timezone, role, created_at, calendar_color"),
   ]);
 
   return (

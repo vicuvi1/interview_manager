@@ -235,6 +235,27 @@ export function AdminCalendarBoard({
     await supabase.from("profiles").update({ calendar_color: color }).eq("id", id);
   }, []);
 
+  const persistHidden = (next: Set<string>) => {
+    try {
+      window.localStorage.setItem("admin-cal-hidden-users", JSON.stringify(Array.from(next)));
+    } catch {
+      /* ignore */
+    }
+  };
+  const showAllUsers = useCallback(() => {
+    setHiddenUsers(() => {
+      persistHidden(new Set());
+      return new Set();
+    });
+  }, []);
+  const hideAllUsers = useCallback(() => {
+    setHiddenUsers(() => {
+      const next = new Set(people.map((p) => p.id));
+      persistHidden(next);
+      return next;
+    });
+  }, [people]);
+
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: reqs }, { data: sl }, { data: profs }] = await Promise.all([
@@ -248,14 +269,21 @@ export function AdminCalendarBoard({
   }, []);
 
   useEffect(() => {
-    load();
+    // Initial data comes from server props; only refetch on live changes,
+    // debounced so a burst of updates triggers a single reload.
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(load, 300);
+    };
     const supabase = createClient();
     const channel = supabase
       .channel("admin-calendar-board")
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "availability_slots" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, debounced)
+      .on("postgres_changes", { event: "*", schema: "public", table: "availability_slots" }, debounced)
       .subscribe();
     return () => {
+      if (t) clearTimeout(t);
       supabase.removeChannel(channel);
     };
   }, [load]);
@@ -514,7 +542,14 @@ export function AdminCalendarBoard({
       <div className="flex flex-col gap-4 lg:flex-row">
         <aside className="hidden w-56 shrink-0 space-y-4 lg:block">
           <MiniMonth selected={currentDate} weekStart={prefs.weekStart} onPick={(d) => api()?.gotoDate(d)} />
-          <CalendarPeople people={people} hidden={hiddenUsers} onToggle={toggleUser} onColor={setUserColor} />
+          <CalendarPeople
+            people={people}
+            hidden={hiddenUsers}
+            onToggle={toggleUser}
+            onColor={setUserColor}
+            onShowAll={showAllUsers}
+            onHideAll={hideAllUsers}
+          />
         </aside>
         <Card className="min-w-0 flex-1 p-3 sm:p-4">
           <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 1.5}em` } as CSSProperties}>
