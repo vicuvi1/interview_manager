@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Settings2 } from "lucide-react";
 
-import { type CalendarPrefs, DEFAULT_PREFS, timezoneList } from "@/lib/calendar-prefs";
+import { type CalendarPrefs, DEFAULT_PREFS } from "@/lib/calendar-prefs";
 import { cn } from "@/lib/utils";
 
 function hourLabel(h: number): string {
@@ -12,17 +12,6 @@ function hourLabel(h: number): string {
   const am = h < 12;
   const twelve = h % 12 === 0 ? 12 : h % 12;
   return `${twelve}:00 ${am ? "AM" : "PM"}`;
-}
-
-/** GMT offset label for a zone, e.g. "GMT+3". */
-function offsetLabel(tz: string): string {
-  try {
-    const zone = tz === "local" ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
-    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" }).formatToParts(new Date());
-    return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
-  } catch {
-    return "";
-  }
 }
 
 /** A gear button + popover to tune personal calendar display prefs. */
@@ -35,7 +24,6 @@ export function CalendarSettings({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const zones = useMemo(() => timezoneList(), []);
   const set = (patch: Partial<CalendarPrefs>) => onChange({ ...value, ...patch });
 
   // Close when clicking outside (reliable — unlike blur, it never blocks the
@@ -72,27 +60,6 @@ export function CalendarSettings({
       {open ? (
         <div className="absolute right-0 z-40 mt-2 w-[23rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/10 bg-[#161620] p-4 shadow-2xl shadow-black/50">
           <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-white/45">Calendar settings</p>
-
-          {/* Timezone — prominent, full width */}
-          <div className="mb-4">
-            <div className="mb-1.5 flex items-baseline justify-between">
-              <label htmlFor="cs-tz" className="text-[13px] font-medium text-white/80">Timezone</label>
-              <span className="text-[12px] font-semibold text-[#a5b4fc]">{offsetLabel(value.timeZone)}</span>
-            </div>
-            <select
-              id="cs-tz"
-              value={value.timeZone}
-              onChange={(e) => set({ timeZone: e.target.value })}
-              className="h-11 w-full rounded-xl border border-white/12 bg-[#0f0f16] px-3 text-[14px] font-medium text-white/90 focus:border-[#6366f1] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30"
-            >
-              <option value="local">Local (device)</option>
-              {zones.map((z) => (
-                <option key={z} value={z}>
-                  {z.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className="space-y-3">
             <Row label="Time format">

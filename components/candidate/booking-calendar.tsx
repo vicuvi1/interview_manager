@@ -9,6 +9,7 @@ import type { EventInput } from "@fullcalendar/core";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
+import { TimezonePicker } from "@/components/timezone-picker";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -291,6 +292,10 @@ export function BookingCalendar({
               </button>
             ))}
           </div>
+          <TimezonePicker
+            value={prefs.timeZone}
+            onChange={(tz) => { const next = { ...prefs, timeZone: tz }; setPrefs(next); savePrefs(next); }}
+          />
           <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
         </div>
       </div>

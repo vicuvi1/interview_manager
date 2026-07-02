@@ -10,6 +10,7 @@ import type { EventInput } from "@fullcalendar/core";
 import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
+import { TimezonePicker } from "@/components/timezone-picker";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -149,6 +150,10 @@ export function ScheduleCalendar({
               </button>
             ))}
           </div>
+          <TimezonePicker
+            value={prefs.timeZone}
+            onChange={(tz) => { const next = { ...prefs, timeZone: tz }; setPrefs(next); savePrefs(next); }}
+          />
           <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
           <Link href="/candidate/book">
             <Button size="sm"><CalendarPlus className="h-4 w-4" /> Book</Button>

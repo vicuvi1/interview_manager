@@ -35,6 +35,7 @@ import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { CalendarSettings } from "@/components/calendar-settings";
+import { TimezonePicker } from "@/components/timezone-picker";
 import { colorBg } from "@/lib/colors";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
@@ -544,6 +545,10 @@ export function AdminCalendarBoard({
           >
             {tzLabel(prefs.timeZone)}
           </span>
+          <TimezonePicker
+            value={prefs.timeZone}
+            onChange={(tz) => savePref({ timeZone: tz })}
+          />
           <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
           <Button size="sm" variant="secondary" onClick={() => openAdd("busy")}>
             <Ban className="h-4 w-4" /> Block
