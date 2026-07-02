@@ -31,6 +31,7 @@ import {
   X,
 } from "lucide-react";
 
+import { MigrationBanner } from "@/components/admin/migration-banner";
 import { FeedbackWidget } from "@/components/candidate/feedback-widget";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
@@ -242,6 +243,7 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
         </header>
 
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+          {variant === "admin" ? <MigrationBanner /> : null}
           <UpcomingBanner />
           {children}
         </main>
