@@ -17,6 +17,8 @@ export interface CalendarPrefs {
   scheduleView: string;
   /** Last-used view on the booking calendar. */
   bookingView: string;
+  /** Row-height zoom for time-grid views (1 = default). */
+  zoom: number;
 }
 
 export const DEFAULT_PREFS: CalendarPrefs = {
@@ -28,6 +30,7 @@ export const DEFAULT_PREFS: CalendarPrefs = {
   hiddenStatuses: [],
   scheduleView: "dayGridMonth",
   bookingView: "timeGridWeek",
+  zoom: 1,
 };
 
 const KEY = "cal-prefs-v1";

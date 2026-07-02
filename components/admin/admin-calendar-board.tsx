@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -16,11 +16,13 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  Minus,
   Plus,
   Trash2,
 } from "lucide-react";
 
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
+import { MiniMonth } from "@/components/admin/mini-month";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -87,6 +89,17 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+/** A short GMT-offset label for a timezone (e.g. "GMT+3"), like Google Calendar. */
+function tzLabel(tz: string): string {
+  try {
+    const zone = tz === "local" ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    return parts.find((p) => p.type === "timeZoneName")?.value || zone;
+  } catch {
+    return tz === "local" ? "Local" : tz;
+  }
+}
+
 /** Format a JS Date as a datetime-local input value in the browser's timezone. */
 function dateToLocalInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -144,6 +157,16 @@ export function AdminCalendarBoard({
   const [add, setAdd] = useState<{ type: string; start: string; end: string } | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
+  const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+
+  const savePref = (patch: Partial<CalendarPrefs>) => {
+    setPrefs((p) => {
+      const next = { ...p, ...patch };
+      savePrefs(next);
+      return next;
+    });
+  };
+  const setZoom = (z: number) => savePref({ zoom: Math.max(0.6, Math.min(2.5, Math.round(z * 10) / 10)) });
   const [manageRequest, setManageRequest] = useState<InterviewRequest | null>(null);
   const [slotDetail, setSlotDetail] = useState<AvailabilitySlot | null>(null);
   const [move, setMove] = useState<{
@@ -272,6 +295,8 @@ export function AdminCalendarBoard({
     setRange({ start: arg.start.getTime(), end: arg.end.getTime() });
     setTitle(arg.view.title);
     setView(arg.view.type);
+    const d = api()?.getDate();
+    if (d) setCurrentDate(d);
   };
   const onSelect = (arg: { start: Date; end: Date; allDay: boolean }) => {
     let start = arg.start;
@@ -390,6 +415,40 @@ export function AdminCalendarBoard({
               </button>
             ))}
           </div>
+          <div className="flex items-center rounded-lg border border-white/10 bg-[#13131a]">
+            <button
+              type="button"
+              onClick={() => setZoom((prefs.zoom ?? 1) - 0.1)}
+              className="flex h-9 w-8 items-center justify-center rounded-l-lg text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+              aria-label="Zoom out"
+              title="Zoom out"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(1)}
+              className="border-x border-white/10 px-2 text-[11px] tabular-nums text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white/90"
+              title="Reset zoom"
+            >
+              {Math.round((prefs.zoom ?? 1) * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom((prefs.zoom ?? 1) + 0.1)}
+              className="flex h-9 w-8 items-center justify-center rounded-r-lg text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+              aria-label="Zoom in"
+              title="Zoom in"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <span
+            className="rounded-lg border border-white/10 bg-[#13131a] px-2.5 py-[7px] text-[11px] font-medium text-white/50"
+            title={prefs.timeZone === "local" ? "Your device timezone" : prefs.timeZone}
+          >
+            {tzLabel(prefs.timeZone)}
+          </span>
           <CalendarSettings value={prefs} onChange={(p) => { setPrefs(p); savePrefs(p); }} />
           <Button size="sm" variant="secondary" onClick={() => openAdd("busy")}>
             <Ban className="h-4 w-4" /> Block
@@ -406,10 +465,16 @@ export function AdminCalendarBoard({
         </div>
       </div>
 
-      <Card className="p-3 sm:p-4">
-        {mounted ? (
-          <FullCalendar
-            ref={calendarRef}
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <aside className="hidden w-56 shrink-0 lg:block">
+          <MiniMonth selected={currentDate} weekStart={prefs.weekStart} onPick={(d) => api()?.gotoDate(d)} />
+        </aside>
+        <Card className="min-w-0 flex-1 p-3 sm:p-4">
+          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 1.5}em` } as CSSProperties}>
+            <style>{`.gcal-cal .fc-timegrid-slot{height:var(--slh)!important}`}</style>
+            {mounted ? (
+              <FullCalendar
+                ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxonPlugin]}
             initialView="timeGridWeek"
             timeZone={prefs.timeZone}
@@ -435,11 +500,13 @@ export function AdminCalendarBoard({
             eventClick={onEventClick}
             eventDrop={onEventChange}
             eventResize={onEventChange}
-          />
-        ) : (
-          <div className="h-[660px] animate-pulse rounded-lg bg-white/[0.02]" />
-        )}
-      </Card>
+              />
+            ) : (
+              <div className="h-[660px] animate-pulse rounded-lg bg-white/[0.02]" />
+            )}
+          </div>
+        </Card>
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-1 text-[12px] text-white/50">
         <span className="text-white/30">Show:</span>
