@@ -137,6 +137,8 @@ export interface InterviewFeedback {
   strengths: string | null;
   concerns: string | null;
   shared_feedback: string | null;
+  action_items: string | null;
+  actual_minutes: number | null;
   shared: boolean;
   created_at: string;
   updated_at: string;

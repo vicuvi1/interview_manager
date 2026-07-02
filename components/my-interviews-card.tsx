@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarRange, ExternalLink, Inbox, MessageSquareText, Star } from "lucide-react";
+import { CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
 
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -135,14 +136,17 @@ export function MyInterviewsCard({
                           {formatInTimeZone(row.scheduled_at, timezone)}
                         </span>
                         {row.meeting_link ? (
-                          <a
-                            href={row.meeting_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="ml-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
-                          >
-                            Join <ExternalLink className="h-3 w-3" />
-                          </a>
+                          <span className="ml-2 inline-flex items-center gap-0.5 align-middle">
+                            <a
+                              href={row.meeting_link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
+                            >
+                              Join <ExternalLink className="h-3 w-3" />
+                            </a>
+                            <CopyButton value={row.meeting_link} title="Copy meeting link" className="h-6 w-6" />
+                          </span>
                         ) : null}
                       </div>
                     ) : (
@@ -194,21 +198,43 @@ export function MyInterviewsCard({
       {viewing ? (
         <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
           <div className="space-y-4">
-            {viewing.rating ? (
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Star
-                    key={n}
-                    className={cn("h-5 w-5", n <= (viewing.rating ?? 0) ? "fill-[#fbbf24] text-[#fbbf24]" : "text-white/20")}
-                  />
-                ))}
-              </div>
-            ) : null}
+            <div className="flex items-center justify-between gap-3">
+              {viewing.rating ? (
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star
+                      key={n}
+                      className={cn("h-5 w-5", n <= (viewing.rating ?? 0) ? "fill-[#fbbf24] text-[#fbbf24]" : "text-white/20")}
+                    />
+                  ))}
+                </div>
+              ) : <span />}
+              {viewing.actual_minutes != null ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2.5 py-1 text-[12px] font-medium text-white/70">
+                  <Clock className="h-3.5 w-3.5" /> {viewing.actual_minutes} min session
+                </span>
+              ) : null}
+            </div>
             {viewing.shared_feedback ? (
               <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-white/80">{viewing.shared_feedback}</p>
             ) : (
               <p className="text-[13px] text-white/50">No written feedback was shared.</p>
             )}
+            {viewing.action_items ? (
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5">
+                <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-white/45">
+                  <ListChecks className="h-3.5 w-3.5" /> Your to-do list
+                </p>
+                <ul className="space-y-1.5">
+                  {viewing.action_items.split("\n").map((s) => s.trim()).filter(Boolean).map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[13px] text-white/80">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#a5b4fc]" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </Dialog>
       ) : null}

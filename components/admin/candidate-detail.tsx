@@ -20,6 +20,7 @@ import {
   Linkedin,
   Link2,
   MessageSquarePlus,
+  Pencil,
   Phone,
   Plus,
   Send,
@@ -38,6 +39,7 @@ import { StatCard } from "@/components/admin/stat-card";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
@@ -100,12 +102,14 @@ export function CandidateDetail({
   const [blocking, setBlocking] = useState(false);
   const [accountBusy, setAccountBusy] = useState<string | null>(null);
   const [resetResult, setResetResult] = useState<{ password: string; email: string | null } | null>(null);
+  const [fullName, setFullName] = useState<string | null>(candidate.full_name);
+  const [renameOpen, setRenameOpen] = useState(false);
   const router = useRouter();
 
-  const name = candidate.full_name || candidate.email || "Candidate";
+  const name = fullName || candidate.email || "Candidate";
   const candidatesMap = useMemo<Record<string, CandidateLite>>(
-    () => ({ [candidate.id]: { full_name: candidate.full_name, email: candidate.email, timezone: candidate.timezone } }),
-    [candidate],
+    () => ({ [candidate.id]: { full_name: fullName, email: candidate.email, timezone: candidate.timezone } }),
+    [candidate, fullName],
   );
 
   const load = useCallback(async () => {
@@ -266,10 +270,22 @@ export function CandidateDetail({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-xl font-medium text-[#f0f0f5]">{name}</h1>
+              <button
+                type="button"
+                onClick={() => setRenameOpen(true)}
+                title="Rename this user"
+                className="shrink-0 rounded-md p-1 text-white/35 transition hover:bg-white/[0.06] hover:text-white/80"
+                aria-label="Rename user"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
               <Badge tone={candidate.role === "admin" ? "purple" : "slate"}>{candidate.role}</Badge>
               {blocked ? <Badge tone="red">suspended</Badge> : null}
             </div>
-            <p className="truncate text-[13px] text-white/55">{candidate.email}</p>
+            <p className="flex items-center gap-1 truncate text-[13px] text-white/55">
+              {candidate.email}
+              <CopyButton value={candidate.email ?? undefined} title="Copy email" className="h-6 w-6" />
+            </p>
             <p className="mt-0.5 text-[12px] text-white/35">
               {candidate.timezone} · joined {relativeTime(candidate.created_at)}
             </p>
@@ -518,6 +534,14 @@ export function CandidateDetail({
       {notifyOpen ? (
         <NotifyDialog candidateId={candidate.id} candidateName={name} onClose={() => setNotifyOpen(false)} />
       ) : null}
+      {renameOpen ? (
+        <RenameDialog
+          candidateId={candidate.id}
+          current={fullName}
+          onClose={() => setRenameOpen(false)}
+          onSaved={(next) => setFullName(next)}
+        />
+      ) : null}
       {feedbackReq ? (
         <FeedbackDialog
           request={feedbackReq}
@@ -533,7 +557,10 @@ export function CandidateDetail({
             {resetResult.email ? (
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-white/40">Email</p>
-                <code className="mt-1 block rounded-md bg-[#0f0f13] px-2.5 py-2 font-mono text-white/85">{resetResult.email}</code>
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="flex-1 rounded-md bg-[#0f0f13] px-2.5 py-2 font-mono text-white/85">{resetResult.email}</code>
+                  <CopyButton value={resetResult.email} title="Copy email" />
+                </div>
               </div>
             ) : null}
             <div>
@@ -643,6 +670,7 @@ function MaterialsCard({ materials, candidateId }: { materials?: CandidateMateri
           <li className="flex items-center gap-2.5 text-[13px] text-white/75">
             <Phone className="h-4 w-4 text-white/40" />
             {materials.phone}
+            <CopyButton value={materials.phone} title="Copy phone" className="ml-auto" />
           </li>
         ) : null}
         {hasUpload ? (
@@ -669,17 +697,18 @@ function MaterialsCard({ materials, candidateId }: { materials?: CandidateMateri
         {links.map((l) => {
           const Icon = l.icon;
           return (
-            <li key={l.label}>
+            <li key={l.label} className="flex items-center gap-1">
               <a
                 href={l.href as string}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2.5 text-[13px] text-[#a5b4fc] hover:text-[#c7d2fe]"
+                className="flex flex-1 items-center gap-2.5 truncate text-[13px] text-[#a5b4fc] hover:text-[#c7d2fe]"
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="truncate">{l.label}</span>
-                <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-60" />
+                <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
               </a>
+              <CopyButton value={l.href as string} title={`Copy ${l.label}`} />
             </li>
           );
         })}
@@ -762,6 +791,63 @@ function AddPaymentDialog({
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button className="w-full" loading={busy} onClick={save}>
           Record payment
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
+function RenameDialog({
+  candidateId,
+  current,
+  onClose,
+  onSaved,
+}: {
+  candidateId: string;
+  current: string | null;
+  onClose: () => void;
+  onSaved: (next: string | null) => void;
+}) {
+  const { toast } = useToast();
+  const [value, setValue] = useState(current ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const next = value.trim() || null;
+    const supabase = createClient();
+    const { error } = await supabase.from("profiles").update({ full_name: next }).eq("id", candidateId);
+    setBusy(false);
+    if (error) {
+      toast({ title: "Couldn't rename", description: error.message, variant: "error" });
+      return;
+    }
+    onSaved(next);
+    toast({ title: "Name updated", variant: "success" });
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Rename user" description="Set a display name that's easier for you to track.">
+      <div className="space-y-4">
+        <Field label="Display name" htmlFor="rn-name">
+          <Input
+            id="rn-name"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="e.g. John (frontend) — Acme"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              }
+            }}
+          />
+        </Field>
+        <p className="text-[12px] text-white/40">This changes the name shown across your admin views for this user.</p>
+        <Button className="w-full" loading={busy} onClick={save}>
+          Save name
         </Button>
       </div>
     </Dialog>

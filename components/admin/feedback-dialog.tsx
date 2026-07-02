@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Star } from "lucide-react";
+import { Clock, ListChecks, Loader2, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
@@ -35,6 +36,9 @@ export function FeedbackDialog({
   const [strengths, setStrengths] = useState("");
   const [concerns, setConcerns] = useState("");
   const [sharedFeedback, setSharedFeedback] = useState("");
+  const [actionItems, setActionItems] = useState("");
+  const [actualMinutes, setActualMinutes] = useState("");
+  const [meetingLink, setMeetingLink] = useState(request.meeting_link ?? "");
   const [shared, setShared] = useState(false);
   const [markCompleted, setMarkCompleted] = useState(request.status !== "completed");
   const [busy, setBusy] = useState(false);
@@ -55,6 +59,8 @@ export function FeedbackDialog({
         setStrengths(f.strengths ?? "");
         setConcerns(f.concerns ?? "");
         setSharedFeedback(f.shared_feedback ?? "");
+        setActionItems(f.action_items ?? "");
+        setActualMinutes(f.actual_minutes != null ? String(f.actual_minutes) : "");
         setShared(f.shared);
       }
       if (active) setLoading(false);
@@ -67,6 +73,7 @@ export function FeedbackDialog({
   async function submit() {
     setBusy(true);
     const supabase = createClient();
+    const mins = actualMinutes.trim() ? Math.max(0, Math.min(1440, Math.round(Number(actualMinutes)))) : null;
     const { error } = await supabase.from("interview_feedback").upsert(
       {
         interview_id: request.id,
@@ -76,6 +83,8 @@ export function FeedbackDialog({
         strengths: strengths.trim() || null,
         concerns: concerns.trim() || null,
         shared_feedback: sharedFeedback.trim() || null,
+        action_items: actionItems.trim() || null,
+        actual_minutes: mins,
         shared,
         updated_at: new Date().toISOString(),
       },
@@ -86,6 +95,11 @@ export function FeedbackDialog({
       setBusy(false);
       return;
     }
+    // Keep the meeting link on the interview in sync (shared with the candidate).
+    const nextLink = meetingLink.trim() || null;
+    if (nextLink !== (request.meeting_link ?? null)) {
+      await supabase.from("interview_requests").update({ meeting_link: nextLink }).eq("id", request.id);
+    }
     if (markCompleted && request.status !== "completed") {
       await supabase.from("interview_requests").update({ status: "completed" }).eq("id", request.id);
     }
@@ -93,7 +107,7 @@ export function FeedbackDialog({
       await supabase.from("notifications").insert({
         user_id: request.candidate_id,
         title: "Interview feedback is ready",
-        detail: `Feedback for your "${request.role}" interview is now available.`,
+        detail: `Feedback${mins ? ` (${mins} min session)` : ""} for your "${request.role}" interview is now available.`,
         type: "info",
       });
     }
@@ -140,11 +154,49 @@ export function FeedbackDialog({
             </div>
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="How long it ran (minutes)" htmlFor="fb-minutes" hint="Shared with the candidate.">
+              <div className="relative">
+                <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Input
+                  id="fb-minutes"
+                  type="number"
+                  min={0}
+                  max={1440}
+                  inputMode="numeric"
+                  placeholder="e.g. 45"
+                  value={actualMinutes}
+                  onChange={(e) => setActualMinutes(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </Field>
+            <Field label="Meeting link" htmlFor="fb-link" hint="Shared with the candidate.">
+              <div className="flex items-center gap-1.5">
+                <Input id="fb-link" placeholder="https://…" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} />
+                <CopyButton value={meetingLink.trim() || undefined} title="Copy meeting link" />
+              </div>
+            </Field>
+          </div>
+
           <Field label="Strengths" htmlFor="fb-strengths" hint="Internal — not shown to the candidate.">
             <Textarea id="fb-strengths" value={strengths} onChange={(e) => setStrengths(e.target.value)} className="min-h-[64px]" />
           </Field>
           <Field label="Concerns" htmlFor="fb-concerns" hint="Internal — not shown to the candidate.">
             <Textarea id="fb-concerns" value={concerns} onChange={(e) => setConcerns(e.target.value)} className="min-h-[64px]" />
+          </Field>
+
+          <Field label="To-do list for the candidate" htmlFor="fb-todo" hint="Shared when you enable sharing below. One item per line.">
+            <div className="relative">
+              <ListChecks className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-white/30" />
+              <Textarea
+                id="fb-todo"
+                value={actionItems}
+                onChange={(e) => setActionItems(e.target.value)}
+                placeholder={"Review data-structures\nPractice system design\nSend follow-up email"}
+                className="min-h-[80px] pl-9"
+              />
+            </div>
           </Field>
 
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5">

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, Check, ExternalLink, FileText } from "lucide-react";
+import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Trash2 } from "lucide-react";
 
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
@@ -88,6 +89,8 @@ export function ManageRequestDialog({
   );
   const [invoicing, setInvoicing] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [unmarking, setUnmarking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [color, setColor] = useState<string | null>(request.color ?? null);
   const [savingColor, setSavingColor] = useState(false);
 
@@ -244,6 +247,42 @@ export function ManageRequestDialog({
     onClose();
   }
 
+  async function markUnpaid() {
+    setUnmarking(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({ payment_status: "unpaid", paid_at: null })
+      .eq("id", request.id);
+    setUnmarking(false);
+    if (updateError) {
+      setError(updateError.message);
+      toast({ title: "Couldn't update", description: updateError.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Marked as unpaid", variant: "success" });
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  async function deleteRequest() {
+    if (!window.confirm(`Delete "${request.role}" from the approval system? This can't be undone.`)) return;
+    setDeleting(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: delError } = await supabase.from("interview_requests").delete().eq("id", request.id);
+    setDeleting(false);
+    if (delError) {
+      setError(delError.message);
+      toast({ title: "Couldn't delete", description: delError.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Request deleted", variant: "success" });
+    notifyChanged("interviews");
+    onClose();
+  }
+
   async function saveColor(next: string | null) {
     setColor(next);
     setSavingColor(true);
@@ -372,9 +411,12 @@ export function ManageRequestDialog({
               <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Job description</dt>
               <dd className="flex flex-wrap gap-3">
                 {request.job_desc_url ? (
-                  <a href={request.job_desc_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
-                    Open link <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
+                  <span className="inline-flex items-center gap-0.5">
+                    <a href={request.job_desc_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                      Open link <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                    <CopyButton value={request.job_desc_url} title="Copy link" />
+                  </span>
                 ) : null}
                 {request.job_desc_path ? (
                   <button type="button" onClick={openJobDesc} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
@@ -431,12 +473,15 @@ export function ManageRequestDialog({
               </Field>
             </div>
             <Field label="Meeting link" htmlFor="schedLink" hint="Optional — shared with the candidate.">
-              <Input
-                id="schedLink"
-                placeholder="https://meet.google.com/…"
-                value={schedLink}
-                onChange={(e) => setSchedLink(e.target.value)}
-              />
+              <div className="flex items-center gap-1.5">
+                <Input
+                  id="schedLink"
+                  placeholder="https://meet.google.com/…"
+                  value={schedLink}
+                  onChange={(e) => setSchedLink(e.target.value)}
+                />
+                <CopyButton value={schedLink.trim() || undefined} title="Copy meeting link" />
+              </div>
             </Field>
             {schedPreview ? (
               <p className="text-[12px] text-white/55">
@@ -459,10 +504,15 @@ export function ManageRequestDialog({
         <div className="space-y-3 border-t border-white/[0.06] pt-4">
           <p className="text-[13px] font-medium text-white/80">Payment</p>
           {request.payment_status === "paid" ? (
-            <p className="text-[13px] font-medium text-[#34d399]">
-              Paid {formatMoney(request.price_cents, request.currency)}
-              {request.paid_at ? ` · ${relativeTime(request.paid_at)}` : ""}
-            </p>
+            <div className="space-y-2">
+              <p className="text-[13px] font-medium text-[#34d399]">
+                Paid {formatMoney(request.price_cents, request.currency)}
+                {request.paid_at ? ` · ${relativeTime(request.paid_at)}` : ""}
+              </p>
+              <Button variant="ghost" size="sm" loading={unmarking} disabled={unmarking} onClick={markUnpaid}>
+                <RotateCcw className="h-4 w-4" /> Mark as unpaid
+              </Button>
+            </div>
           ) : (
             <>
               <div className="flex items-end gap-2">
@@ -533,6 +583,13 @@ export function ManageRequestDialog({
             This request is {request.status} — no further actions.
           </p>
         )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
+          <p className="text-[11px] text-white/35">Removes this request and all its data permanently.</p>
+          <Button variant="danger" size="sm" loading={deleting} disabled={deleting} onClick={deleteRequest}>
+            <Trash2 className="h-4 w-4" /> Delete request
+          </Button>
+        </div>
       </div>
     </Dialog>
   );

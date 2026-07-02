@@ -6,6 +6,7 @@ import { Plus, Trash2, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -131,6 +132,7 @@ export function WalletsManager() {
                 </p>
                 <p className="truncate font-mono text-[11px] text-white/40">{w.address}</p>
               </div>
+              <CopyButton value={w.address} title="Copy address" />
               <button
                 type="button"
                 onClick={() => toggle(w)}
