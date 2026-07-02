@@ -1,17 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Settings2 } from "lucide-react";
 
 import { type CalendarPrefs, DEFAULT_PREFS, timezoneList } from "@/lib/calendar-prefs";
 import { cn } from "@/lib/utils";
 
 function hourLabel(h: number): string {
-  if (h === 0 || h === 24) return h === 0 ? "12:00 AM" : "12:00 AM";
+  if (h === 0 || h === 24) return "12:00 AM";
   if (h === 12) return "12:00 PM";
   const am = h < 12;
   const twelve = h % 12 === 0 ? 12 : h % 12;
   return `${twelve}:00 ${am ? "AM" : "PM"}`;
+}
+
+/** GMT offset label for a zone, e.g. "GMT+3". */
+function offsetLabel(tz: string): string {
+  try {
+    const zone = tz === "local" ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  } catch {
+    return "";
+  }
 }
 
 /** A gear button + popover to tune personal calendar display prefs. */
@@ -23,48 +34,67 @@ export function CalendarSettings({
   onChange: (next: CalendarPrefs) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const zones = useMemo(() => timezoneList(), []);
   const set = (patch: Partial<CalendarPrefs>) => onChange({ ...value, ...patch });
 
+  // Close when clicking outside (reliable — unlike blur, it never blocks the
+  // native <select> dropdowns from opening).
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        onBlur={() => window.setTimeout(() => setOpen(false), 180)}
         className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#13131a] text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80",
-          open && "text-white/80",
+          "flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-[#13131a] text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white/90",
+          open && "bg-white/[0.06] text-white/90",
         )}
         title="Calendar settings"
         aria-label="Calendar settings"
       >
-        <Settings2 className="h-4 w-4" />
+        <Settings2 className="h-[18px] w-[18px]" />
       </button>
 
       {open ? (
-        <div
-          className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-white/10 bg-[#13131a] p-3.5 shadow-xl"
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">Calendar settings</p>
+        <div className="absolute right-0 z-40 mt-2 w-[23rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/10 bg-[#161620] p-4 shadow-2xl shadow-black/50">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-white/45">Calendar settings</p>
+
+          {/* Timezone — prominent, full width */}
+          <div className="mb-4">
+            <div className="mb-1.5 flex items-baseline justify-between">
+              <label htmlFor="cs-tz" className="text-[13px] font-medium text-white/80">Timezone</label>
+              <span className="text-[12px] font-semibold text-[#a5b4fc]">{offsetLabel(value.timeZone)}</span>
+            </div>
+            <select
+              id="cs-tz"
+              value={value.timeZone}
+              onChange={(e) => set({ timeZone: e.target.value })}
+              className="h-11 w-full rounded-xl border border-white/12 bg-[#0f0f16] px-3 text-[14px] font-medium text-white/90 focus:border-[#6366f1] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30"
+            >
+              <option value="local">Local (device)</option>
+              {zones.map((z) => (
+                <option key={z} value={z}>
+                  {z.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="space-y-3">
-            <Row label="Timezone">
-              <select
-                value={value.timeZone}
-                onChange={(e) => set({ timeZone: e.target.value })}
-                className="h-8 max-w-[9.5rem] rounded-lg border border-white/10 bg-[#0f0f13] px-2 text-[12px] text-white/80 focus:border-[#6366f1] focus:outline-none"
-              >
-                <option value="local">Local (device)</option>
-                {zones.map((z) => (
-                  <option key={z} value={z}>
-                    {z.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
-            </Row>
-
             <Row label="Time format">
               <Toggle
                 options={[
@@ -99,7 +129,7 @@ export function CalendarSettings({
           <button
             type="button"
             onClick={() => onChange({ ...DEFAULT_PREFS, timeZone: value.timeZone, hiddenStatuses: value.hiddenStatuses })}
-            className="mt-3 w-full rounded-lg border border-white/10 py-1.5 text-[12px] text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+            className="mt-4 w-full rounded-xl border border-white/10 py-2 text-[13px] font-medium text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white/85"
           >
             Reset to defaults
           </button>
@@ -112,7 +142,7 @@ export function CalendarSettings({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[13px] text-white/70">{label}</span>
+      <span className="text-[14px] text-white/80">{label}</span>
       {children}
     </div>
   );
@@ -128,15 +158,15 @@ function Toggle<T extends string | number | boolean>({
   onPick: (v: T) => void;
 }) {
   return (
-    <div className="flex rounded-lg border border-white/10 bg-[#0f0f13] p-0.5">
+    <div className="flex rounded-xl border border-white/12 bg-[#0f0f16] p-1">
       {options.map((o) => (
         <button
           key={String(o.v)}
           type="button"
           onClick={() => onPick(o.v)}
           className={cn(
-            "rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
-            value === o.v ? "bg-[#6366f1]/[0.18] text-[#c7d2fe]" : "text-white/50 hover:text-white/80",
+            "rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
+            value === o.v ? "bg-[#6366f1] text-white shadow" : "text-white/50 hover:text-white/85",
           )}
         >
           {o.l}
@@ -163,7 +193,7 @@ function HourSelect({
     <select
       value={value}
       onChange={(e) => onPick(Number(e.target.value))}
-      className="h-8 rounded-lg border border-white/10 bg-[#0f0f13] px-2 text-[12px] text-white/80 focus:border-[#6366f1] focus:outline-none"
+      className="h-10 rounded-xl border border-white/12 bg-[#0f0f16] px-3 text-[13px] font-medium text-white/90 focus:border-[#6366f1] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30"
     >
       {hours.map((h) => (
         <option key={h} value={h}>
