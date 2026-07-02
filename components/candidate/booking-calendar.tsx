@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
@@ -228,8 +229,9 @@ export function BookingCalendar({
         {mounted ? (
           <FullCalendar
             ref={calRef}
-            plugins={[timeGridPlugin, interactionPlugin]}
-            initialView="timeGridWeek"
+            plugins={[timeGridPlugin, interactionPlugin, luxonPlugin]}
+            initialView={prefs.bookingView}
+            timeZone={prefs.timeZone}
             headerToolbar={false}
             height={620}
             allDaySlot={false}
@@ -251,6 +253,12 @@ export function BookingCalendar({
               setTitle(arg.view.title);
               setView(arg.view.type);
               load(arg.start.getTime(), arg.end.getTime());
+              setPrefs((p) => {
+                if (p.bookingView === arg.view.type) return p;
+                const next = { ...p, bookingView: arg.view.type };
+                savePrefs(next);
+                return next;
+              });
             }}
             eventClick={(info) => {
               const p = info.event.extendedProps as { startISO?: string; dur?: number };

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lucide-react";
 
@@ -84,6 +85,7 @@ export function ScheduleCalendar({
   const events = useMemo<EventInput[]>(() => {
     const out: EventInput[] = [];
     for (const r of rows) {
+      if (prefs.hiddenStatuses.includes(r.status)) continue;
       const at = r.scheduled_at || r.preferred_at;
       if (!at) continue;
       const start = new Date(at);
@@ -100,7 +102,7 @@ export function ScheduleCalendar({
       });
     }
     return out;
-  }, [rows]);
+  }, [rows, prefs.hiddenStatuses]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -153,8 +155,9 @@ export function ScheduleCalendar({
         {mounted ? (
           <FullCalendar
             ref={calRef}
-            plugins={[dayGridPlugin, timeGridPlugin]}
-            initialView="dayGridMonth"
+            plugins={[dayGridPlugin, timeGridPlugin, luxonPlugin]}
+            initialView={prefs.scheduleView}
+            timeZone={prefs.timeZone}
             headerToolbar={false}
             height={640}
             allDaySlot={false}
@@ -170,6 +173,12 @@ export function ScheduleCalendar({
             datesSet={(arg) => {
               setTitle(arg.view.title);
               setView(arg.view.type);
+              setPrefs((p) => {
+                if (p.scheduleView === arg.view.type) return p;
+                const next = { ...p, scheduleView: arg.view.type };
+                savePrefs(next);
+                return next;
+              });
             }}
             eventClick={(info) => {
               const r = rows.find((x) => x.id === info.event.extendedProps.reqId);
@@ -181,18 +190,42 @@ export function ScheduleCalendar({
         )}
       </Card>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] text-white/45">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[12px] text-white/45">
+        <span className="text-white/30">Filter:</span>
         {[
           { s: "pending", l: "Pending" },
           { s: "approved", l: "Approved" },
           { s: "scheduled", l: "Scheduled" },
           { s: "completed", l: "Completed" },
-        ].map((x) => (
-          <span key={x.s} className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLORS[x.s].border }} /> {x.l}
-          </span>
-        ))}
-        <span className="text-white/30">· Times in {timezone}</span>
+          { s: "cancelled", l: "Cancelled" },
+        ].map((x) => {
+          const hidden = prefs.hiddenStatuses.includes(x.s);
+          return (
+            <button
+              key={x.s}
+              type="button"
+              onClick={() => {
+                const next = {
+                  ...prefs,
+                  hiddenStatuses: hidden
+                    ? prefs.hiddenStatuses.filter((s) => s !== x.s)
+                    : [...prefs.hiddenStatuses, x.s],
+                };
+                setPrefs(next);
+                savePrefs(next);
+              }}
+              title={hidden ? `Show ${x.l.toLowerCase()}` : `Hide ${x.l.toLowerCase()}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors hover:bg-white/[0.06]",
+                hidden && "opacity-40",
+              )}
+            >
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: (COLORS[x.s] ?? COLORS.cancelled).border }} />
+              <span className={cn(hidden && "line-through")}>{x.l}</span>
+            </button>
+          );
+        })}
+        <span className="text-white/30">· Times in {prefs.timeZone === "local" ? timezone : prefs.timeZone}</span>
       </div>
 
       {detail ? (

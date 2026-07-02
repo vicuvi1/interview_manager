@@ -9,6 +9,14 @@ export interface CalendarPrefs {
   dayStart: number;
   /** Last visible hour in day/week grids (1–24). */
   dayEnd: number;
+  /** IANA timezone to display in, or "local" for the browser's zone. */
+  timeZone: string;
+  /** Interview statuses hidden on the schedule calendar. */
+  hiddenStatuses: string[];
+  /** Last-used view on the schedule (month view) calendar. */
+  scheduleView: string;
+  /** Last-used view on the booking calendar. */
+  bookingView: string;
 }
 
 export const DEFAULT_PREFS: CalendarPrefs = {
@@ -16,6 +24,10 @@ export const DEFAULT_PREFS: CalendarPrefs = {
   weekStart: 0,
   dayStart: 7,
   dayEnd: 21,
+  timeZone: "local",
+  hiddenStatuses: [],
+  scheduleView: "dayGridMonth",
+  bookingView: "timeGridWeek",
 };
 
 const KEY = "cal-prefs-v1";
@@ -49,4 +61,20 @@ export function hourStr(h: number): string {
 /** FullCalendar time-format object honoring the 12/24h preference. */
 export function timeFormat(hour12: boolean) {
   return { hour: "numeric" as const, minute: "2-digit" as const, hour12 };
+}
+
+/** All IANA timezones (falls back to a common subset on older browsers). */
+export function timezoneList(): string[] {
+  try {
+    const fn = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+    if (typeof fn === "function") return fn("timeZone");
+  } catch {
+    /* fall through */
+  }
+  return [
+    "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "America/Sao_Paulo", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Bucharest",
+    "Africa/Cairo", "Asia/Dubai", "Asia/Karachi", "Asia/Kolkata", "Asia/Singapore",
+    "Asia/Hong_Kong", "Asia/Tokyo", "Australia/Sydney",
+  ];
 }

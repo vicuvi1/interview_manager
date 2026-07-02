@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Settings2 } from "lucide-react";
 
-import type { CalendarPrefs } from "@/lib/calendar-prefs";
+import { type CalendarPrefs, timezoneList } from "@/lib/calendar-prefs";
 import { cn } from "@/lib/utils";
 
 function hourLabel(h: number): string {
@@ -23,6 +23,7 @@ export function CalendarSettings({
   onChange: (next: CalendarPrefs) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const zones = useMemo(() => timezoneList(), []);
   const set = (patch: Partial<CalendarPrefs>) => onChange({ ...value, ...patch });
 
   return (
@@ -49,6 +50,21 @@ export function CalendarSettings({
           <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">Calendar settings</p>
 
           <div className="space-y-3">
+            <Row label="Timezone">
+              <select
+                value={value.timeZone}
+                onChange={(e) => set({ timeZone: e.target.value })}
+                className="h-8 max-w-[9.5rem] rounded-lg border border-white/10 bg-[#0f0f13] px-2 text-[12px] text-white/80 focus:border-[#6366f1] focus:outline-none"
+              >
+                <option value="local">Local (device)</option>
+                {zones.map((z) => (
+                  <option key={z} value={z}>
+                    {z.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </Row>
+
             <Row label="Time format">
               <Toggle
                 options={[
