@@ -77,7 +77,8 @@ export function BookingCalendar({
   const [avail, setAvail] = useState<Availability | null>(null);
   const [mine, setMine] = useState<MyRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<{ startISO: string; dur: number } | null>(null);
+  const [selected, setSelected] = useState<{ startISO: string; dur: number; busy?: boolean } | null>(null);
+  const [busyAsk, setBusyAsk] = useState<{ startISO: string; dur: number } | null>(null);
   const [detail, setDetail] = useState<MyRow | null>(null);
   const [editWhen, setEditWhen] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
@@ -178,15 +179,27 @@ export function BookingCalendar({
     };
   }, [userId, load]);
 
+  // Busy + already-taken intervals in the visible window — also used to detect
+  // when a candidate is asking for a time the admin marked unavailable.
+  const blockedIntervals = useMemo(() => {
+    if (!avail || !range) return [] as { s: number; e: number }[];
+    return [
+      ...avail.busy.flatMap((b) => expandRecurring(ms(b.starts_at), ms(b.ends_at), b.repeat_rule ?? "none", range.start, range.end)),
+      ...avail.taken.map((t) => ({ s: ms(t.starts_at), e: ms(t.ends_at) })),
+    ];
+  }, [avail, range]);
+
+  const overlapsBusy = useCallback(
+    (s: number, e: number) => blockedIntervals.some((b) => s < b.e && b.s < e),
+    [blockedIntervals],
+  );
+
   const events = useMemo<EventInput[]>(() => {
     if (!avail || !range) return [];
     const availIvals = avail.available.flatMap((a) =>
       expandRecurring(ms(a.starts_at), ms(a.ends_at), a.repeat_rule ?? "none", range.start, range.end),
     );
-    const blocked = [
-      ...avail.busy.flatMap((b) => expandRecurring(ms(b.starts_at), ms(b.ends_at), b.repeat_rule ?? "none", range.start, range.end)),
-      ...avail.taken.map((t) => ({ s: ms(t.starts_at), e: ms(t.ends_at) })),
-    ];
+    const blocked = blockedIntervals;
     const now = Date.now();
     const out: EventInput[] = [];
 
@@ -234,7 +247,7 @@ export function BookingCalendar({
       });
     }
     return out;
-  }, [avail, range, mine, typeStyles]);
+  }, [avail, range, mine, typeStyles, blockedIntervals]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -354,6 +367,11 @@ export function BookingCalendar({
                 return;
               }
               const durMin = Math.max(5, Math.round((info.end.getTime() - info.start.getTime()) / 60000));
+              // If the time overlaps a busy/blocked band, ask before requesting an exception.
+              if (overlapsBusy(info.start.getTime(), info.end.getTime())) {
+                setBusyAsk({ startISO: info.start.toISOString(), dur: durMin });
+                return;
+              }
               setSelected({ startISO: info.start.toISOString(), dur: durMin });
             }}
           />
@@ -373,18 +391,55 @@ export function BookingCalendar({
         )}
       </div>
 
+      {busyAsk ? (
+        <Dialog
+          open
+          onClose={() => setBusyAsk(null)}
+          title="That time looks busy"
+          description={formatInTimeZone(busyAsk.startISO, timezone)}
+        >
+          <div className="space-y-4">
+            <p className="text-[13px] leading-relaxed text-white/70">
+              The admin is marked <span className="font-medium text-[#fca5a5]">busy</span> at this time. Want to ask them
+              to make an exception anyway? They&apos;ll get your request and can accept or decline — if they accept, this
+              time becomes your confirmed interview.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setSelected({ startISO: busyAsk.startISO, dur: busyAsk.dur, busy: true });
+                  setBusyAsk(null);
+                }}
+              >
+                Ask the admin anyway
+              </Button>
+              <Button variant="ghost" onClick={() => setBusyAsk(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
+
       {selected ? (
         <Dialog
           open
           onClose={() => setSelected(null)}
-          title="Request this time"
+          title={selected.busy ? "Request a busy time" : "Request this time"}
           description={`${formatInTimeZone(selected.startISO, timezone)} · ${selected.dur} min`}
         >
+          {selected.busy ? (
+            <div className="mb-4 rounded-lg border border-[#f59e0b]/25 bg-[#f59e0b]/[0.08] px-3.5 py-2.5 text-[12px] text-[#fbbf24]">
+              You&apos;re asking for a time the admin marked busy — they&apos;ll decide whether to make an exception.
+            </div>
+          ) : null}
           <InterviewRequestForm
             userId={userId}
             timezone={timezone}
             materials={materials}
             fixedStart={{ iso: selected.startISO, durationMin: selected.dur }}
+            busyOverride={selected.busy}
             onDone={() => {
               setSelected(null);
               if (range) load(range.start, range.end);

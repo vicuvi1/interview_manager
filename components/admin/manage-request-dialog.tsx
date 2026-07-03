@@ -78,7 +78,13 @@ export function ManageRequestDialog({
   const [error, setError] = useState<string | null>(null);
 
   const [schedAt, setSchedAt] = useState(
-    request.scheduled_at ? utcToLocalInput(request.scheduled_at, adminTimezone) : "",
+    request.scheduled_at
+      ? utcToLocalInput(request.scheduled_at, adminTimezone)
+      : // For a busy-time exception request, pre-fill the candidate's requested time
+        // so approving it is a one-click Schedule.
+        request.busy_override && request.preferred_at
+        ? utcToLocalInput(request.preferred_at, adminTimezone)
+        : "",
   );
   const STD_DURATIONS = [15, 30, 45, 60, 90];
   const [schedDuration, setSchedDuration] = useState(request.duration_minutes);
@@ -529,6 +535,12 @@ export function ManageRequestDialog({
   return (
     <Dialog open onClose={onClose} title="Manage request" description={request.role}>
       <div className="space-y-4">
+        {request.busy_override && (request.status === "pending" || request.status === "approved") ? (
+          <div className="rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.1] px-3.5 py-2.5 text-[12px] text-[#fbbf24]">
+            <span className="font-semibold">Busy-time request.</span> The candidate asked for a time you marked busy.
+            Schedule it to make an exception (it becomes a confirmed meeting), or reject to decline.
+          </div>
+        ) : null}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[13px]">
           <div className="col-span-2">
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Candidate</dt>

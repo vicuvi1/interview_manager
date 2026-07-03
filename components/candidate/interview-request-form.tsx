@@ -51,6 +51,7 @@ export function InterviewRequestForm({
   timezone,
   materials,
   fixedStart,
+  busyOverride,
   onDone,
 }: {
   userId: string;
@@ -58,6 +59,8 @@ export function InterviewRequestForm({
   materials: CandidateMaterials;
   /** When booking from the calendar, the time is locked to this slot. */
   fixedStart?: { iso: string; durationMin: number };
+  /** True when requesting a time the admin marked busy (needs their approval). */
+  busyOverride?: boolean;
   /** Called after a successful submit (used in the calendar dialog). */
   onDone?: () => void;
 }) {
@@ -218,6 +221,7 @@ export function InterviewRequestForm({
       caller_notes: callerNotes.trim() || null,
       notes: notes.trim() || null,
       meeting_link: meetingLink.trim() || null,
+      busy_override: busyOverride ?? false,
       color,
     });
     if (insertError) {
@@ -227,7 +231,13 @@ export function InterviewRequestForm({
     }
 
     notifyChanged("interviews");
-    toast({ title: "Request submitted", description: "We'll review it and confirm a time.", variant: "success" });
+    toast({
+      title: busyOverride ? "Exception requested" : "Request submitted",
+      description: busyOverride
+        ? "We've asked the admin about that busy time — you'll hear back once they decide."
+        : "We'll review it and confirm a time.",
+      variant: "success",
+    });
     setBusy(false);
     if (onDone) onDone();
     else router.push("/candidate/interviews");
