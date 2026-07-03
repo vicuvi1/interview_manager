@@ -2,8 +2,56 @@ import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+
+const DEFAULT_FROM = "Interview Scheduler <onboarding@resend.dev>";
+
+// Any signed-in user can send a test to THEIR OWN saved notification address.
+// The Resend key lives in app_email_config (admin-only via RLS), so it is read
+// with the service-role client — never returned to the browser.
+async function handleTestForMe(): Promise<NextResponse> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+
+  const { data: profRow } = await supabase
+    .from("profiles")
+    .select("email, notify_email, notify_email_enabled")
+    .eq("id", user.id)
+    .maybeSingle();
+  const prof = profRow as { email: string | null; notify_email: string | null; notify_email_enabled: boolean } | null;
+  if (prof && prof.notify_email_enabled === false) {
+    return NextResponse.json({ error: "Turn email notifications on and save first." }, { status: 400 });
+  }
+  const to = (prof?.notify_email?.trim() || prof?.email || user.email || "").trim();
+  if (!to) return NextResponse.json({ error: "No email on file to send to." }, { status: 400 });
+
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ error: "Email delivery isn't set up yet." }, { status: 400 });
+  const { data: cfgRow } = await admin
+    .from("app_email_config")
+    .select("resend_api_key, email_from, enabled")
+    .eq("id", 1)
+    .maybeSingle();
+  const cfg = cfgRow as { resend_api_key: string | null; email_from: string | null; enabled: boolean } | null;
+  if (!cfg?.enabled || !cfg?.resend_api_key) {
+    return NextResponse.json({ error: "The admin hasn't enabled email delivery yet." }, { status: 400 });
+  }
+
+  const result = await sendEmail({
+    apiKey: cfg.resend_api_key,
+    from: cfg.email_from || DEFAULT_FROM,
+    to,
+    subject: "Test — Interview Scheduler email notifications",
+    html: '<div style="font-family:sans-serif"><h2>It works ✅</h2><p>You\'ll get your interview updates at this address.</p></div>',
+  });
+  if (!result.ok) return NextResponse.json({ error: result.error ?? "Send failed" }, { status: 400 });
+  return NextResponse.json({ ok: true, to });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +87,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const action = body?.action as string;
+
+  // "test-me" is available to any signed-in user (candidate self-test).
+  if (action === "test-me") return handleTestForMe();
+
   const ctx = await requireAdmin();
   if ("error" in ctx) return ctx.error;
   const { supabase, email } = ctx;
-
-  const body = await request.json().catch(() => ({}));
-  const action = body?.action as string;
 
   if (action === "save") {
     const update: Record<string, unknown> = {

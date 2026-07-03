@@ -24,6 +24,8 @@ export interface Profile {
   resume_path?: string | null;
   bio?: string | null;
   tags?: string[] | null;
+  notify_email_enabled?: boolean;
+  notify_email?: string | null;
   created_at: string;
 }
 

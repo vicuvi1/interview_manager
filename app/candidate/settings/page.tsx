@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { ProfileMaterialsForm } from "@/components/candidate/profile-materials-form";
 import { TelegramCard } from "@/components/admin/telegram-card";
+import { EmailPrefsCard } from "@/components/settings/email-prefs-card";
 import { SettingsForm } from "@/components/settings-form";
 import { createClient } from "@/lib/supabase/server";
 import type { CandidateMaterials, Profile } from "@/lib/types";
@@ -56,6 +57,12 @@ export default async function CandidateSettingsPage() {
           initialTimezone={profile?.timezone ?? "UTC"}
         />
         <ProfileMaterialsForm userId={user.id} initial={materials} uploadsEnabled={uploadsEnabled} />
+        <EmailPrefsCard
+          userId={user.id}
+          accountEmail={profile?.email ?? user.email ?? ""}
+          initialEnabled={profile?.notify_email_enabled ?? true}
+          initialCustomEmail={profile?.notify_email ?? null}
+        />
         <TelegramCard variant="candidate" />
       </div>
     </div>

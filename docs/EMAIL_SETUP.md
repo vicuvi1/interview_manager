@@ -24,6 +24,18 @@ extension used by Telegram reminders).
 address (e.g. `Interviews <no-reply@yourdomain.com>`), tick **enabled**, **Save**,
 then **Send test**.
 
+## Per-user preferences (candidates)
+Once the admin has enabled delivery above, each candidate controls their own
+email under **Candidate → Settings → Email notifications**:
+- **On/off** — opt out of email while keeping in-app + Telegram.
+- **Destination** — their **account email** or **a different address** they enter.
+- **Send test email** — saves the choice and sends a test to it.
+
+These are stored on the user's own `profiles` row (`notify_email_enabled`,
+`notify_email`); the `email_on_notification()` trigger honours them. Added in
+`supabase/migrations/0046_per_user_email_prefs.sql` — re-running
+`apply_all_migrations.sql` installs it.
+
 ## Notes
 - The API key is stored in `app_email_config` (admin-only RLS) and is **never
   returned to the browser** by the API route.
