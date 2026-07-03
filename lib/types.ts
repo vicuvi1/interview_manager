@@ -56,6 +56,16 @@ export interface CandidateMaterials {
   bio: string | null;
 }
 
+/** A named résumé in a user's reusable library. */
+export interface ResumeItem {
+  id: string;
+  user_id: string;
+  name: string;
+  file_path: string | null;
+  file_url: string | null;
+  created_at: string;
+}
+
 /** A saved, reusable set of person details for the booking form. */
 export interface BookingProfile {
   id: string;

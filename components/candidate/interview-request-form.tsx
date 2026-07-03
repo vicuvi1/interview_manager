@@ -17,7 +17,7 @@ import { FORMATS, INTERVIEW_TYPES, LEVELS } from "@/lib/interview";
 import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
-import type { BookingProfile, CandidateMaterials } from "@/lib/types";
+import type { BookingProfile, CandidateMaterials, ResumeItem } from "@/lib/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const DOC_ACCEPT = ".pdf,.doc,.docx,application/pdf";
@@ -108,6 +108,32 @@ export function InterviewRequestForm({
       if (cfg) setFields(cfg);
     })();
   }, []);
+
+  // The user's saved résumé library, to pick from instead of re-uploading.
+  const [resumeLib, setResumeLib] = useState<ResumeItem[]>([]);
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("resume_library")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      setResumeLib((data as ResumeItem[] | null) ?? []);
+    })();
+  }, [userId]);
+
+  function applyResume(id: string) {
+    const r = resumeLib.find((x) => x.id === id);
+    if (!r) return;
+    if (r.file_path) {
+      setResumePath(r.file_path);
+      setResumeUrl("");
+    } else if (r.file_url) {
+      setResumeUrl(r.file_url);
+      setResumePath(null);
+    }
+  }
 
   // Fill the person fields from a saved profile.
   function applyProfile(p: BookingProfile) {
@@ -339,8 +365,18 @@ export function InterviewRequestForm({
 
           {lvl("cv") !== "hidden" ? (
             <>
+              {resumeLib.length ? (
+                <Field label={`Résumé / CV${levelSuffix(lvl("cv"))}`} htmlFor="ir-resume-lib" hint="Pick a saved résumé, or add a new one below.">
+                  <Select id="ir-resume-lib" defaultValue="" onChange={(e) => applyResume(e.target.value)}>
+                    <option value="">Choose a saved résumé…</option>
+                    {resumeLib.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
               <DocField
-                label={`Résumé / CV${levelSuffix(lvl("cv"))}`}
+                label={resumeLib.length ? "…or upload a new one" : `Résumé / CV${levelSuffix(lvl("cv"))}`}
                 path={resumePath}
                 uploading={uploading === "resume"}
                 inputRef={resumeRef}

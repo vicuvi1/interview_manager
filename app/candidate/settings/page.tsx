@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { ProfileMaterialsForm } from "@/components/candidate/profile-materials-form";
+import { ResumeLibraryCard } from "@/components/candidate/resume-library-card";
 import { TelegramCard } from "@/components/admin/telegram-card";
 import { EmailPrefsCard } from "@/components/settings/email-prefs-card";
 import { SettingsForm } from "@/components/settings-form";
@@ -57,6 +58,7 @@ export default async function CandidateSettingsPage() {
           initialTimezone={profile?.timezone ?? "UTC"}
         />
         <ProfileMaterialsForm userId={user.id} initial={materials} uploadsEnabled={uploadsEnabled} />
+        <ResumeLibraryCard userId={user.id} uploadsEnabled={uploadsEnabled} />
         <EmailPrefsCard
           userId={user.id}
           accountEmail={profile?.email ?? user.email ?? ""}
