@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellRing, CheckCircle2, Loader2, Send, Unplug } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, Loader2, Send, Stethoscope, Unplug, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,35 @@ interface Status {
   commandsEnabled: boolean;
 }
 
+interface Diag {
+  pg_net_enabled: boolean;
+  pg_cron_enabled: boolean;
+  forward_trigger: boolean;
+  reminders_scheduled: boolean;
+  has_settings: boolean;
+  enabled: boolean;
+  has_token: boolean;
+  has_chat: boolean;
+  bot_username: string | null;
+}
+
 const MINUTES = [5, 10, 15, 20, 30, 45, 60];
+
+function DiagRow({ ok, label, fix }: { ok: boolean; label: string; fix?: string }) {
+  return (
+    <li className="flex items-start gap-2 text-[12px]">
+      {ok ? (
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#34d399]" />
+      ) : (
+        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#f87171]" />
+      )}
+      <span className="text-white/70">
+        {label}
+        {!ok && fix ? <span className="mt-0.5 block text-white/40">{fix}</span> : null}
+      </span>
+    </li>
+  );
+}
 
 async function call(action: string, payload: Record<string, unknown> = {}) {
   const res = await fetch("/api/telegram", {
@@ -40,6 +68,7 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
   const [minutes, setMinutes] = useState(15);
   const [enabled, setEnabled] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [diag, setDiag] = useState<Diag | null>(null);
 
   async function refreshStatus() {
     const res = await fetch("/api/telegram", { cache: "no-store" });
@@ -107,6 +136,24 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
       description: "Check your Telegram and the in-app bell.",
       variant: "success",
     });
+  }
+
+  async function diagnose() {
+    setBusy("diagnose");
+    const r = await call("diagnose");
+    setBusy(null);
+    if (r.error) {
+      // A "function ... does not exist" error means the latest migration hasn't
+      // been applied yet — surface that plainly.
+      return toast({
+        title: "Couldn't run diagnostics",
+        description: /telegram_diagnostics/i.test(String(r.error))
+          ? "Run apply_all_migrations.sql in Supabase → SQL editor, then try again."
+          : r.error,
+        variant: "error",
+      });
+    }
+    setDiag(r.diagnostics as Diag);
   }
 
   async function toggleCommands() {
@@ -259,6 +306,57 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
             <span className="text-white/60">Test a notification</span> fires a real notification through the whole
             pipeline — if it reaches Telegram, everything works.
           </p>
+
+          <div className="rounded-lg bg-white/[0.03] px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-white/80">Delivery health</p>
+                <p className="text-[12px] text-white/45">
+                  Real notifications forward from the database — this checks that pipeline.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === "diagnose"}
+                disabled={busy !== null}
+                onClick={diagnose}
+              >
+                <Stethoscope className="h-4 w-4" /> Run diagnostics
+              </Button>
+            </div>
+            {diag ? (
+              <ul className="mt-3 space-y-1.5">
+                <DiagRow
+                  ok={diag.forward_trigger}
+                  label="Telegram forwarding installed"
+                  fix="Run apply_all_migrations.sql in Supabase → SQL editor."
+                />
+                <DiagRow
+                  ok={diag.pg_net_enabled}
+                  label="pg_net extension enabled (lets the database message Telegram)"
+                  fix="Supabase → Database → Extensions → enable pg_net."
+                />
+                <DiagRow
+                  ok={diag.has_token && diag.has_chat}
+                  label="Bot connected to a chat"
+                  fix="Send /start to your bot in Telegram, then tap Detect chat."
+                />
+                <DiagRow
+                  ok={diag.enabled}
+                  label="Notifications enabled"
+                  fix="Tick “Notifications enabled” above and Save."
+                />
+                {!isCandidate ? (
+                  <DiagRow
+                    ok={diag.pg_cron_enabled && diag.reminders_scheduled}
+                    label="Interview reminders scheduled"
+                    fix="Enable pg_cron and schedule the job — see docs/TELEGRAM_SETUP.md."
+                  />
+                ) : null}
+              </ul>
+            ) : null}
+          </div>
 
           <p className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/40">
             {isCandidate

@@ -156,6 +156,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "diagnose") {
+    const { data, error } = await supabase.rpc("telegram_diagnostics");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, diagnostics: data });
+  }
+
   if (action === "enable-commands") {
     const { data } = await supabase.from("telegram_settings").select("bot_token").eq("user_id", userId).maybeSingle();
     const token = (data as { bot_token?: string } | null)?.bot_token;

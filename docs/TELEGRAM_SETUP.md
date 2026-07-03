@@ -5,10 +5,25 @@ interview to be reminded. A Postgres cron job checks every minute and sends any 
 reminders via the Telegram Bot API. Nothing here needs extra environment variables —
 tokens are stored per-admin in the database (RLS keeps each token private to its owner).
 
+## Immediate event notifications (admins **and** candidates)
+
+Beyond scheduled reminders, **every** in-app notification — a new request, an
+approve/reject, a reschedule or cancellation (from either side), a reported payment —
+is forwarded to Telegram **instantly** by a database trigger (`telegram_on_notification`).
+Both admins and candidates can connect their own bot (Admin/Candidate →
+**Settings → Telegram**).
+
+This forwarding runs **inside Postgres via `pg_net`**, so **`pg_net` must be enabled**
+(step 2 below) or messages silently never send even though the in-app bell still works.
+The **"Send test"** button only checks the bot from the web server, so it can pass while
+real notifications don't arrive — use **"Run diagnostics"** on the Telegram settings card
+to see exactly what's missing (forwarding trigger installed? pg_net on? bot connected?).
+
 ## 1. Run the migration
 Apply `supabase/migrations/0014_telegram_reminders.sql` (or re-run
 `apply_all_migrations.sql`). This creates `telegram_settings`, `reminder_log`, and the
-`process_interview_reminders()` function.
+`process_interview_reminders()` function. Re-running `apply_all_migrations.sql` is
+idempotent and also installs the forwarding trigger and `telegram_diagnostics()`.
 
 ## 2. Enable the two extensions (one-time)
 Supabase Dashboard → **Database → Extensions**, enable:
