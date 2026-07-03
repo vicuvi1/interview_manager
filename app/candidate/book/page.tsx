@@ -25,6 +25,7 @@ export default async function BookInterviewPage() {
   const profile = profileRow as Profile | null;
   const timezone = profile?.timezone || "UTC";
   const materials: CandidateMaterials = {
+    full_name: profile?.full_name ?? null,
     phone: profile?.phone ?? null,
     linkedin_url: profile?.linkedin_url ?? null,
     github_url: profile?.github_url ?? null,

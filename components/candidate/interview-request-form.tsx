@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, Check, FileText, Send, Upload, User, X } from "lucide-react";
 
+import { BookingProfilesBar } from "@/components/candidate/booking-profiles-bar";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -16,7 +17,7 @@ import { FORMATS, INTERVIEW_TYPES, LEVELS } from "@/lib/interview";
 import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
-import type { CandidateMaterials } from "@/lib/types";
+import type { BookingProfile, CandidateMaterials } from "@/lib/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const DOC_ACCEPT = ".pdf,.doc,.docx,application/pdf";
@@ -78,6 +79,7 @@ export function InterviewRequestForm({
   const [duration, setDuration] = useState(30);
   const [customDuration, setCustomDuration] = useState(false);
   // Materials
+  const [name, setName] = useState(materials.full_name ?? "");
   const [resumePath, setResumePath] = useState<string | null>(materials.resume_path ?? null);
   const [resumeUrl, setResumeUrl] = useState(materials.resume_url ?? "");
   const [portfolioUrl, setPortfolioUrl] = useState(materials.portfolio_url ?? "");
@@ -106,6 +108,17 @@ export function InterviewRequestForm({
       if (cfg) setFields(cfg);
     })();
   }, []);
+
+  // Fill the person fields from a saved profile.
+  function applyProfile(p: BookingProfile) {
+    setName(p.full_name ?? "");
+    setPhone(p.phone ?? "");
+    setLinkedinUrl(p.linkedin_url ?? "");
+    setGithubUrl(p.github_url ?? "");
+    setPortfolioUrl(p.portfolio_url ?? "");
+    setResumeUrl(p.resume_url ?? "");
+    setResumePath(p.resume_path ?? null);
+  }
 
   async function upload(file: File, kind: "resume" | "jd"): Promise<string | null> {
     if (file.size > MAX_BYTES) {
@@ -152,6 +165,8 @@ export function InterviewRequestForm({
     await supabase
       .from("profiles")
       .update({
+        // Only set the name when provided so we never blank an existing account name.
+        ...(name.trim() ? { full_name: name.trim() } : {}),
         resume_url: resumeUrl.trim() || null,
         resume_path: resumePath,
         portfolio_url: portfolioUrl.trim() || null,
@@ -192,6 +207,20 @@ export function InterviewRequestForm({
 
   const content = (
     <div className="space-y-6">
+        <BookingProfilesBar
+          userId={userId}
+          current={{
+            full_name: name,
+            phone,
+            linkedin_url: linkedinUrl,
+            github_url: githubUrl,
+            portfolio_url: portfolioUrl,
+            resume_url: resumeUrl,
+            resume_path: resumePath,
+          }}
+          onApply={applyProfile}
+        />
+
         {/* Interview */}
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>The interview</GroupLabel>
@@ -303,6 +332,10 @@ export function InterviewRequestForm({
         <div className="space-y-4">
           <GroupLabel icon={User}>About you</GroupLabel>
           <p className="-mt-1 text-[12px] text-white/40">Saved to your profile so you don&apos;t retype it next time.</p>
+
+          <Field label="Name" htmlFor="ir-name" hint="Who this interview is for.">
+            <Input id="ir-name" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
 
           {lvl("cv") !== "hidden" ? (
             <>

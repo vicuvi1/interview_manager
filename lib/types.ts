@@ -44,6 +44,7 @@ export interface InterviewTemplate {
 
 /** The reusable materials a candidate keeps on their profile. */
 export interface CandidateMaterials {
+  full_name?: string | null;
   phone: string | null;
   linkedin_url: string | null;
   github_url: string | null;
@@ -53,6 +54,22 @@ export interface CandidateMaterials {
   /** A short-lived signed URL for an uploaded résumé (generated server-side for admins). */
   resume_signed_url?: string | null;
   bio: string | null;
+}
+
+/** A saved, reusable set of person details for the booking form. */
+export interface BookingProfile {
+  id: string;
+  user_id: string;
+  label: string;
+  full_name: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  resume_url: string | null;
+  resume_path: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InterviewRequest {
