@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
 import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lucide-react";
@@ -15,6 +16,7 @@ import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
 import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { colorBg } from "@/lib/colors";
@@ -48,6 +50,7 @@ export function ScheduleCalendar({
   timezone: string;
   initial: InterviewRequest[];
 }) {
+  const { toast } = useToast();
   const calRef = useRef<FullCalendar>(null);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
@@ -114,6 +117,8 @@ export function ScheduleCalendar({
         backgroundColor: colorBg(accent, r.status === "completed" ? 0.14 : 0.3),
         borderColor: accent,
         textColor: c.text,
+        // Only a confirmed interview can be dragged to propose a new time.
+        editable: r.status === "scheduled" && !!r.scheduled_at,
         extendedProps: {
           reqId: r.id,
           emoji: ts.emoji,
@@ -180,7 +185,7 @@ export function ScheduleCalendar({
         {mounted ? (
           <FullCalendar
             ref={calRef}
-            plugins={[dayGridPlugin, timeGridPlugin, luxonPlugin]}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, luxonPlugin]}
             initialView={prefs.scheduleView}
             timeZone={prefs.timeZone}
             headerToolbar={false}
@@ -188,6 +193,33 @@ export function ScheduleCalendar({
             allDaySlot={false}
             nowIndicator
             dayMaxEvents={3}
+            editable
+            eventStartEditable
+            eventDurationEditable={false}
+            snapDuration="00:05:00"
+            eventDrop={async (info) => {
+              const start = info.event.start;
+              if (!start || start.getTime() <= Date.now()) {
+                toast({ title: "Pick a future time", variant: "error" });
+                info.revert();
+                return;
+              }
+              const when = formatInTimeZone(start.toISOString(), prefs.timeZone);
+              if (!window.confirm(`Propose moving this interview to ${when}? Your interviewer will confirm it.`)) {
+                info.revert();
+                return;
+              }
+              const supabase = createClient();
+              const { error } = await supabase.rpc("propose_reschedule", {
+                p_interview_id: String(info.event.id),
+                p_at: start.toISOString(),
+              });
+              // A drag is only a PROPOSAL (candidates can't move a confirmed time directly);
+              // revert the block to its real slot until the admin accepts.
+              info.revert();
+              if (error) toast({ title: "Couldn't propose", description: error.message, variant: "error" });
+              else toast({ title: "New time proposed", description: "Your interviewer will review it.", variant: "success" });
+            }}
             firstDay={prefs.weekStart}
             slotMinTime={hourStr(prefs.dayStart)}
             slotMaxTime={hourStr(prefs.dayEnd)}

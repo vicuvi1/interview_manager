@@ -4,6 +4,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 import { SettingsForm } from "@/components/settings-form";
 import { BookingRulesCard } from "@/components/admin/booking-rules-card";
 import { EmailCard } from "@/components/admin/email-card";
+import { GoogleCalendarCard } from "@/components/admin/google-calendar-card";
 import { InterviewTypeStylesCard } from "@/components/admin/interview-type-styles-card";
 import { RequestFieldsCard } from "@/components/admin/request-fields-card";
 import { StagePricingCard } from "@/components/admin/stage-pricing-card";
@@ -52,6 +53,7 @@ export default async function AdminSettingsPage() {
           <RequestFieldsCard />
           <StagePricingCard />
           <BookingRulesCard />
+          <GoogleCalendarCard />
           <TelegramCard />
           <EmailCard />
         </div>
