@@ -247,7 +247,9 @@ export function BookingCalendar({
         start: new Date(s),
         end: new Date(e),
         classNames: [`mine-${r.status}`],
-        extendedProps: { own: true, rowId: r.id },
+        // Drag an active interview onto free time to propose a new slot.
+        editable: (r.status === "scheduled" || r.status === "approved") && s > now,
+        extendedProps: { own: true, rowId: r.id, dur: Math.round((e - s) / 60000) },
       });
     }
     return out;
@@ -333,6 +335,9 @@ export function BookingCalendar({
             nowIndicator
             selectable
             selectMirror
+            editable
+            eventStartEditable
+            eventDurationEditable={false}
             slotDuration="00:30:00"
             slotLabelInterval="01:00:00"
             dayHeaderFormat={{ weekday: "short", day: "numeric" }}
@@ -376,6 +381,33 @@ export function BookingCalendar({
                 setSelected({ startISO: p.startISO, dur: p.dur ?? 30 });
               }
             }}
+            eventDrop={async (info) => {
+              const start = info.event.start;
+              if (!start || start.getTime() <= Date.now()) {
+                toast({ title: "Pick a future time", variant: "info" });
+                info.revert();
+                return;
+              }
+              const durMin = (info.event.extendedProps as { dur?: number }).dur ?? 30;
+              // Enforce dropping onto free time (not a busy/blocked band).
+              if (overlapsBusy(start.getTime(), start.getTime() + durMin * 60000)) {
+                toast({ title: "That time is busy", description: "Drop the interview on a free slot.", variant: "info" });
+                info.revert();
+                return;
+              }
+              const when = formatInTimeZone(start.toISOString(), prefs.timeZone);
+              if (!window.confirm(`Propose moving this interview to ${when}? Your interviewer will confirm it.`)) {
+                info.revert();
+                return;
+              }
+              const supabase = createClient();
+              const rowId = String(info.event.id).replace(/^mine-/, "");
+              const { error } = await supabase.rpc("propose_reschedule", { p_interview_id: rowId, p_at: start.toISOString() });
+              // Proposal only — revert to the current slot until the admin accepts.
+              info.revert();
+              if (error) toast({ title: "Couldn't propose", description: error.message, variant: "error" });
+              else toast({ title: "New time proposed", description: "Your interviewer will review it.", variant: "success" });
+            }}
             select={(info) => {
               api()?.unselect();
               if (info.start.getTime() < Date.now()) return;
@@ -404,7 +436,7 @@ export function BookingCalendar({
         ) : (
           <span className="inline-flex flex-wrap items-center gap-1.5">
             <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" />
-            <span className="text-white/70">Drag over any time to request it</span> — you can ask for busy times too; the admin confirms.
+            <span className="text-white/70">Drag over any time to request it</span> — or drag an existing interview onto a free slot to propose a new time. You can ask for busy times too; the admin confirms.
           </span>
         )}
       </div>
