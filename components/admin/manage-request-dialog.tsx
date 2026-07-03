@@ -129,6 +129,11 @@ export function ManageRequestDialog({
   const [color, setColor] = useState<string | null>(request.color ?? null);
   const [savingColor, setSavingColor] = useState(false);
 
+  // Post-meeting summary the admin sends when completing.
+  const [recordingUrl, setRecordingUrl] = useState(request.recording_url ?? request.meeting_link ?? "");
+  const [actualMinutes, setActualMinutes] = useState<number>(request.actual_minutes ?? request.duration_minutes);
+  const [completionNotes, setCompletionNotes] = useState(request.completion_notes ?? "");
+
   const candidate = candidates[request.candidate_id];
   const candTz = candidate?.timezone ?? "UTC";
   const actions = ACTIONS_BY_STATUS[request.status] ?? [];
@@ -182,6 +187,47 @@ export function ManageRequestDialog({
       type: action.type,
     });
     toast({ title: action.title, variant: "success" });
+    setBusy(null);
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  async function completeInterview() {
+    setBusy("complete");
+    setError(null);
+    const supabase = createClient();
+    const mins = Math.max(1, Math.min(1440, Math.round(Number(actualMinutes) || request.duration_minutes)));
+    const url = recordingUrl.trim();
+    const notes = completionNotes.trim();
+    const { error: updateError } = await supabase
+      .from("interview_requests")
+      .update({
+        status: "completed",
+        recording_url: url || null,
+        actual_minutes: mins,
+        completion_notes: notes || null,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", request.id);
+    if (updateError) {
+      setError(updateError.message);
+      toast({ title: "Couldn't complete", description: updateError.message, variant: "error" });
+      setBusy(null);
+      return;
+    }
+    const extra = message.trim();
+    const detail =
+      `Your interview for "${request.role}" is complete. Duration: ${mins} min.` +
+      (url ? `\nMeeting link: ${url}` : "") +
+      (notes ? `\nNotes: ${notes}` : "") +
+      (extra ? `\n${extra}` : "");
+    await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Interview completed",
+      detail,
+      type: "success",
+    });
+    toast({ title: "Interview completed", variant: "success" });
     setBusy(null);
     notifyChanged("interviews");
     onClose();
@@ -786,7 +832,51 @@ export function ManageRequestDialog({
           <ColorPicker value={color} onChange={saveColor} disabled={savingColor} />
         </div>
 
-        {actions.length > 0 ? (
+        {actions.includes("complete") ? (
+          <div className="space-y-3 border-t border-white/[0.06] pt-4">
+            <p className="text-[13px] font-medium text-white/80">Complete this interview</p>
+            <p className="-mt-1 text-[12px] text-white/40">
+              Send the candidate the meeting link, how long it lasted, and any notes.
+            </p>
+            <Field label="Meeting link (URL only)" htmlFor="mr-recording">
+              <Input
+                id="mr-recording"
+                placeholder="https://…"
+                value={recordingUrl}
+                onChange={(e) => setRecordingUrl(e.target.value)}
+              />
+            </Field>
+            <Field label="How long did it last?" htmlFor="mr-minutes">
+              <div className="flex items-center gap-2">
+                <Input
+                  id="mr-minutes"
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={actualMinutes}
+                  onChange={(e) => setActualMinutes(Number(e.target.value))}
+                  className="w-28"
+                />
+                <span className="text-[13px] text-white/40">minutes</span>
+              </div>
+            </Field>
+            <Field label="Notes (optional)" htmlFor="mr-cnotes">
+              <Textarea
+                id="mr-cnotes"
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                placeholder="How it went, feedback, next steps…"
+                className="min-h-[64px]"
+              />
+            </Field>
+            {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+            <Button variant="primary" size="sm" loading={busy === "complete"} disabled={busy !== null} onClick={completeInterview}>
+              Mark completed &amp; send
+            </Button>
+          </div>
+        ) : null}
+
+        {actions.filter((k) => k !== "complete").length > 0 ? (
           <div className="space-y-3 border-t border-white/[0.06] pt-4">
             <Textarea
               value={message}
@@ -796,7 +886,7 @@ export function ManageRequestDialog({
             />
             {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
-              {actions.map((kind) => (
+              {actions.filter((k) => k !== "complete").map((kind) => (
                 <Button
                   key={kind}
                   variant={ACTIONS[kind].variant}
@@ -810,11 +900,11 @@ export function ManageRequestDialog({
               ))}
             </div>
           </div>
-        ) : (
+        ) : actions.length === 0 ? (
           <p className="border-t border-white/[0.06] pt-4 text-[12px] text-white/40">
             This request is {request.status} — no further actions.
           </p>
-        )}
+        ) : null}
 
         <div className="flex items-center justify-between gap-3 border-t border-white/[0.06] pt-4">
           <p className="text-[11px] text-white/35">Removes this request and all its data permanently.</p>

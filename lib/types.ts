@@ -101,6 +101,10 @@ export interface InterviewRequest {
   meeting_link: string | null;
   duration_minutes: number;
   notes: string | null;
+  recording_url?: string | null;
+  actual_minutes?: number | null;
+  completion_notes?: string | null;
+  completed_at?: string | null;
   status: InterviewStatus;
   payment_status: PaymentStatus;
   price_cents: number | null;

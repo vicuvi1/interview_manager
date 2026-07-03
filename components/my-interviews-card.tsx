@@ -193,6 +193,25 @@ export function MyInterviewsCard({
                         <span className="ml-1 text-[12px] text-white/40">(preferred)</span>
                       </span>
                     )}
+                    {row.status === "completed" && (row.recording_url || row.completion_notes || row.actual_minutes) ? (
+                      <div className="mt-1.5 rounded-md bg-white/[0.03] px-2.5 py-2 text-[12px] text-white/50">
+                        <span className="font-medium text-white/70">Meeting summary</span>
+                        {row.actual_minutes ? <div className="mt-0.5">Lasted {row.actual_minutes} min</div> : null}
+                        {row.recording_url ? (
+                          <a
+                            href={row.recording_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 inline-flex items-center gap-1 text-[#a5b4fc] hover:text-[#c7d2fe]"
+                          >
+                            Meeting link <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : null}
+                        {row.completion_notes ? (
+                          <div className="mt-0.5 whitespace-pre-wrap text-white/55">{row.completion_notes}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-white/60">{row.duration_minutes} min</td>
                   <td className="px-3 py-3">
