@@ -37,6 +37,7 @@ import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeF
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { colorBg } from "@/lib/colors";
+import { type TypeStyleMap, typeStyle } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -179,6 +180,8 @@ export function AdminCalendarBoard({
     revert: () => void;
   } | null>(null);
 
+  const [typeStyles, setTypeStyles] = useState<TypeStyleMap>({});
+
   useEffect(() => {
     setMounted(true);
     setPrefs(loadPrefs());
@@ -188,6 +191,11 @@ export function AdminCalendarBoard({
     } catch {
       /* ignore */
     }
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("app_settings").select("interview_type_styles").eq("id", 1).maybeSingle();
+      setTypeStyles((data as { interview_type_styles?: TypeStyleMap } | null)?.interview_type_styles ?? {});
+    })();
   }, []);
 
   const candidates = useMemo(() => {
@@ -305,11 +313,12 @@ export function AdminCalendarBoard({
       // Only feed FullCalendar events in the visible window — keeps it light.
       if (range && (end.getTime() < range.start || start.getTime() > range.end)) continue;
       const style = INTERVIEW_STYLES[r.status] ?? INTERVIEW_STYLES.pending;
-      // Color priority: per-request tag → per-user calendar color → status color.
-      const tint = r.color ?? userColors[r.candidate_id] ?? null;
+      const ts = typeStyle(r.interview_type, typeStyles);
+      // Color priority: per-request tag → per-user calendar color → interview-type color → status.
+      const tint = r.color ?? userColors[r.candidate_id] ?? (r.interview_type ? ts.color : null);
       out.push({
         id: `iv:${r.id}`,
-        title: `${candName(r.candidate_id)} · ${r.role}${r.status !== "scheduled" ? ` (${r.status})` : ""}`,
+        title: `${ts.emoji} ${candName(r.candidate_id)} · ${r.role}${r.status !== "scheduled" ? ` (${r.status})` : ""}`,
         start,
         end,
         editable: r.status === "scheduled",
@@ -348,7 +357,7 @@ export function AdminCalendarBoard({
       }
     }
     return out;
-  }, [requests, slots, range, candName, prefs.hiddenStatuses, hiddenUsers, userColors]);
+  }, [requests, slots, range, candName, prefs.hiddenStatuses, hiddenUsers, userColors, typeStyles]);
 
   // Auto-expand the visible hours so no request is ever clipped by the day range,
   // while respecting the gear's day-start/end as a minimum window.

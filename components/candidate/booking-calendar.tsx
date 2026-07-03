@@ -17,6 +17,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
+import { type TypeStyleMap, typeStyle } from "@/lib/interview";
 import { expandRecurring } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
@@ -82,6 +83,7 @@ export function BookingCalendar({
   const [savingEdit, setSavingEdit] = useState(false);
   const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
+  const [typeStyles, setTypeStyles] = useState<TypeStyleMap>({});
 
   useEffect(() => {
     setMounted(true);
@@ -93,10 +95,13 @@ export function BookingCalendar({
       const supabase = createClient();
       const { data } = await supabase
         .from("app_settings")
-        .select("min_notice_hours, booking_horizon_days")
+        .select("min_notice_hours, booking_horizon_days, interview_type_styles")
         .eq("id", 1)
         .maybeSingle();
-      if (data) setRules({ min_notice_hours: data.min_notice_hours ?? 0, booking_horizon_days: data.booking_horizon_days ?? 0 });
+      if (data) {
+        setRules({ min_notice_hours: data.min_notice_hours ?? 0, booking_horizon_days: data.booking_horizon_days ?? 0 });
+        setTypeStyles((data.interview_type_styles as TypeStyleMap) ?? {});
+      }
     })();
   }, []);
 
@@ -221,7 +226,7 @@ export function BookingCalendar({
       if (e < range.start || s > range.end) continue;
       out.push({
         id: `mine-${r.id}`,
-        title: r.role,
+        title: `${typeStyle(r.interview_type, typeStyles).emoji} ${r.role}`,
         start: new Date(s),
         end: new Date(e),
         classNames: [`mine-${r.status}`],
@@ -229,7 +234,7 @@ export function BookingCalendar({
       });
     }
     return out;
-  }, [avail, range, mine]);
+  }, [avail, range, mine, typeStyles]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {

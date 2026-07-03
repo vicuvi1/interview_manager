@@ -18,7 +18,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useDataChanged } from "@/lib/bus";
 import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { colorBg } from "@/lib/colors";
-import { FORMAT_LABEL } from "@/lib/interview";
+import { FORMAT_LABEL, type TypeStyleMap, typeStyle } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -57,9 +57,16 @@ export function ScheduleCalendar({
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
+  const [typeStyles, setTypeStyles] = useState<TypeStyleMap>({});
+
   useEffect(() => {
     setMounted(true);
     setPrefs(loadPrefs());
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("app_settings").select("interview_type_styles").eq("id", 1).maybeSingle();
+      setTypeStyles((data as { interview_type_styles?: TypeStyleMap } | null)?.interview_type_styles ?? {});
+    })();
   }, []);
 
   const load = useCallback(async () => {
@@ -96,19 +103,27 @@ export function ScheduleCalendar({
         if (endMs < range.start || start.getTime() > range.end) continue;
       }
       const c = COLORS[r.status] ?? COLORS.pending;
+      const ts = typeStyle(r.interview_type, typeStyles);
+      // Precedence: manual per-request color → interview-type color → status color.
+      const accent = r.color ?? (r.interview_type ? ts.color : null) ?? c.border;
       out.push({
         id: r.id,
-        title: `${r.role} · ${r.status}`,
+        title: r.role,
         start,
         end: new Date(start.getTime() + (r.duration_minutes || 30) * 60000),
-        backgroundColor: r.color ? colorBg(r.color, 0.3) : c.bg,
-        borderColor: r.color ?? c.border,
+        backgroundColor: colorBg(accent, r.status === "completed" ? 0.14 : 0.3),
+        borderColor: accent,
         textColor: c.text,
-        extendedProps: { reqId: r.id },
+        extendedProps: {
+          reqId: r.id,
+          emoji: ts.emoji,
+          typeLabel: r.interview_type ?? null,
+          statusLabel: r.status,
+        },
       });
     }
     return out;
-  }, [rows, prefs.hiddenStatuses, range]);
+  }, [rows, prefs.hiddenStatuses, range, typeStyles]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -180,6 +195,23 @@ export function ScheduleCalendar({
             eventTimeFormat={timeFormat(prefs.hour12)}
             slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
+            eventContent={(arg) => {
+              const p = arg.event.extendedProps as {
+                emoji?: string;
+                typeLabel?: string | null;
+                statusLabel?: string;
+              };
+              const sub = [arg.timeText, p.typeLabel || p.statusLabel].filter(Boolean).join(" · ");
+              return (
+                <div className="overflow-hidden px-1 py-0.5 leading-tight">
+                  <div className="truncate text-[11px] font-semibold">
+                    {p.emoji ? `${p.emoji} ` : ""}
+                    {arg.event.title}
+                  </div>
+                  {sub ? <div className="truncate text-[10px] opacity-80">{sub}</div> : null}
+                </div>
+              );
+            }}
             datesSet={(arg) => {
               setTitle(arg.view.title);
               setView(arg.view.type);
