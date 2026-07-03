@@ -22,6 +22,7 @@ import { Calendar, type CalendarEvent } from "@/components/calendar/calendar";
 import { Badge, paymentTone, statusTone, type Tone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
@@ -431,17 +432,20 @@ export function AdminDashboard({
                         <p className="truncate text-[11px] text-white/40">{r.role}</p>
                       </div>
                       {r.meeting_link ? (
-                        <a
-                          href={r.meeting_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={cn(
-                            "rounded-md bg-[#6366f1]/15 px-2 py-1 text-[12px] font-medium text-[#a5b4fc] hover:bg-[#6366f1]/25",
-                            soon && "animate-pulse",
-                          )}
-                        >
-                          Join
-                        </a>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={r.meeting_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cn(
+                              "rounded-md bg-[#6366f1]/15 px-2 py-1 text-[12px] font-medium text-[#a5b4fc] hover:bg-[#6366f1]/25",
+                              soon && "animate-pulse",
+                            )}
+                          >
+                            Join
+                          </a>
+                          <CopyButton value={r.meeting_link} title="Copy meeting link" className="h-7 w-7" />
+                        </div>
                       ) : null}
                     </li>
                   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
+import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, Link as LinkIcon, ListChecks, MessageSquareText, Star } from "lucide-react";
 
 import { CalendarInvite } from "@/components/calendar-invite";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
@@ -39,6 +39,7 @@ export function MyInterviewsCard({
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [payTarget, setPayTarget] = useState<InterviewRequest | null>(null);
   const [reschedTarget, setReschedTarget] = useState<InterviewRequest | null>(null);
+  const [linkTarget, setLinkTarget] = useState<InterviewRequest | null>(null);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, InterviewFeedback>>({});
   const [viewing, setViewing] = useState<InterviewFeedback | null>(null);
   const [todoDone, setTodoDone] = useState<number[]>([]);
@@ -245,6 +246,11 @@ export function MyInterviewsCard({
                         )
                       ) : null}
                       {CANCELLABLE.has(row.status) ? (
+                        <Button variant="secondary" size="sm" onClick={() => setLinkTarget(row)}>
+                          <LinkIcon className="h-4 w-4" /> {row.meeting_link ? "Link" : "Add link"}
+                        </Button>
+                      ) : null}
+                      {CANCELLABLE.has(row.status) ? (
                         <Button variant="ghost" size="sm" onClick={() => cancelRequest(row.id)}>
                           Cancel
                         </Button>
@@ -263,6 +269,9 @@ export function MyInterviewsCard({
       ) : null}
       {reschedTarget ? (
         <RescheduleDialog request={reschedTarget} timezone={timezone} onClose={() => setReschedTarget(null)} />
+      ) : null}
+      {linkTarget ? (
+        <MeetingLinkDialog request={linkTarget} onClose={() => setLinkTarget(null)} />
       ) : null}
       {viewing ? (
         <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
@@ -381,6 +390,56 @@ function RescheduleDialog({
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button className="w-full" loading={busy} disabled={busy || !when} onClick={submit}>
           <CalendarClock className="h-4 w-4" /> Propose this time
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
+function MeetingLinkDialog({ request, onClose }: { request: InterviewRequest; onClose: () => void }) {
+  const { toast } = useToast();
+  const [url, setUrl] = useState(request.meeting_link ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: rpcError } = await supabase.rpc("set_my_meeting_link", { p_interview_id: request.id, p_url: url.trim() });
+    setBusy(false);
+    if (rpcError) {
+      setError(rpcError.message);
+      return;
+    }
+    toast({ title: url.trim() ? "Meeting link saved" : "Meeting link removed", variant: "success" });
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Meeting link" description={request.role}>
+      <div className="space-y-4">
+        {request.meeting_link ? (
+          <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3.5 py-2.5">
+            <a
+              href={request.meeting_link}
+              target="_blank"
+              rel="noreferrer"
+              className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
+              title={request.meeting_link}
+            >
+              {request.meeting_link}
+            </a>
+            <CopyButton value={request.meeting_link} title="Copy meeting link" />
+          </div>
+        ) : null}
+        <Field label="Your meeting link" htmlFor="ml-url" hint="Zoom, Google Meet, Teams… Leave empty to remove it.">
+          <Input id="ml-url" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+        </Field>
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+        <Button className="w-full" loading={busy} disabled={busy} onClick={save}>
+          <LinkIcon className="h-4 w-4" /> Save link
         </Button>
       </div>
     </Dialog>

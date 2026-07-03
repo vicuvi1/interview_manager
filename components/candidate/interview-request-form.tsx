@@ -72,6 +72,7 @@ export function InterviewRequestForm({
   const [level, setLevel] = useState("Not sure");
   const [focus, setFocus] = useState("");
   const [format, setFormat] = useState("video");
+  const [meetingLink, setMeetingLink] = useState("");
   const [color, setColor] = useState<string | null>(null);
   // When
   const [tz, setTz] = useState(timezone || "UTC");
@@ -216,6 +217,7 @@ export function InterviewRequestForm({
       job_desc_path: jobDescPath,
       caller_notes: callerNotes.trim() || null,
       notes: notes.trim() || null,
+      meeting_link: meetingLink.trim() || null,
       color,
     });
     if (insertError) {
@@ -352,6 +354,18 @@ export function InterviewRequestForm({
               </Field>
             </>
           )}
+          <Field
+            label="Meeting link (optional)"
+            htmlFor="ir-meeting"
+            hint="Your Zoom / Google Meet / Teams link, if you have one. The admin can also set it."
+          >
+            <Input
+              id="ir-meeting"
+              placeholder="https://…"
+              value={meetingLink}
+              onChange={(e) => setMeetingLink(e.target.value)}
+            />
+          </Field>
         </div>
 
         {/* About you */}

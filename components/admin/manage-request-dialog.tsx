@@ -577,6 +577,33 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Requested</dt>
             <dd className="text-white/80">{relativeTime(request.created_at)}</dd>
           </div>
+          {request.meeting_link ? (
+            <div className="col-span-2">
+              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Meeting link</dt>
+              <dd className="flex items-center gap-1.5">
+                <a
+                  href={request.meeting_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
+                  title={request.meeting_link}
+                >
+                  {request.meeting_link}
+                </a>
+                <a
+                  href={request.meeting_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+                  title="Open meeting link"
+                  aria-label="Open meeting link"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <CopyButton value={request.meeting_link} title="Copy meeting link" />
+              </dd>
+            </div>
+          ) : null}
           {request.focus_areas && request.focus_areas.length ? (
             <div className="col-span-2">
               <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Focus areas</dt>
