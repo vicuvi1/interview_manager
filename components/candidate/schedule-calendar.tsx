@@ -107,16 +107,23 @@ export function ScheduleCalendar({
       }
       const c = COLORS[r.status] ?? COLORS.pending;
       const ts = typeStyle(r.interview_type, typeStyles);
+      const solid = r.status === "approved" || r.status === "scheduled";
+      const dead = r.status === "cancelled" || r.status === "rejected";
+      const done = r.status === "completed";
       // Precedence: manual per-request color → interview-type color → status color.
-      const accent = r.color ?? (r.interview_type ? ts.color : null) ?? c.border;
+      // Cancelled is forced to slate so RED stays unique to "rejected".
+      const accent =
+        r.status === "cancelled" ? "#94a3b8" : (r.color ?? (r.interview_type ? ts.color : null) ?? c.border);
       out.push({
         id: r.id,
         title: r.role,
         start,
         end: new Date(start.getTime() + (r.duration_minutes || 30) * 60000),
-        backgroundColor: colorBg(accent, r.status === "completed" ? 0.14 : 0.3),
+        backgroundColor: solid ? accent : colorBg(accent, done ? 0.14 : 0.18),
         borderColor: accent,
-        textColor: c.text,
+        textColor: solid ? "#ffffff" : c.text,
+        // Solid = confirmed (pop); dashed = pending; dim = completed; struck = dead.
+        classNames: [solid ? "ev-pop" : r.status === "pending" ? "ev-tentative" : done ? "ev-dim" : dead ? "ev-dead" : ""],
         // Only a confirmed interview can be dragged to propose a new time.
         editable: r.status === "scheduled" && !!r.scheduled_at,
         extendedProps: {
@@ -181,7 +188,7 @@ export function ScheduleCalendar({
         </div>
       </div>
 
-      <Card className="p-3 sm:p-4">
+      <Card className="cand-cal p-3 sm:p-4">
         {mounted ? (
           <FullCalendar
             ref={calRef}
@@ -189,13 +196,17 @@ export function ScheduleCalendar({
             initialView={prefs.scheduleView}
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={640}
+            height={720}
+            expandRows
+            eventMinHeight={22}
             allDaySlot={false}
             nowIndicator
             dayMaxEvents={3}
             editable
             eventStartEditable
             eventDurationEditable={false}
+            slotLabelInterval="01:00:00"
+            views={{ timeGrid: { dayHeaderFormat: { weekday: "short", day: "numeric" } } }}
             snapDuration="00:05:00"
             eventDrop={async (info) => {
               const start = info.event.start;
@@ -235,12 +246,12 @@ export function ScheduleCalendar({
               };
               const sub = [arg.timeText, p.typeLabel || p.statusLabel].filter(Boolean).join(" · ");
               return (
-                <div className="overflow-hidden px-1 py-0.5 leading-tight">
-                  <div className="truncate text-[11px] font-semibold">
+                <div className="fc-chip">
+                  <div className="fc-chip-title">
                     {p.emoji ? `${p.emoji} ` : ""}
                     {arg.event.title}
                   </div>
-                  {sub ? <div className="truncate text-[10px] opacity-80">{sub}</div> : null}
+                  {sub ? <div className="fc-chip-time">{sub}</div> : null}
                 </div>
               );
             }}
@@ -261,7 +272,7 @@ export function ScheduleCalendar({
             }}
           />
         ) : (
-          <div className="h-[640px] animate-pulse rounded-lg bg-white/[0.02]" />
+          <div className="h-[720px] animate-pulse rounded-lg bg-white/[0.02]" />
         )}
       </Card>
 
@@ -273,6 +284,7 @@ export function ScheduleCalendar({
           { s: "scheduled", l: "Scheduled" },
           { s: "completed", l: "Completed" },
           { s: "cancelled", l: "Cancelled" },
+          { s: "rejected", l: "Rejected" },
         ].map((x) => {
           const hidden = prefs.hiddenStatuses.includes(x.s);
           return (

@@ -271,3 +271,205 @@
   background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
 }
+
+/* ============================================================
+   Candidate calendars — Google-style dark redesign.
+   SCOPED to `.cand-cal` (the booking + schedule calendars) so the
+   admin calendar keeps its own styling. Overrides the global .fc
+   rules above within this scope only.
+   ============================================================ */
+/* Density: taller GCal rows, crisp hour lines */
+.cand-cal .fc .fc-timegrid-slot {
+  height: 44px; /* ~88px/hr, was 2.4em */
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+.cand-cal .fc .fc-timegrid-slot-lane {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.cand-cal .fc .fc-timegrid-slot-minor {
+  border-top-style: dotted;
+  border-color: rgba(255, 255, 255, 0.035) !important;
+}
+.cand-cal .fc .fc-timegrid-axis-cushion,
+.cand-cal .fc .fc-timegrid-slot-label-cushion {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  padding: 0 8px 0 4px;
+}
+.cand-cal .fc .fc-timegrid-slot-label {
+  vertical-align: top;
+}
+.cand-cal .fc .fc-col-header-cell {
+  background: #13131a;
+  padding: 6px 0;
+}
+.cand-cal .fc .fc-col-header-cell-cushion {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+.cand-cal .fc .fc-day-today .fc-col-header-cell-cushion {
+  color: #a5b4fc !important;
+}
+.cand-cal .fc .fc-daygrid-day-frame {
+  min-height: 96px;
+}
+.cand-cal .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: #fff;
+  font-weight: 700;
+  background: #6366f1;
+  border-radius: 999px;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* Event shell: solid Google chips */
+.cand-cal .fc .fc-timegrid-event,
+.cand-cal .fc .fc-daygrid-event {
+  border: none;
+  border-radius: 6px;
+  box-shadow: none;
+  padding: 0;
+  font-weight: 500;
+  transition: filter 0.12s ease, box-shadow 0.12s ease;
+}
+.cand-cal .fc .fc-timegrid-event:hover,
+.cand-cal .fc .fc-daygrid-event:hover {
+  filter: brightness(1.08);
+  z-index: 6;
+}
+.cand-cal .fc-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  height: 100%;
+  padding: 3px 7px;
+  overflow: hidden;
+}
+.cand-cal .fc-chip-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cand-cal .fc-chip-time {
+  font-size: 11px;
+  line-height: 1.1;
+  opacity: 0.82;
+}
+.cand-cal .fc .fc-daygrid-event .fc-chip {
+  padding: 1px 6px;
+}
+
+/* Solid "pop" states: dark left rail + soft ring (both calendars) */
+.cand-cal .fc .fc-timegrid-event.mine-approved,
+.cand-cal .fc .fc-timegrid-event.mine-scheduled,
+.cand-cal .fc .fc-timegrid-event.ev-pop,
+.cand-cal .fc .fc-daygrid-event.mine-approved,
+.cand-cal .fc .fc-daygrid-event.mine-scheduled,
+.cand-cal .fc .fc-daygrid-event.ev-pop {
+  border-left: 4px solid rgba(0, 0, 0, 0.3) !important;
+}
+.cand-cal .fc .fc-event.mine-approved,
+.cand-cal .fc .fc-event.mine-scheduled,
+.cand-cal .fc .fc-event.ev-pop {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 2px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Booking own-event palette (status-driven fills). Darkened greens/indigo
+   so white chip text clears WCAG contrast. */
+.cand-cal .fc .fc-event.mine-approved {
+  background: #059669 !important;
+  color: #ffffff !important;
+}
+.cand-cal .fc .fc-event.mine-scheduled {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+}
+.cand-cal .fc .fc-event.mine-pending {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border: 1px dashed rgba(245, 158, 11, 0.7) !important;
+  color: #fcd34d !important;
+}
+.cand-cal .fc .fc-event.mine-completed {
+  background: rgba(148, 163, 184, 0.22) !important;
+  border-left: 3px solid #64748b !important;
+  color: #e2e8f0 !important;
+  opacity: 0.85;
+}
+.cand-cal .fc .fc-event.mine-cancelled {
+  background: rgba(148, 163, 184, 0.14) !important;
+  border-left: 3px solid #94a3b8 !important;
+  color: #cbd5e1 !important;
+  opacity: 0.75;
+}
+.cand-cal .fc .fc-event.mine-rejected {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-left: 3px solid #ef4444 !important;
+  color: #fca5a5 !important;
+  opacity: 0.75;
+}
+.cand-cal .fc .fc-event.mine-rejected .fc-chip-title,
+.cand-cal .fc .fc-event.mine-cancelled .fc-chip-title {
+  text-decoration: line-through;
+}
+/* Dead states in the booking (pick-a-time) grid must not swallow the
+   drag-to-select that starts on their slot. */
+.cand-cal .fc .fc-event.mine-rejected,
+.cand-cal .fc .fc-event.mine-cancelled {
+  pointer-events: none;
+}
+
+/* Schedule shape treatments (fill color comes from the inline accent) */
+.cand-cal .fc .fc-event.ev-tentative {
+  border-style: dashed !important;
+  border-width: 1px !important;
+}
+.cand-cal .fc .fc-event.ev-dim {
+  opacity: 0.72;
+}
+.cand-cal .fc .fc-event.ev-dead {
+  opacity: 0.62;
+}
+.cand-cal .fc .fc-event.ev-dead .fc-chip-title {
+  text-decoration: line-through;
+}
+
+/* Availability / Busy bands: clean full-bleed washes, no labels/lock/box */
+.cand-cal .fc .fc-bg-event {
+  border: none !important;
+  border-radius: 0 !important;
+  opacity: 1 !important;
+  margin: 0 !important;
+}
+.cand-cal .fc .fc-bg-event.fc-free-slot {
+  background: rgba(16, 185, 129, 0.1) !important;
+  background-image: none !important;
+}
+.cand-cal .fc .fc-bg-event.fc-busy-block {
+  background-color: rgba(239, 68, 68, 0.05) !important;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(239, 68, 68, 0.18) 0,
+    rgba(239, 68, 68, 0.18) 1px,
+    transparent 1px,
+    transparent 8px
+  ) !important;
+}
+.cand-cal .fc .fc-bg-event .fc-event-title {
+  display: none !important;
+}
+
+/* Drag-select highlight + mirror must stay visible over the solid chips */
+.cand-cal .fc .fc-highlight {
+  background: rgba(99, 102, 241, 0.28) !important;
+}
+.cand-cal .fc .fc-timegrid-event.fc-event-mirror {
+  background: #6366f1 !important;
+  color: #ffffff !important;
+  opacity: 0.92;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}

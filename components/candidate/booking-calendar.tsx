@@ -56,6 +56,9 @@ const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = 
   scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
   pending: { bg: "rgba(245,158,11,0.22)", border: "#f59e0b", text: "#fbbf24" },
   approved: { bg: "rgba(16,185,129,0.22)", border: "#10b981", text: "#6ee7b7" },
+  completed: { bg: "rgba(148,163,184,0.22)", border: "#64748b", text: "#e2e8f0" },
+  cancelled: { bg: "rgba(148,163,184,0.16)", border: "#94a3b8", text: "#cbd5e1" },
+  rejected: { bg: "rgba(239,68,68,0.16)", border: "#ef4444", text: "#fca5a5" },
 };
 
 export function BookingCalendar({
@@ -229,9 +232,10 @@ export function BookingCalendar({
       });
     }
 
-    // The candidate's own requests/interviews (only within the visible window).
+    // The candidate's own requests/interviews (all statuses render — rejected /
+    // cancelled show as struck-through ghosts and are click-through so they never
+    // block picking that slot again).
     for (const r of mine) {
-      if (["cancelled", "rejected", "completed"].includes(r.status)) continue;
       const at = r.scheduled_at || r.preferred_at;
       if (!at) continue;
       const s = ms(at);
@@ -314,7 +318,7 @@ export function BookingCalendar({
         ))}
       </div>
 
-      <Card className="p-3 sm:p-4">
+      <Card className="cand-cal p-3 sm:p-4">
         {mounted ? (
           <FullCalendar
             ref={calRef}
@@ -322,12 +326,16 @@ export function BookingCalendar({
             initialView={prefs.bookingView}
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={660}
+            height={720}
+            expandRows
+            eventMinHeight={22}
             allDaySlot={false}
             nowIndicator
             selectable
             selectMirror
             slotDuration="00:30:00"
+            slotLabelInterval="01:00:00"
+            dayHeaderFormat={{ weekday: "short", day: "numeric" }}
             snapDuration="00:05:00"
             firstDay={prefs.weekStart}
             slotMinTime={hourStr(prefs.dayStart)}
@@ -336,6 +344,16 @@ export function BookingCalendar({
             eventTimeFormat={timeFormat(prefs.hour12)}
             slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
+            eventContent={(arg) => {
+              // Availability/Busy bands keep FullCalendar's default background render.
+              if (arg.event.display === "background") return undefined;
+              return (
+                <div className="fc-chip">
+                  <div className="fc-chip-title">{arg.event.title}</div>
+                  {arg.timeText ? <div className="fc-chip-time">{arg.timeText}</div> : null}
+                </div>
+              );
+            }}
             datesSet={(arg) => {
               rangeRef.current = { start: arg.start.getTime(), end: arg.end.getTime() };
               setRange({ start: arg.start.getTime(), end: arg.end.getTime() });
@@ -376,7 +394,7 @@ export function BookingCalendar({
             }}
           />
         ) : (
-          <div className="h-[620px] animate-pulse rounded-lg bg-white/[0.02]" />
+          <div className="h-[720px] animate-pulse rounded-lg bg-white/[0.02]" />
         )}
       </Card>
 
