@@ -152,12 +152,15 @@ export function BookingCalendar({
         p_from: new Date(from).toISOString(),
         p_to: new Date(to).toISOString(),
       }),
-      supabase.from("interview_requests").select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type"),
+      supabase
+        .from("interview_requests")
+        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type")
+        .eq("candidate_id", userId),
     ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
     setMine((mineRows as MyRow[]) ?? []);
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   // Live-refresh when the admin edits availability/blocks or an interview changes,
   // so the green "available" / red "busy" bands update without a page reload.
@@ -173,11 +176,16 @@ export function BookingCalendar({
     };
     const channel = supabase
       .channel(`cand-booking-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "availability_slots" }, reload)
-      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "interview_requests", filter: `candidate_id=eq.${userId}` }, reload)
       .subscribe();
+    // Poll for other users' bookings becoming busy — RLS hides their rows from realtime.
+    const poll = window.setInterval(() => {
+      const r = rangeRef.current;
+      if (r) load(r.start, r.end);
+    }, 60_000);
     return () => {
       if (t) clearTimeout(t);
+      window.clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [userId, load]);

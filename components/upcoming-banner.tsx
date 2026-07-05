@@ -16,7 +16,7 @@ interface Row {
 
 const WINDOW_BEFORE = 30 * 60_000; // show up to 30 min before start
 
-export function UpcomingBanner() {
+export function UpcomingBanner({ userId }: { userId: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [now, setNow] = useState(0);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -28,12 +28,13 @@ export function UpcomingBanner() {
     const { data } = await supabase
       .from("interview_requests")
       .select("id, role, scheduled_at, duration_minutes, meeting_link")
+      .eq("candidate_id", userId)
       .eq("status", "scheduled")
       .gte("scheduled_at", from)
       .lte("scheduled_at", to)
       .order("scheduled_at", { ascending: true });
     if (data) setRows(data as Row[]);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     load();
