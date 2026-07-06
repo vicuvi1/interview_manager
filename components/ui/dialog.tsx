@@ -12,6 +12,7 @@ export function Dialog({
   description,
   children,
   className,
+  closeOnBackdrop = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,6 +20,9 @@ export function Dialog({
   description?: string;
   children: React.ReactNode;
   className?: string;
+  /** Close when the backdrop is clicked. Off by default so a stray outside
+   *  click can't dismiss a form mid-edit — use the ✕ or Escape to close. */
+  closeOnBackdrop?: boolean;
 }) {
   React.useEffect(() => {
     if (!open) return;
@@ -34,7 +38,7 @@ export function Dialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={onClose}
+      onClick={closeOnBackdrop ? onClose : undefined}
       role="presentation"
     >
       <div
