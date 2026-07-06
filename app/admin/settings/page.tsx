@@ -3,6 +3,7 @@ import { KeyRound, ShieldCheck } from "lucide-react";
 
 import { SettingsForm } from "@/components/settings-form";
 import { BookingRulesCard } from "@/components/admin/booking-rules-card";
+import { AppVersionCard } from "@/components/admin/app-version-card";
 import { EmailCard } from "@/components/admin/email-card";
 import { GoogleCalendarCard } from "@/components/admin/google-calendar-card";
 import { InterviewTypeStylesCard } from "@/components/admin/interview-type-styles-card";
@@ -56,6 +57,7 @@ export default async function AdminSettingsPage() {
           <GoogleCalendarCard />
           <TelegramCard />
           <EmailCard />
+          <AppVersionCard />
         </div>
 
         <SectionCard title="Admin access" description="How this workspace is secured." icon={ShieldCheck}>

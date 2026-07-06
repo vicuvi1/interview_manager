@@ -36,6 +36,7 @@ import { MigrationBanner } from "@/components/admin/migration-banner";
 import { FeedbackWidget } from "@/components/candidate/feedback-widget";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
+import { UpdateBanner } from "@/components/shell/update-banner";
 import { UpcomingBanner } from "@/components/upcoming-banner";
 import { createClient } from "@/lib/supabase/client";
 import { cn, initials } from "@/lib/utils";
@@ -242,6 +243,8 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
             </span>
           </div>
         </header>
+
+        <UpdateBanner />
 
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
           {variant === "admin" ? <MigrationBanner /> : null}

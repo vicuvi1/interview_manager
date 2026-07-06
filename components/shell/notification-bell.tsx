@@ -62,8 +62,12 @@ export function NotificationBell({ userId, notifHref }: { userId: string; notifH
     const t = window.setTimeout(() => {
       seeded.current = true;
     }, 1500);
+    // Safety net: refetch every 30s so notifications still surface even if a
+    // project's Realtime isn't delivering (no more "only after I refresh").
+    const poll = window.setInterval(refresh, 30_000);
     return () => {
       window.clearTimeout(t);
+      window.clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [userId, refresh, toast]);
