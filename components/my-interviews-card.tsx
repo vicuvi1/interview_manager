@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, Link as LinkIcon, ListChecks, MessageSquareText, Pencil, Star } from "lucide-react";
 
 import { CalendarInvite } from "@/components/calendar-invite";
+import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
+import type { Attachment, InterviewFeedback, InterviewRequest } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
 const RESCHEDULABLE = new Set(["approved", "scheduled"]);
@@ -283,7 +284,7 @@ export function MyInterviewsCard({
         <MeetingLinkDialog request={linkTarget} onClose={() => setLinkTarget(null)} />
       ) : null}
       {editTarget ? (
-        <EditDetailsDialog request={editTarget} onClose={() => setEditTarget(null)} />
+        <EditDetailsDialog request={editTarget} userId={userId} onClose={() => setEditTarget(null)} />
       ) : null}
       {viewing ? (
         <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
@@ -458,11 +459,20 @@ function MeetingLinkDialog({ request, onClose }: { request: InterviewRequest; on
   );
 }
 
-function EditDetailsDialog({ request, onClose }: { request: InterviewRequest; onClose: () => void }) {
+function EditDetailsDialog({
+  request,
+  userId,
+  onClose,
+}: {
+  request: InterviewRequest;
+  userId: string;
+  onClose: () => void;
+}) {
   const { toast } = useToast();
   const [role, setRole] = useState(request.role);
   const [notes, setNotes] = useState(request.notes ?? "");
   const [link, setLink] = useState(request.meeting_link ?? "");
+  const [attachments, setAttachments] = useState<Attachment[]>(request.attachments ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -476,6 +486,7 @@ function EditDetailsDialog({ request, onClose }: { request: InterviewRequest; on
       p_role: role.trim(),
       p_notes: notes,
       p_meeting_link: link,
+      p_attachments: attachments,
     });
     setBusy(false);
     if (rpcError) {
@@ -499,6 +510,10 @@ function EditDetailsDialog({ request, onClose }: { request: InterviewRequest; on
         <Field label="Meeting link" htmlFor="ed-link" hint="Optional — Zoom / Meet / Teams.">
           <Input id="ed-link" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
         </Field>
+        <div>
+          <p className="mb-1.5 text-[12px] font-medium text-white/55">Attachments</p>
+          <AttachmentsField userId={userId} value={attachments} onChange={setAttachments} />
+        </div>
         {request.last_edited_at ? (
           <p className="text-[11px] text-white/35">Last edited {relativeTime(request.last_edited_at)}.</p>
         ) : null}

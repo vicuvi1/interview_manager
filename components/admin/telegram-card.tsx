@@ -80,7 +80,17 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
 
   useEffect(() => {
     refreshStatus();
+    // Auto-run diagnostics so a broken delivery path (pg_net off, trigger
+    // missing) is visible immediately — not only after clicking the button.
+    (async () => {
+      const r = await call("diagnose");
+      if (!r.error && r.diagnostics) setDiag(r.diagnostics as Diag);
+    })();
   }, []);
+
+  // Connected + something in the DB→Telegram path is broken (why "test works but
+  // real notifications don't").
+  const deliveryBroken = Boolean(status?.connected && diag && (!diag.pg_net_enabled || !diag.forward_trigger));
 
   async function connect() {
     if (!token.trim()) return;
@@ -236,6 +246,27 @@ export function TelegramCard({ variant = "admin" }: { variant?: "admin" | "candi
             <CheckCircle2 className="h-4 w-4 text-[#34d399]" />
             Connected{status.botUsername ? ` to @${status.botUsername}` : ""}.
           </div>
+
+          {deliveryBroken ? (
+            <div className="rounded-lg border border-[#f87171]/30 bg-[#f87171]/[0.1] px-3.5 py-3 text-[12px] text-[#fca5a5]">
+              <p className="font-semibold text-[#f87171]">Real notifications aren&apos;t being delivered.</p>
+              <p className="mt-1 text-white/70">
+                &ldquo;Send test&rdquo; works because it sends from the web server, but confirmations &amp; reminders are
+                sent from the database — which needs{" "}
+                {!diag?.pg_net_enabled ? (
+                  <>
+                    the <span className="font-medium text-white/90">pg_net</span> extension enabled (Supabase → Database →
+                    Extensions).
+                  </>
+                ) : (
+                  <>
+                    the forwarding trigger installed — re-run{" "}
+                    <span className="font-medium text-white/90">apply_all_migrations.sql</span>.
+                  </>
+                )}
+              </p>
+            </div>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             {!isCandidate ? (

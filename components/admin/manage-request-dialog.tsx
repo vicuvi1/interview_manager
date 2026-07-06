@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Send, Trash2, Wand2 } from "lucide-react";
 
+import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -670,6 +671,14 @@ export function ManageRequestDialog({
             <div className="col-span-2">
               <dt className="text-[11px] uppercase tracking-wide text-white/40">Notes</dt>
               <dd className="whitespace-pre-wrap text-white/80">{request.notes}</dd>
+            </div>
+          ) : null}
+          {request.attachments && request.attachments.length ? (
+            <div className="col-span-2">
+              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Attachments</dt>
+              <dd>
+                <AttachmentsField userId={request.candidate_id} value={request.attachments} readOnly />
+              </dd>
             </div>
           ) : null}
         </dl>

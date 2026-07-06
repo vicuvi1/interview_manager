@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, Check, FileText, Send, Upload, User, X } from "lucide-react";
 
+import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { BookingProfilesBar } from "@/components/candidate/booking-profiles-bar";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
@@ -17,7 +18,7 @@ import { FORMATS, INTERVIEW_TYPES, LEVELS } from "@/lib/interview";
 import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
-import type { BookingProfile, CandidateMaterials, ResumeItem } from "@/lib/types";
+import type { Attachment, BookingProfile, CandidateMaterials, ResumeItem } from "@/lib/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const DOC_ACCEPT = ".pdf,.doc,.docx,application/pdf";
@@ -96,6 +97,7 @@ export function InterviewRequestForm({
   // Context
   const [callerNotes, setCallerNotes] = useState("");
   const [notes, setNotes] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const [uploading, setUploading] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -222,6 +224,7 @@ export function InterviewRequestForm({
       notes: notes.trim() || null,
       meeting_link: meetingLink.trim() || null,
       busy_override: busyOverride ?? false,
+      attachments,
       color,
     });
     if (insertError) {
@@ -477,6 +480,13 @@ export function InterviewRequestForm({
             ) : null}
           </div>
         ) : null}
+
+        {/* Attachments */}
+        <div className="space-y-3">
+          <GroupLabel icon={FileText}>Attachments</GroupLabel>
+          <p className="-mt-1 text-[12px] text-white/40">Add files or images as context (portfolio samples, screenshots, docs…).</p>
+          <AttachmentsField userId={userId} value={attachments} onChange={setAttachments} />
+        </div>
 
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button loading={busy} disabled={busy || uploading !== null} onClick={submit}>

@@ -56,6 +56,12 @@ export interface CandidateMaterials {
   bio: string | null;
 }
 
+/** A file/image attached to an interview (stored in the private "resumes" bucket). */
+export interface Attachment {
+  name: string;
+  path: string;
+}
+
 /** A named résumé in a user's reusable library. */
 export interface ResumeItem {
   id: string;
@@ -108,6 +114,7 @@ export interface InterviewRequest {
   busy_override?: boolean;
   last_edited_at?: string | null;
   last_edited_by?: string | null;
+  attachments?: Attachment[] | null;
   status: InterviewStatus;
   payment_status: PaymentStatus;
   price_cents: number | null;
