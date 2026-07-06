@@ -82,7 +82,7 @@ export function BookingCalendar({
   const [avail, setAvail] = useState<Availability | null>(null);
   const [mine, setMine] = useState<MyRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<{ startISO: string; dur: number; busy?: boolean } | null>(null);
+  const [selected, setSelected] = useState<{ startISO: string; dur: number; busy?: boolean; instant?: boolean } | null>(null);
   const [busyAsk, setBusyAsk] = useState<{ startISO: string; dur: number } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; row: MyRow } | null>(null);
   const [detail, setDetail] = useState<MyRow | null>(null);
@@ -208,11 +208,23 @@ export function BookingCalendar({
     [blockedIntervals],
   );
 
-  const events = useMemo<EventInput[]>(() => {
-    if (!avail || !range) return [];
-    const availIvals = avail.available.flatMap((a) =>
+  // The admin's published "available" windows in the visible range.
+  const availIntervals = useMemo(() => {
+    if (!avail || !range) return [] as { s: number; e: number }[];
+    return avail.available.flatMap((a) =>
       expandRecurring(ms(a.starts_at), ms(a.ends_at), a.repeat_rule ?? "none", range.start, range.end),
     );
+  }, [avail, range]);
+
+  // True when [s,e) is fully inside a published available window → bookable instantly.
+  const insideAvailable = useCallback(
+    (s: number, e: number) => availIntervals.some((iv) => s >= iv.s && e <= iv.e),
+    [availIntervals],
+  );
+
+  const events = useMemo<EventInput[]>(() => {
+    if (!avail || !range) return [];
+    const availIvals = availIntervals;
     const blocked = blockedIntervals;
     const now = Date.now();
     const out: EventInput[] = [];
@@ -264,7 +276,7 @@ export function BookingCalendar({
       });
     }
     return out;
-  }, [avail, range, mine, typeStyles, blockedIntervals]);
+  }, [avail, range, mine, typeStyles, blockedIntervals, availIntervals]);
 
   const api = () => calRef.current?.getApi();
   const nav = (d: "prev" | "next" | "today") => {
@@ -442,7 +454,9 @@ export function BookingCalendar({
                 setBusyAsk({ startISO: info.start.toISOString(), dur: durMin });
                 return;
               }
-              setSelected({ startISO: info.start.toISOString(), dur: durMin });
+              // Inside a published "Available" window → book instantly; otherwise request-and-wait.
+              const instant = insideAvailable(info.start.getTime(), info.end.getTime());
+              setSelected({ startISO: info.start.toISOString(), dur: durMin, instant });
             }}
           />
         ) : (
@@ -456,7 +470,7 @@ export function BookingCalendar({
         ) : (
           <span className="inline-flex flex-wrap items-center gap-1.5">
             <CalendarDays className="h-3.5 w-3.5 text-[#a5b4fc]" />
-            <span className="text-white/70">Drag over any time to request it</span> — or drag an existing interview onto a free slot to propose a new time. You can ask for busy times too; the admin confirms.
+            <span className="text-white/70">Drag over a green (available) time to book it instantly</span> — other times become a request the admin confirms. Drag an existing interview onto a free slot to propose a new time.
           </span>
         )}
       </div>
@@ -496,12 +510,16 @@ export function BookingCalendar({
         <Dialog
           open
           onClose={() => setSelected(null)}
-          title={selected.busy ? "Request a busy time" : "Request this time"}
+          title={selected.busy ? "Request a busy time" : selected.instant ? "Book this time" : "Request this time"}
           description={`${formatInTimeZone(selected.startISO, timezone)} · ${selected.dur} min`}
         >
           {selected.busy ? (
             <div className="mb-4 rounded-lg border border-[#f59e0b]/25 bg-[#f59e0b]/[0.08] px-3.5 py-2.5 text-[12px] text-[#fbbf24]">
               You&apos;re asking for a time the admin marked busy — they&apos;ll decide whether to make an exception.
+            </div>
+          ) : selected.instant ? (
+            <div className="mb-4 rounded-lg border border-[#10b981]/25 bg-[#10b981]/[0.08] px-3.5 py-2.5 text-[12px] text-[#6ee7b7]">
+              This time is open — it&apos;ll be <span className="font-medium">confirmed instantly</span> when you submit.
             </div>
           ) : null}
           <InterviewRequestForm
@@ -510,6 +528,7 @@ export function BookingCalendar({
             materials={materials}
             fixedStart={{ iso: selected.startISO, durationMin: selected.dur }}
             busyOverride={selected.busy}
+            instantBook={selected.instant}
             onDone={() => {
               setSelected(null);
               if (range) load(range.start, range.end);

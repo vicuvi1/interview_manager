@@ -53,6 +53,7 @@ export function InterviewRequestForm({
   materials,
   fixedStart,
   busyOverride,
+  instantBook,
   onDone,
 }: {
   userId: string;
@@ -62,6 +63,8 @@ export function InterviewRequestForm({
   fixedStart?: { iso: string; durationMin: number };
   /** True when requesting a time the admin marked busy (needs their approval). */
   busyOverride?: boolean;
+  /** True when the picked time is inside published availability — try to confirm it instantly. */
+  instantBook?: boolean;
   /** Called after a successful submit (used in the calendar dialog). */
   onDone?: () => void;
 }) {
@@ -209,36 +212,50 @@ export function InterviewRequestForm({
       .eq("id", userId);
 
     const focusAreas = focus.split(",").map((s) => s.trim()).filter(Boolean);
-    const { error: insertError } = await supabase.from("interview_requests").insert({
-      candidate_id: userId,
-      role: role.trim() || interviewType,
-      interview_type: interviewType,
-      level,
-      focus_areas: focusAreas.length ? focusAreas : null,
-      format,
-      duration_minutes: fixedStart ? fixedStart.durationMin : Math.max(5, Math.min(480, duration)),
-      preferred_at: fixedStart ? fixedStart.iso : wallTimeToUtcISO(when, tz),
-      job_desc_url: jobDescUrl.trim() || null,
-      job_desc_path: jobDescPath,
-      caller_notes: callerNotes.trim() || null,
-      notes: notes.trim() || null,
-      meeting_link: meetingLink.trim() || null,
-      busy_override: busyOverride ?? false,
-      attachments,
-      color,
-    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("interview_requests")
+      .insert({
+        candidate_id: userId,
+        role: role.trim() || interviewType,
+        interview_type: interviewType,
+        level,
+        focus_areas: focusAreas.length ? focusAreas : null,
+        format,
+        duration_minutes: fixedStart ? fixedStart.durationMin : Math.max(5, Math.min(480, duration)),
+        preferred_at: fixedStart ? fixedStart.iso : wallTimeToUtcISO(when, tz),
+        job_desc_url: jobDescUrl.trim() || null,
+        job_desc_path: jobDescPath,
+        caller_notes: callerNotes.trim() || null,
+        notes: notes.trim() || null,
+        meeting_link: meetingLink.trim() || null,
+        busy_override: busyOverride ?? false,
+        attachments,
+        color,
+      })
+      .select("id")
+      .single();
     if (insertError) {
       setError(insertError.message);
       setBusy(false);
       return;
     }
 
+    // If the picked time is inside published availability, try to confirm it
+    // instantly (server re-validates); otherwise it stays a pending request.
+    let booked = false;
+    if (instantBook && !busyOverride && inserted?.id) {
+      const { data: didBook } = await supabase.rpc("book_available_slot", { p_interview_id: inserted.id });
+      booked = didBook === true;
+    }
+
     notifyChanged("interviews");
     toast({
-      title: busyOverride ? "Exception requested" : "Request submitted",
-      description: busyOverride
-        ? "We've asked the admin about that busy time — you'll hear back once they decide."
-        : "We'll review it and confirm a time.",
+      title: booked ? "You're booked!" : busyOverride ? "Exception requested" : "Request submitted",
+      description: booked
+        ? "Your interview is confirmed — it's on your calendar."
+        : busyOverride
+          ? "We've asked the admin about that busy time — you'll hear back once they decide."
+          : "We'll review it and confirm a time.",
       variant: "success",
     });
     setBusy(false);
