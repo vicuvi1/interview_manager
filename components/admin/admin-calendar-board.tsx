@@ -55,13 +55,24 @@ const VIEWS = [
   { value: "listWeek", label: "Agenda" },
 ] as const;
 
-const INTERVIEW_STYLES: Record<string, { bg: string; border: string; text: string }> = {
-  scheduled: { bg: "rgba(99,102,241,0.18)", border: "#6366f1", text: "#c7d2fe" },
-  completed: { bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.2)", text: "rgba(255,255,255,0.6)" },
-  cancelled: { bg: "rgba(239,68,68,0.14)", border: "#ef4444", text: "#fca5a5" },
-  pending: { bg: "rgba(245,158,11,0.2)", border: "#f59e0b", text: "#fbbf24" },
-  approved: { bg: "rgba(16,185,129,0.18)", border: "#10b981", text: "#6ee7b7" },
-};
+// At-a-glance status color: yellow = pending (needs action), blue = accepted
+// (approved/scheduled, still upcoming), green = already passed / completed.
+const STATUS_COLORS = {
+  pending: "#f59e0b", // yellow
+  accepted: "#3b82f6", // blue
+  passed: "#22c55e", // green
+} as const;
+
+/** Which color bucket an interview falls into, given the current time. */
+function interviewBucket(
+  status: string,
+  endMs: number,
+  nowMs: number,
+): keyof typeof STATUS_COLORS {
+  if (status === "completed" || endMs < nowMs) return "passed";
+  if (status === "pending") return "pending";
+  return "accepted"; // approved / scheduled, upcoming
+}
 
 const SLOT_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   available: { bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.45)", text: "#6ee7b7" },
@@ -77,10 +88,10 @@ const SLOT_LABEL: Record<string, string> = {
 
 // key = interview status OR slot_type; used for the clickable filter legend.
 const LEGEND = [
-  { key: "pending", color: "#f59e0b", label: "Pending" },
-  { key: "approved", color: "#10b981", label: "Approved" },
-  { key: "scheduled", color: "#6366f1", label: "Scheduled" },
-  { key: "completed", color: "rgba(255,255,255,0.3)", label: "Completed" },
+  { key: "pending", color: STATUS_COLORS.pending, label: "Pending" },
+  { key: "approved", color: STATUS_COLORS.accepted, label: "Approved" },
+  { key: "scheduled", color: STATUS_COLORS.accepted, label: "Scheduled" },
+  { key: "completed", color: STATUS_COLORS.passed, label: "Completed / passed" },
   { key: "available", color: "rgba(16,185,129,0.45)", label: "Available" },
   { key: "busy", color: "rgba(255,255,255,0.3)", label: "Blocked" },
   { key: "event", color: "#8b5cf6", label: "Event" },
@@ -106,6 +117,27 @@ function tzLabel(tz: string): string {
 /** Format a JS Date as a datetime-local input value in the browser's timezone. */
 function dateToLocalInput(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Google-Calendar-style event body: the role title, then who, then the time.
+ *  Slots fall back to FullCalendar's default rendering (return undefined). */
+function renderEventContent(arg: {
+  timeText: string;
+  event: { extendedProps: Record<string, unknown> };
+  view?: { type?: string };
+}) {
+  const p = arg.event.extendedProps as { kind?: string; emoji?: string; role?: string; person?: string };
+  // Only customize the grid views; the Agenda (list) view has its own layout.
+  if (p.kind !== "interview" || arg.view?.type?.startsWith("list")) return undefined;
+  return (
+    <div className="fc-iv-content">
+      <div className="fc-iv-title">
+        {p.emoji ?? ""} {p.role}
+      </div>
+      <div className="fc-iv-person">{p.person}</div>
+      {arg.timeText ? <div className="fc-iv-time">{arg.timeText}</div> : null}
+    </div>
+  );
 }
 
 /** Expand a (possibly recurring) slot into concrete occurrences within a range. */
@@ -162,6 +194,25 @@ export function AdminCalendarBoard({
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
+  // Google-Calendar-style hover card with the interview's full details.
+  const [hover, setHover] = useState<{
+    x: number;
+    y: number;
+    role: string;
+    person: string;
+    emoji: string;
+    when: string;
+    durationMin: number;
+    statusLabel: string;
+    interviewType: string | null;
+    hasLink: boolean;
+    color: string;
+  } | null>(null);
+  // Resolve "local" to a real IANA zone so tooltip times format correctly.
+  const realTz =
+    prefs.timeZone === "local"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+      : prefs.timeZone;
 
   const savePref = (patch: Partial<CalendarPrefs>) => {
     setPrefs((p) => {
@@ -310,6 +361,7 @@ export function AdminCalendarBoard({
 
   const events = useMemo<EventInput[]>(() => {
     const out: EventInput[] = [];
+    const nowMs = Date.now();
     for (const r of requests) {
       if (r.status === "cancelled" || r.status === "rejected") continue;
       if (prefs.hiddenStatuses.includes(r.status)) continue;
@@ -320,21 +372,36 @@ export function AdminCalendarBoard({
       const end = new Date(start.getTime() + (r.duration_minutes ?? 30) * 60000);
       // Only feed FullCalendar events in the visible window — keeps it light.
       if (range && (end.getTime() < range.start || start.getTime() > range.end)) continue;
-      const style = INTERVIEW_STYLES[r.status] ?? INTERVIEW_STYLES.pending;
       const ts = typeStyle(r.interview_type, typeStyles);
-      // Color priority: per-request tag → per-user calendar color → interview-type color → status.
-      const tint = r.color ?? userColors[r.candidate_id] ?? (r.interview_type ? ts.color : null);
+      const bucket = interviewBucket(r.status, end.getTime(), nowMs);
+      const sc = STATUS_COLORS[bucket];
+      // Fill/border = status (what the admin asked for). The per-person color
+      // (set in the People list) is kept as a left-edge stripe — see eventDidMount.
+      const personColor = userColors[r.candidate_id] ?? r.color ?? null;
+      const person = candName(r.candidate_id);
       out.push({
         id: `iv:${r.id}`,
-        title: `${ts.emoji} ${candName(r.candidate_id)} · ${r.role}${r.status !== "scheduled" ? ` (${r.status})` : ""}`,
+        title: `${ts.emoji} ${r.role} · ${person}`,
         start,
         end,
         editable: r.status === "scheduled",
-        backgroundColor: tint ? colorBg(tint, 0.32) : style.bg,
-        borderColor: tint ?? style.border,
-        textColor: style.text,
-        classNames: r.status === "pending" ? ["fc-pending-req"] : undefined,
-        extendedProps: { kind: "interview", requestId: r.id },
+        backgroundColor: colorBg(sc, 0.24),
+        borderColor: sc,
+        textColor: "#f4f4f8",
+        classNames: r.status === "pending" ? ["fc-iv", "fc-pending-req"] : ["fc-iv"],
+        extendedProps: {
+          kind: "interview",
+          requestId: r.id,
+          role: r.role,
+          person,
+          emoji: ts.emoji,
+          statusLabel: bucket === "passed" ? "Completed / passed" : r.status,
+          durationMin: r.duration_minutes ?? 30,
+          startMs: start.getTime(),
+          interviewType: r.interview_type ?? null,
+          hasLink: Boolean(r.meeting_link),
+          personColor,
+        },
       });
     }
     if (range) {
@@ -678,10 +745,15 @@ export function AdminCalendarBoard({
           />
         </aside>
         <Card className="min-w-0 flex-1 p-3 sm:p-4">
-          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 1.5}em` } as CSSProperties}>
+          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 2.6}em` } as CSSProperties}>
             <style>{`
               .gcal-cal .fc-timegrid-slot{height:var(--slh)!important}
               .gcal-cal .fc-pending-req{border-style:dashed!important;border-width:2px!important;}
+              .gcal-cal .fc-iv{border-left-width:3px}
+              .gcal-cal .fc-iv-content{display:flex;flex-direction:column;gap:1px;line-height:1.2;overflow:hidden;height:100%;padding:1px 0}
+              .gcal-cal .fc-iv-title{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              .gcal-cal .fc-iv-person{font-size:11px;font-weight:500;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              .gcal-cal .fc-iv-time{font-size:10.5px;font-weight:600;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
             `}</style>
             {mounted ? (
               <FullCalendar
@@ -690,7 +762,7 @@ export function AdminCalendarBoard({
             initialView="timeGridWeek"
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={660}
+            height={760}
             nowIndicator
             selectable
             selectMirror
@@ -711,14 +783,39 @@ export function AdminCalendarBoard({
             eventClick={onEventClick}
             eventDrop={onEventChange}
             eventResize={onEventChange}
+            eventContent={renderEventContent}
+            eventMouseEnter={(info) => {
+              const p = info.event.extendedProps;
+              if (p?.kind !== "interview") return;
+              setHover({
+                x: info.jsEvent.clientX,
+                y: info.jsEvent.clientY,
+                role: p.role,
+                person: p.person,
+                emoji: p.emoji,
+                when: formatInTimeZone(new Date(p.startMs).toISOString(), realTz),
+                durationMin: p.durationMin,
+                statusLabel: p.statusLabel,
+                interviewType: p.interviewType,
+                hasLink: p.hasLink,
+                color: info.event.borderColor || "#6366f1",
+              });
+            }}
+            eventMouseLeave={() => setHover(null)}
             eventDidMount={(info) => {
               info.el.addEventListener("contextmenu", (e) =>
                 onEventContext({ jsEvent: e as MouseEvent, event: info.event }),
               );
+              // Per-person color as a Google-Calendar-style left stripe.
+              const pc = info.event.extendedProps?.personColor;
+              if (info.event.extendedProps?.kind === "interview" && pc) {
+                info.el.style.borderLeftColor = pc;
+                info.el.style.borderLeftWidth = "4px";
+              }
             }}
               />
             ) : (
-              <div className="h-[660px] animate-pulse rounded-lg bg-white/[0.02]" />
+              <div className="h-[760px] animate-pulse rounded-lg bg-white/[0.02]" />
             )}
           </div>
         </Card>
@@ -760,6 +857,47 @@ export function AdminCalendarBoard({
         Tip: <span className="text-white/60">drag across the grid</span> to add availability, and{" "}
         <span className="text-white/60">drag a block&apos;s edge</span> to resize or move it — no typing needed.
       </p>
+
+      {hover ? (
+        <div
+          className="pointer-events-none fixed z-[120] w-72 rounded-xl border border-white/10 bg-[#15151d] p-3.5 shadow-2xl"
+          style={{
+            left: Math.min(hover.x + 14, (typeof window !== "undefined" ? window.innerWidth : 1200) - 300),
+            top: Math.min(hover.y + 14, (typeof window !== "undefined" ? window.innerHeight : 800) - 200),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: hover.color }} aria-hidden />
+            <div className="min-w-0">
+              <p className="truncate text-[14px] font-semibold text-[#f0f0f5]">
+                {hover.emoji} {hover.role}
+              </p>
+              <p className="mt-0.5 truncate text-[12.5px] text-white/60">{hover.person}</p>
+            </div>
+          </div>
+          <div className="mt-2.5 space-y-1 text-[12.5px] text-white/70">
+            <p className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-white/40" />
+              {hover.when} · {hover.durationMin} min
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span
+                className="inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize"
+                style={{ backgroundColor: colorBg(hover.color, 0.18), color: hover.color }}
+              >
+                {hover.statusLabel}
+              </span>
+              {hover.interviewType ? <span className="text-white/45">· {hover.interviewType}</span> : null}
+            </p>
+            {hover.hasLink ? (
+              <p className="flex items-center gap-1.5 text-[#a5b4fc]">
+                <ExternalLink className="h-3.5 w-3.5" /> Meeting link attached
+              </p>
+            ) : null}
+          </div>
+          <p className="mt-2.5 border-t border-white/[0.06] pt-2 text-[11px] text-white/35">Click to manage · right-click for actions</p>
+        </div>
+      ) : null}
 
       {add ? (
         <AddSlotDialog
