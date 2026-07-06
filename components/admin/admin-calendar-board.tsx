@@ -39,7 +39,7 @@ import { TimezonePicker } from "@/components/timezone-picker";
 import { colorBg } from "@/lib/colors";
 import { type TypeStyleMap, typeStyle } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone } from "@/lib/time";
+import { formatInTimeZone, utcToLocalInput, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type {
   AvailabilitySlot,
@@ -421,7 +421,7 @@ export function AdminCalendarBoard({
             title: s.title || SLOT_LABEL[s.slot_type] || "Blocked",
             start: new Date(o.s),
             end: new Date(o.e),
-            editable: s.repeat_rule === "none", // one-off blocks can be dragged/resized
+            editable: true, // drag/resize any block; recurring edits shift the whole series
             backgroundColor: style.bg,
             borderColor: style.border,
             textColor: style.text,
@@ -583,18 +583,36 @@ export function AdminCalendarBoard({
   }
   const onEventChange = (arg: {
     event: { start: Date | null; end: Date | null; extendedProps: Record<string, unknown> };
+    oldEvent?: { start: Date | null; end: Date | null };
     revert: () => void;
   }) => {
     const kind = arg.event.extendedProps.kind;
     // Dragging / resizing an availability (or busy/event) block updates its time.
     if (kind === "slot") {
       const slotId = arg.event.extendedProps.slotId as string;
-      if (!arg.event.start || !arg.event.end) {
+      const slot = slots.find((s) => s.id === slotId);
+      if (!slot || !arg.event.start || !arg.event.end) {
         arg.revert();
         return;
       }
-      const startISO = arg.event.start.toISOString();
-      const endISO = arg.event.end.toISOString();
+      let startISO: string;
+      let endISO: string;
+      const recurring = slot.repeat_rule === "daily" || slot.repeat_rule === "weekly";
+      if (recurring) {
+        // Shift the anchor by the same delta as the dragged occurrence, so the
+        // whole series moves/resizes together (editing the recurring template).
+        const oldS = arg.oldEvent?.start?.getTime();
+        const oldE = arg.oldEvent?.end?.getTime();
+        if (oldS == null || oldE == null) {
+          arg.revert();
+          return;
+        }
+        startISO = new Date(new Date(slot.starts_at).getTime() + (arg.event.start.getTime() - oldS)).toISOString();
+        endISO = new Date(new Date(slot.ends_at).getTime() + (arg.event.end.getTime() - oldE)).toISOString();
+      } else {
+        startISO = arg.event.start.toISOString();
+        endISO = arg.event.end.toISOString();
+      }
       (async () => {
         const supabase = createClient();
         const { error } = await supabase
@@ -605,7 +623,7 @@ export function AdminCalendarBoard({
           toast({ title: "Couldn't update", description: error.message, variant: "error" });
           arg.revert();
         } else {
-          toast({ title: "Availability updated", variant: "success" });
+          toast({ title: recurring ? "Recurring block updated (whole series)" : "Availability updated", variant: "success" });
         }
         load();
       })();
@@ -1255,8 +1273,35 @@ function SlotDetailDialog({
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [startInput, setStartInput] = useState(() => utcToLocalInput(slot.starts_at, adminTimezone));
+  const [endInput, setEndInput] = useState(() => utcToLocalInput(slot.ends_at, adminTimezone));
   const tone = slot.slot_type === "available" ? "green" : slot.slot_type === "event" ? "purple" : "slate";
   const repeatLabel = slot.repeat_rule === "daily" ? "Every day" : slot.repeat_rule === "weekly" ? "Every week" : "One-time";
+  const recurring = slot.repeat_rule !== "none";
+
+  async function saveTimes() {
+    const startISO = wallTimeToUtcISO(startInput, adminTimezone);
+    const endISO = wallTimeToUtcISO(endInput, adminTimezone);
+    if (new Date(endISO).getTime() <= new Date(startISO).getTime()) {
+      toast({ title: "End must be after start", variant: "error" });
+      return;
+    }
+    setSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("availability_slots")
+      .update({ starts_at: startISO, ends_at: endISO })
+      .eq("id", slot.id);
+    setSaving(false);
+    if (error) {
+      toast({ title: "Couldn't save", description: error.message, variant: "error" });
+      return;
+    }
+    toast({ title: recurring ? "Times updated (whole series)" : "Times updated", variant: "success" });
+    onDone();
+    onClose();
+  }
 
   async function remove() {
     setBusy(true);
@@ -1280,11 +1325,23 @@ function SlotDetailDialog({
           <Badge tone={tone}>{SLOT_LABEL[slot.slot_type] ?? slot.slot_type}</Badge>
           {slot.repeat_rule !== "none" ? <Badge tone="slate">{repeatLabel.toLowerCase()}</Badge> : null}
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Starts" htmlFor="sd-start">
+            <Input id="sd-start" type="datetime-local" value={startInput} onChange={(e) => setStartInput(e.target.value)} />
+          </Field>
+          <Field label="Ends" htmlFor="sd-end">
+            <Input id="sd-end" type="datetime-local" value={endInput} onChange={(e) => setEndInput(e.target.value)} />
+          </Field>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-white/40">
+            Times in {adminTimezone}.{recurring ? " Editing changes the whole series." : ""}
+          </span>
+          <Button size="sm" loading={saving} onClick={saveTimes}>
+            Save times
+          </Button>
+        </div>
         <dl className="space-y-2.5 text-[13px]">
-          <div className="flex items-center gap-2 text-white/70">
-            <Clock className="h-4 w-4 text-white/40" />
-            {formatInTimeZone(slot.starts_at, adminTimezone)} → {formatInTimeZone(slot.ends_at, adminTimezone)}
-          </div>
           {slot.candidate_id ? (
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-white/40">Candidate</dt>
