@@ -10,6 +10,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
+import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,7 +23,7 @@ import { expandRecurring } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { CandidateMaterials } from "@/lib/types";
+import type { Attachment, CandidateMaterials } from "@/lib/types";
 
 interface BookingRules {
   min_notice_hours: number;
@@ -48,6 +49,7 @@ interface MyRow {
   duration_minutes: number;
   meeting_link: string | null;
   interview_type: string | null;
+  attachments: Attachment[] | null;
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
@@ -155,7 +157,7 @@ export function BookingCalendar({
       }),
       supabase
         .from("interview_requests")
-        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type")
+        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type, attachments")
         .eq("candidate_id", userId),
     ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
@@ -603,6 +605,12 @@ export function BookingCalendar({
                   : "The meeting link will appear here once it's added."}
               </p>
             )}
+            {detail.attachments && detail.attachments.length ? (
+              <div>
+                <p className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Attachments</p>
+                <AttachmentsField userId={userId} value={detail.attachments} readOnly />
+              </div>
+            ) : null}
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
               <p className="text-[12px] font-medium text-white/70">Need a different time?</p>
               <p className="mb-2 text-[11px] text-white/40">Pick a new time and we&apos;ll send it to the admin to confirm.</p>

@@ -141,6 +141,33 @@ export function ManageRequestDialog({
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
 
+  // Saved history of every change (time/link/status) + last reminder sent.
+  const [history, setHistory] = useState<{ id: string; summary: string; created_at: string }[]>([]);
+  const [lastReminder, setLastReminder] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const [{ data: audit }, { data: rem }] = await Promise.all([
+        supabase
+          .from("audit_log")
+          .select("id, summary, created_at")
+          .eq("entity_type", "interview")
+          .eq("entity_id", request.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("reminder_log")
+          .select("sent_at")
+          .eq("interview_id", request.id)
+          .order("sent_at", { ascending: false })
+          .limit(1),
+      ]);
+      setHistory((audit as { id: string; summary: string; created_at: string }[] | null) ?? []);
+      setLastReminder((rem as { sent_at: string }[] | null)?.[0]?.sent_at ?? null);
+    })();
+  }, [request.id]);
+
   useEffect(() => {
     (async () => {
       const supabase = createClient();
@@ -729,6 +756,31 @@ export function ManageRequestDialog({
           <Button size="sm" variant="secondary" loading={savingNotes} disabled={!notesLoaded || savingNotes} onClick={saveAdminNotes}>
             Save notes
           </Button>
+        </div>
+
+        <div className="space-y-2 border-t border-white/[0.06] pt-4">
+          <p className="text-[13px] font-medium text-white/80">History</p>
+          {lastReminder ? (
+            <p className="text-[12px] text-[#6ee7b7]">✓ Reminder sent {relativeTime(lastReminder)}</p>
+          ) : null}
+          {history.length ? (
+            <ul className="space-y-1.5">
+              {history.map((h) => (
+                <li key={h.id} className="flex items-start gap-2 text-[12px]">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/25" />
+                  <span className="min-w-0 flex-1">
+                    <span className="break-words text-white/70">{h.summary}</span>
+                    <span className="ml-1.5 whitespace-nowrap text-white/30">{relativeTime(h.created_at)}</span>
+                  </span>
+                  {/^Meeting link set: /.test(h.summary) ? (
+                    <CopyButton value={h.summary.replace(/^Meeting link set: /, "")} title="Copy link" className="h-6 w-6" />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[12px] text-white/40">No changes recorded yet.</p>
+          )}
         </div>
 
         {request.status === "pending" && request.preferred_at ? (

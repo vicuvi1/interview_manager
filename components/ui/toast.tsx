@@ -7,15 +7,28 @@ import { cn } from "@/lib/utils";
 
 type ToastVariant = "success" | "error" | "info";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   title: string;
   description?: string;
   variant: ToastVariant;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  toast: (t: { title: string; description?: string; variant?: ToastVariant }) => void;
+  toast: (t: {
+    title: string;
+    description?: string;
+    variant?: ToastVariant;
+    /** Optional button (e.g. Undo). Toasts with an action stay up longer. */
+    action?: ToastAction;
+    durationMs?: number;
+  }) => void;
 }
 
 const ToastContext = React.createContext<ToastContextValue | null>(null);
@@ -35,10 +48,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = React.useCallback<ToastContextValue["toast"]>(
-    ({ title, description, variant = "info" }) => {
+    ({ title, description, variant = "info", action, durationMs }) => {
       const id = ++idRef.current;
-      setItems((prev) => [...prev, { id, title, description, variant }]);
-      window.setTimeout(() => remove(id), 4000);
+      setItems((prev) => [...prev, { id, title, description, variant, action }]);
+      window.setTimeout(() => remove(id), durationMs ?? (action ? 8000 : 4000));
     },
     [remove],
   );
@@ -80,6 +93,18 @@ function ToastView({ item, onClose }: { item: ToastItem; onClose: () => void }) 
         <p className="text-[13px] font-medium text-[#f0f0f5]">{item.title}</p>
         {item.description ? (
           <p className="mt-0.5 text-[12px] text-white/45">{item.description}</p>
+        ) : null}
+        {item.action ? (
+          <button
+            type="button"
+            onClick={() => {
+              item.action?.onClick();
+              onClose();
+            }}
+            className="mt-1.5 rounded-md bg-white/10 px-2.5 py-1 text-[12px] font-medium text-[#c7d2fe] transition-colors hover:bg-white/20"
+          >
+            {item.action.label}
+          </button>
         ) : null}
       </div>
       <button
