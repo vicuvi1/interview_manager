@@ -1,142 +1,134 @@
-# Interview Manager (Web)
+# Interview Manager
 
-A web application for requesting, scheduling, and managing interviews — built as a
-real browser app deployed to the public internet.
+A full web app for requesting, scheduling, running, and getting paid for
+interviews — with a candidate portal, an admin workspace, real-time updates, and
+Telegram / Google Calendar / email integrations. Deployed to the public internet.
 
 **Stack:** Next.js 14 (App Router) · TypeScript · Tailwind CSS · Supabase
-(Auth + Postgres + Realtime). Deploy target: **Vercel** (app) + **Supabase Cloud**
-(backend), both free tier.
-
-> Built so far: **Phase 1 — Candidate dashboard** (`/candidate/dashboard`),
-> **Phase 2 — Admin workspace** (`/admin/dashboard`), **Phase 3 — Scheduling +
-> Calendar** (`/candidate/calendar`), and **Phase 4 — Payments** (mock checkout),
-> plus the email/password auth needed to reach them.
+(Auth + Postgres + Realtime + Storage) · FullCalendar · Luxon · React Hook Form +
+Zod · lucide-react.
+**Deploy target:** Vercel (app) + Supabase Cloud (backend) — both free tier.
 
 ---
 
-## What's in these phases
+## Features
 
-- **Email/password auth** via Supabase Auth (`/login`, sign in + sign up).
-- **Candidate dashboard** (`/candidate/dashboard`):
-  - Topbar with a Tailwind **segmented role switch** (Candidate / Admin).
-  - **Welcome header** — avatar initials, name, email, timezone (from the
-    authenticated user + their `profiles` row).
-  - **Request an interview** card — a React Hook Form + Zod form (role, preferred
-    date/time in the user's timezone, duration, notes) that writes to
-    `interview_requests`.
-  - **My interviews** card — a styled table of the candidate's own requests, live
-    from Supabase, with colored status and payment **pill badges**.
-  - **Notifications** card — the candidate's notifications with icons and relative
-    timestamps, **live-updating via Supabase Realtime** (no manual refresh).
-- **Admin workspace** (`/admin/dashboard`) — only visible to users whose profile
-  `role = 'admin'`:
-  - **KPI cards** (pending / approved / scheduled / completed).
-  - A **live table of every candidate's requests** with candidate identity,
-    status + payment badges, and a status filter.
-  - A **Manage** modal to **Approve / Reject / Complete / Cancel** a request, with
-    an optional message — each action **notifies the candidate in real time**.
-  - **Schedule a time** (Phase 3): the admin picks a date/time in *their* timezone
-    with a live preview of what the candidate will see, plus a meeting link. It
-    sets the confirmed time, moves the request to `scheduled`, and notifies the
-    candidate.
-  - **Revenue** (admin Overview) — **Earned**, **This month**, **Outstanding**
-    (invoiced-but-unpaid), and **Paid count**, computed live from paid invoices.
-  - **Admin calendar** (`/admin/calendar`) — a month calendar of *all* candidates'
-    scheduled interviews (admin timezone) + an Upcoming list; an Overview/Calendar
-    sub-nav.
-  - **Auto-admin** — signing in with the configured admin email (`lib/constants.ts`
-    + [`0005_auto_admin.sql`](supabase/migrations/0005_auto_admin.sql)) is admin
-    automatically, no per-user SQL.
-  - Admin-aware Row Level Security so admins can see/act on all rows.
-- **Candidate calendar** (`/candidate/calendar`) — a real **month calendar** of the
-  candidate's confirmed interviews (in their timezone) with day-by-day detail, an
-  **Upcoming** list, and Join links; live via Realtime. A secondary nav switches
-  between Dashboard and Calendar. The "My interviews" table shows the confirmed
-  time + Join link once scheduled.
-- **Payments** (Phase 4, **mock checkout**) — the admin sends an **invoice**
-  (sets an amount) from the Manage modal; the candidate sees a **Pay $X** button
-  in their table, opens a styled **demo checkout**, and on pay the **payment badge
-  flips to paid** live. No real charge — structured so a real Stripe Checkout +
-  webhook can replace the `pay()` call later.
+### Candidate portal (`/candidate/*`)
+- **Request an interview** — a rich React Hook Form + Zod form: role, interview
+  type, level, format (video / phone / in-person), focus areas, goals, preferred
+  date/time (in the candidate's timezone), duration, notes, and **file
+  attachments** (stored in a private Supabase Storage bucket).
+- **My interviews** — a live table of the candidate's requests with status and
+  payment badges, join links, and calendar (.ics) invites.
+- **Self-serve reschedule** — the candidate proposes a new time; it shows as
+  *reschedule pending* until the admin accepts or declines.
+- **Edit details / meeting link / cancel** — while a request is still open.
+- **Booking** — book directly against an admin's published availability, via a
+  **public booking link**, or with reusable **booking profiles**; share your own
+  availability.
+- **Calendar** (`/candidate/calendar`) — a month calendar of confirmed
+  interviews in the candidate's timezone, plus an Upcoming list, live via Realtime.
+- **Payments** — pay by crypto to a listed wallet and report the amount; the
+  payment badge flips to *paid* once the admin confirms.
+- **Notifications center** — realtime, no manual refresh.
+- **Resume library, feedback widget, and settings** — timezone, email
+  preferences, and Telegram linking.
+
+### Admin workspace (`/admin/*`)
+- **Dashboard** — KPI cards and an *attention* feed (pending approvals,
+  reschedule proposals, unpaid invoices, delivery blockers).
+- **Requests console + Manage dialog** — approve / reject / complete / cancel,
+  invoice, and **accept or decline candidate reschedule proposals**, each
+  notifying the candidate in real time.
+- **Schedule dialog** — pick a time constrained to your published availability,
+  with conflict detection against other scheduled interviews, a live
+  candidate-timezone preview, interviewer assignment, and meeting-link generation.
+- **Calendar board** — all candidates' scheduled interviews (admin timezone),
+  colored by interviewer / type, with an interviewer "people" filter.
+- **Candidates** — list + detail with private admin notes and a stage tracker.
+- **Analytics, Revenue & Payments** — funnel/analytics board, revenue board, and
+  a crypto **wallets manager**.
+- **Interviewers, Feedback inbox, Booking links, Storage board.**
+- **Settings** — interview-type styles, per-stage pricing, configurable request
+  fields, templates, data retention, and the Telegram / email / Google Calendar
+  integrations.
+
+### Integrations
+- **Telegram** — bot reminders, slash commands, an inbound webhook, and
+  self-diagnostics (`/api/telegram/*`).
+- **Google Calendar** — OAuth connect + two-way sync (`/api/google/*`).
+- **Email** — transactional notifications with per-user preferences.
+- **Scheduled jobs** — reminders and digests driven by Postgres `pg_cron` /
+  `pg_net` (the admin dashboard warns if they're disabled).
+
+### Auth & access
+- Email/password via Supabase Auth (`/login`, sign in + sign up, password reset).
+- Admin unlock via a server-checked **access code** (`ADMIN_ACCESS_CODE`), plus an
+  **auto-admin** email configured in [`lib/constants.ts`](lib/constants.ts).
+- Admin-aware **Row Level Security** throughout — candidates only ever see their
+  own rows.
 
 ---
 
-## Run it (one click) + auto-update
+## Run it
 
-- **Locally:** double-click **`Start Interview Manager.bat`**. It **installs
-  Node.js + Git for you if missing** (via `winget`), installs all dependencies,
-  opens the app in your browser, and then **auto-updates from GitHub every 60s**
-  (live-reloads on each push). On Windows 10/11 there's nothing to install by hand.
-- **On the web:** deploy to **Vercel** once — it then **auto-deploys on every push
-  to `main`**.
+### Locally (one click, auto-updating)
+Double-click **`Start Interview Manager.bat`**. It installs Node.js + Git via
+`winget` if missing, creates `.env.local` from the template on first run, installs
+dependencies, opens the app on a free port, and **auto-updates from GitHub every
+60 s**. See **[DEPLOY.md](DEPLOY.md)** for details.
 
-Full instructions for both (and env/Supabase setup) are in **[DEPLOY.md](DEPLOY.md)**.
+### Manually
+```bash
+npm install
+cp .env.example .env.local   # then fill in the values below
+npm run dev                  # http://localhost:3000
+```
+
+Other scripts: `npm run build`, `npm start`, `npm run lint`, `npm test` (Vitest).
+
+---
 
 ## Setup
 
 ### 1. Create a Supabase project
-At [supabase.com](https://supabase.com) → New project (free tier). Wait for it to
-provision.
+At [supabase.com](https://supabase.com) → New project (free tier).
 
 ### 2. Create the schema
-Open **SQL Editor** in your Supabase project and run, in order:
-1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — the
-   `profiles`, `interview_requests`, and `notifications` tables with Row Level
-   Security, a new-user trigger (auto-creates a profile + welcome notification),
-   and Realtime.
-2. [`supabase/migrations/0002_admin.sql`](supabase/migrations/0002_admin.sql) — the
-   `is_admin()` helper and admin RLS policies for the admin workspace.
-3. [`supabase/migrations/0003_scheduling.sql`](supabase/migrations/0003_scheduling.sql)
-   — adds `scheduled_at` + `meeting_link` for scheduling.
-4. [`supabase/migrations/0004_payments.sql`](supabase/migrations/0004_payments.sql)
-   — adds `price_cents`, `currency`, `paid_at` for payments.
-5. [`supabase/migrations/0005_auto_admin.sql`](supabase/migrations/0005_auto_admin.sql)
-   — makes the configured email (`victorbarbuta54@gmail.com`) an admin
-   automatically.
-
-**Admin access:** after running `0005`, signing in as `victorbarbuta54@gmail.com`
-is admin automatically. To grant admin to any other account (after signing up):
+Open the **SQL Editor** and run **[`apply_all_migrations.sql`](apply_all_migrations.sql)**
+— it's every migration (`supabase/migrations/0001…0059`) concatenated in order and
+is safe to re-run (idempotent guards throughout). To grant admin to any account
+after sign-up:
 ```sql
 update public.profiles set role = 'admin' where email = 'you@example.com';
 ```
-Then open `/admin/dashboard`.
 
-### 3. (Optional) speed up local testing
-**Authentication → Providers → Email**: turn **"Confirm email" off** so sign-up
-gives you a session immediately. (With it on, confirm via the emailed link — the
-app handles the callback at `/auth/callback`.)
+### 3. Configure environment
+Copy `.env.example` → `.env.local` and fill in:
 
-### 4. Configure environment
-```bash
-cp .env.example .env.local
-```
-Fill in from **Project Settings → API**:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
-```
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon/publishable key |
+| `ADMIN_ACCESS_CODE` | ✅ | Code users type to unlock the Admin role |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server-side admin grants + Google sync (never expose) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_OAUTH_REDIRECT_URI` | optional | Google Calendar sync |
+| `CRON_SECRET` | for jobs | Gates the internal sync/cron endpoints |
 
-### 5. Install & run
-```bash
-npm install
-npm run dev
-```
-Open <http://localhost:3000> → you'll be sent to `/login`. Sign up, then land on
-`/candidate/dashboard`.
+> Tip: for fast local testing, turn **Authentication → Providers → Email →
+> "Confirm email" off** so sign-up gives you a session immediately.
 
 ---
 
 ## Deploy
 
-### Backend
-Already live once you've created the Supabase project and run the SQL.
+Deploy the app to **Vercel** (import `vicuvi1/interview_manager`, add the env
+vars, Deploy) — it then auto-deploys on every push to `main`. Add your Vercel URL
+to Supabase **Authentication → URL Configuration**. Full walkthrough in
+**[DEPLOY.md](DEPLOY.md)**.
 
-### App → Vercel
-1. Push this repo to GitHub (done — `vicuvi1/interview_manager`).
-2. On [vercel.com](https://vercel.com): **New Project → import the repo**.
-3. Add the two env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
-4. Deploy. Add your Vercel URL to Supabase **Authentication → URL Configuration**
-   (Site URL + redirect URLs) so email links resolve.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `lint`, `test`,
+and `build` on every push/PR.
 
 ---
 
@@ -144,36 +136,32 @@ Already live once you've created the Supabase project and run the SQL.
 
 ```
 app/
-  layout.tsx                     Root layout (Inter font, globals)
-  page.tsx                       -> redirects to /candidate/dashboard
-  login/page.tsx                 Auth (Suspense-wrapped login form)
-  auth/callback/route.ts         Email-confirm / code exchange
-  candidate/dashboard/page.tsx   The candidate dashboard (server-rendered shell)
-  admin/dashboard/page.tsx       Placeholder (later phase)
+  candidate/…            Dashboard, calendar, booking, payments, notifications, settings, support
+  admin/…                Dashboard, requests, calendar, candidates, analytics, revenue,
+                         payments, interviewers, feedback, booking-links, storage, settings
+  api/…                  telegram/, google/, email/, public-booking/, admin/, verify-admin-code
+  auth/callback, login, reset-password, book (public)
 components/
-  topbar.tsx, role-switch.tsx, sign-out-button.tsx, welcome-header.tsx
-  request-interview-card.tsx     RHF + Zod form
-  my-interviews-card.tsx         Live table with badges
-  notifications-card.tsx         Realtime notifications
-  login-form.tsx
-  ui/                            Card, Button, Input/Textarea, Select, Badge, Field, EmptyState
+  candidate/  admin/  calendar/  shell/  ui/  …   (feature + design-system components)
 lib/
-  supabase/{client,server}.ts    Browser + server Supabase clients (@supabase/ssr)
-  env.ts, utils.ts, time.ts, types.ts
-middleware.ts                    Session refresh + route protection
-supabase/migrations/0001_init.sql
+  supabase/{client,server,admin}.ts   Browser / server / service-role clients
+  time.ts                DST-safe wall-time ⇄ UTC conversion (see tests/unit/time.test.ts)
+  slots.ts, calendar*.ts Availability, recurrence, conflict detection
+  google/, email.ts, notifications.ts, payments.ts, analytics.ts, …
+supabase/migrations/     0001 … 0059  (bundled in apply_all_migrations.sql)
+tests/unit/              Vitest unit tests
+middleware.ts            Session refresh + route protection
 ```
 
-## Polish
+## Testing
 
-Toast notifications (success/error + a live toast when a new notification
-arrives), loading skeletons on every route (`loading.tsx`), a mobile-friendly
-bottom-sheet dialog that scrolls, a favicon, a styled 404, and responsive
-layouts throughout.
+`npm test` runs the Vitest suite. Timezone/DST conversions in
+[`lib/time.ts`](lib/time.ts) are covered by boundary-case tests in
+[`tests/unit/time.test.ts`](tests/unit/time.test.ts), including both US and EU
+DST transitions and a round-trip property test.
 
 ## Notes
-- All styling is Tailwind utility classes; icons are `lucide-react`. No native
-  desktop widgets or unstyled controls.
-- RLS ensures each candidate only sees their own data.
-- The earlier desktop (Tkinter) and FastAPI versions are gone; they remain in git
-  history if ever needed.
+- Styling is Tailwind utility classes; icons are `lucide-react`. No unstyled controls.
+- Payments are **crypto-wallet based** (candidate reports the amount, admin
+  confirms) — there is no card processor wired up.
+- Earlier desktop (Tkinter) and FastAPI versions live only in git history.

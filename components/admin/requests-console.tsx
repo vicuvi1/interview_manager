@@ -516,20 +516,18 @@ function ManualBookingDialog({
     setError(null);
     const supabase = createClient();
     const scheduledUtc = wallTimeToUtcISO(when, adminTimezone);
-    const { error: insertError } = await supabase.from("interview_requests").insert({
-      candidate_id: candidateId,
-      role: role.trim(),
-      interview_type: interviewType || null,
-      level: level || null,
-      format,
-      preferred_at: scheduledUtc,
-      scheduled_at: scheduledUtc,
-      duration_minutes: duration,
-      meeting_link: link.trim() || null,
-      interviewer_id: interviewerId || null,
-      status: "scheduled",
-      payment_status: "unpaid",
-      currency: "USD",
+    // book_interview inserts the already-scheduled row AND conflict-checks the
+    // slot server-side, so an admin can't manually double-book an interviewer.
+    const { error: insertError } = await supabase.rpc("book_interview", {
+      p_candidate_id: candidateId,
+      p_role: role.trim(),
+      p_scheduled_at: scheduledUtc,
+      p_duration: duration,
+      p_meeting_link: link.trim() || null,
+      p_interviewer_id: interviewerId || null,
+      p_interview_type: interviewType || null,
+      p_level: level || null,
+      p_format: format,
     });
     if (insertError) {
       setError(insertError.message);

@@ -307,21 +307,25 @@ export function ManageRequestDialog({
     const scheduledUtc = wallTimeToUtcISO(schedAt, adminTimezone);
     // Auto-invoice from the stage's default price if this interview isn't priced yet.
     const autoInvoice = !request.price_cents && defaultCents ? defaultCents : null;
-    const { error: updateError } = await supabase
-      .from("interview_requests")
-      .update({
-        scheduled_at: scheduledUtc,
-        meeting_link: schedLink.trim() || autoMeetingLink(request.id),
-        duration_minutes: schedDuration,
-        status: "scheduled",
-        ...(autoInvoice ? { price_cents: autoInvoice, currency: "USD" } : {}),
-      })
-      .eq("id", request.id);
+    const { error: updateError } = await supabase.rpc("schedule_interview", {
+      p_interview_id: request.id,
+      p_scheduled_at: scheduledUtc,
+      p_duration: schedDuration,
+      p_meeting_link: schedLink.trim() || autoMeetingLink(request.id),
+      p_interviewer_id: request.interviewer_id,
+    });
     if (updateError) {
       setError(updateError.message);
       toast({ title: "Scheduling failed", description: updateError.message, variant: "error" });
       setScheduling(false);
       return;
+    }
+    // The invoice is a separate concern from the (now conflict-checked) time.
+    if (autoInvoice) {
+      await supabase
+        .from("interview_requests")
+        .update({ price_cents: autoInvoice, currency: "USD" })
+        .eq("id", request.id);
     }
     await supabase.from("notifications").insert({
       user_id: request.candidate_id,
@@ -498,14 +502,13 @@ export function ManageRequestDialog({
     setAccepting(true);
     setError(null);
     const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("interview_requests")
-      .update({
-        status: "scheduled",
-        scheduled_at: request.preferred_at,
-        meeting_link: request.meeting_link || autoMeetingLink(request.id),
-      })
-      .eq("id", request.id);
+    const { error: updateError } = await supabase.rpc("schedule_interview", {
+      p_interview_id: request.id,
+      p_scheduled_at: request.preferred_at,
+      p_duration: request.duration_minutes,
+      p_meeting_link: request.meeting_link || autoMeetingLink(request.id),
+      p_interviewer_id: request.interviewer_id,
+    });
     if (updateError) {
       setError(updateError.message);
       toast({ title: "Couldn't confirm", description: updateError.message, variant: "error" });
@@ -529,15 +532,15 @@ export function ManageRequestDialog({
     setProposedBusy("accept");
     setError(null);
     const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("interview_requests")
-      .update({
-        scheduled_at: request.proposed_at,
-        proposed_at: null,
-        status: "scheduled",
-        meeting_link: request.meeting_link || autoMeetingLink(request.id),
-      })
-      .eq("id", request.id);
+    // Route through the scheduling RPC so accepting a proposal is conflict-checked
+    // too (the raw update used to skip that and could double-book a slot).
+    const { error: updateError } = await supabase.rpc("schedule_interview", {
+      p_interview_id: request.id,
+      p_scheduled_at: request.proposed_at,
+      p_duration: request.duration_minutes,
+      p_meeting_link: request.meeting_link || autoMeetingLink(request.id),
+      p_interviewer_id: request.interviewer_id,
+    });
     if (updateError) {
       setError(updateError.message);
       toast({ title: "Couldn't accept", description: updateError.message, variant: "error" });

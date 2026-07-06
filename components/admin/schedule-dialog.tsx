@@ -138,16 +138,15 @@ export function ScheduleDialog({
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("interview_requests")
-      .update({
-        scheduled_at: selected,
-        duration_minutes: duration,
-        meeting_link: link.trim() || null,
-        interviewer_id: interviewerId || null,
-        status: "scheduled",
-      })
-      .eq("id", request.id);
+    // Server-side RPC re-validates the slot (admin check + conflict detection
+    // under a per-interviewer lock) so the browser grid isn't the only guard.
+    const { error: updateError } = await supabase.rpc("schedule_interview", {
+      p_interview_id: request.id,
+      p_scheduled_at: selected,
+      p_duration: duration,
+      p_meeting_link: link.trim(),
+      p_interviewer_id: interviewerId || null,
+    });
     if (updateError) {
       setError(updateError.message);
       setBusy(false);

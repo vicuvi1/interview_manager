@@ -1192,10 +1192,13 @@ function RescheduleDialog({
   async function confirm() {
     setBusy(true);
     const supabase = createClient();
-    const { error } = await supabase
-      .from("interview_requests")
-      .update({ scheduled_at: move.startISO, duration_minutes: move.durationMin })
-      .eq("id", move.request.id);
+    const { error } = await supabase.rpc("schedule_interview", {
+      p_interview_id: move.request.id,
+      p_scheduled_at: move.startISO,
+      p_duration: move.durationMin,
+      p_meeting_link: null, // keep the existing link
+      p_interviewer_id: move.request.interviewer_id,
+    });
     if (error) {
       toast({ title: "Couldn't reschedule", description: error.message, variant: "error" });
       setBusy(false);

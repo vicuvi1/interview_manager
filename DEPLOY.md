@@ -50,7 +50,7 @@ Pull requests get their own preview URLs. Nothing else to do.
 
 ## Database
 
-Before either option works, run the SQL migrations once in your Supabase project
-(SQL Editor), in order: `supabase/migrations/0001_init.sql` →
-`0002_admin.sql` → `0003_scheduling.sql` → `0004_payments.sql` →
-`0005_auto_admin.sql`. See the main [README](README.md) for details.
+Before either option works, run the schema once in your Supabase project (SQL
+Editor): paste **`apply_all_migrations.sql`** — every migration
+(`supabase/migrations/0001…0059`) concatenated in order, safe to re-run. See the
+main [README](README.md) for details.

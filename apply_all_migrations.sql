@@ -1,11 +1,11 @@
 -- ============================================================
--- Interview Manager — all migrations, concatenated in order.
+-- Interview Manager â€” all migrations, concatenated in order.
 -- Paste this whole file into the Supabase SQL Editor and Run.
 -- Safe to re-run (idempotent guards throughout).
 -- ============================================================
 
 -- ---- 0001_init.sql ----
--- Interview Manager — initial schema (Phase 1: candidate dashboard)
+-- Interview Manager â€” initial schema (Phase 1: candidate dashboard)
 -- Paste this into the Supabase SQL Editor and run it, or apply with the CLI.
 
 -- =====================================================================
@@ -148,7 +148,7 @@ begin
 end $$;
 
 -- ---- 0002_admin.sql ----
--- Interview Manager — admin role + policies (Phase 2: admin workspace)
+-- Interview Manager â€” admin role + policies (Phase 2: admin workspace)
 -- Run this AFTER 0001_init.sql.
 --
 -- To make yourself an admin, run (with your email):
@@ -189,7 +189,7 @@ create policy "notifications_insert_admin" on public.notifications
   for insert with check (public.is_admin());
 
 -- ---- 0003_scheduling.sql ----
--- Interview Manager — scheduling (Phase 3)
+-- Interview Manager â€” scheduling (Phase 3)
 -- Run AFTER 0002_admin.sql.
 --
 -- Adds the confirmed time + meeting link the admin sets when scheduling.
@@ -201,7 +201,7 @@ alter table public.interview_requests
   add column if not exists meeting_link text;
 
 -- ---- 0004_payments.sql ----
--- Interview Manager — payments (Phase 4)
+-- Interview Manager â€” payments (Phase 4)
 -- Run AFTER 0003_scheduling.sql.
 --
 -- The admin sets an invoice (price_cents); the candidate pays (mock checkout),
@@ -214,11 +214,11 @@ alter table public.interview_requests
   add column if not exists paid_at timestamptz;
 
 -- ---- 0005_auto_admin.sql ----
--- Interview Manager — auto-admin for a fixed account (Phase 5)
+-- Interview Manager â€” auto-admin for a fixed account (Phase 5)
 -- Run AFTER 0004_payments.sql.
 --
 -- After this runs, signing in with victorbarbuta54@gmail.com is automatically an
--- admin — no per-user SQL needed. (Revenue + admin calendar are app-only, no
+-- admin â€” no per-user SQL needed. (Revenue + admin calendar are app-only, no
 -- schema needed.)
 
 -- 1) Promote the designated account if it already exists.
@@ -275,7 +275,7 @@ end;
 $$;
 
 -- ---- 0006_security.sql ----
--- Interview Manager — security hardening (Phase 6)
+-- Interview Manager â€” security hardening (Phase 6)
 -- Run AFTER 0005_auto_admin.sql.
 --
 -- Goal: candidates can only create requests and read their own data. All
@@ -367,7 +367,7 @@ grant execute on function public.pay_interview(uuid) to authenticated;
 grant execute on function public.cancel_my_request(uuid) to authenticated;
 
 -- ---- 0007_payments.sql ----
--- Interview Manager — payments ledger (Phase 4)
+-- Interview Manager â€” payments ledger (Phase 4)
 -- Run AFTER 0006_security.sql.
 --
 -- Adapted to our schema: interview_id references interview_requests (not a
@@ -464,13 +464,13 @@ create trigger on_interview_payment_sync
   for each row execute function public.sync_payment_from_request();
 
 -- ---- 0008_availability.sql ----
--- Interview Manager — availability & calendar blocks (Phase 5)
+-- Interview Manager â€” availability & calendar blocks (Phase 5)
 -- Run AFTER 0007_payments.sql.
 --
 -- One table backs three kinds of admin-managed calendar blocks:
---   available — green, bookable windows (candidate booking lands here later)
---   busy      — blocked time; candidates can't book over it
---   event     — a custom event / manual interview note (optional candidate link)
+--   available â€” green, bookable windows (candidate booking lands here later)
+--   busy      â€” blocked time; candidates can't book over it
+--   event     â€” a custom event / manual interview note (optional candidate link)
 -- repeat_rule expands client-side over the visible range (none/daily/weekly).
 
 create table if not exists public.availability_slots (
@@ -511,7 +511,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ---- 0009_candidate_notes.sql ----
--- Interview Manager — private admin notes on candidates (Phase 6)
+-- Interview Manager â€” private admin notes on candidates (Phase 6)
 -- Run AFTER 0008_availability.sql.
 --
 -- Admin-only. Candidates can never read or write these rows (RLS grants no
@@ -540,7 +540,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ---- 0010_notifications_center.sql ----
--- Interview Manager — notification center support (Phase 7)
+-- Interview Manager â€” notification center support (Phase 7)
 -- Run AFTER 0009_candidate_notes.sql.
 --
 -- 1) Users can clear (delete) their own notifications.
@@ -577,7 +577,7 @@ create trigger on_new_request_notify_admins
   for each row execute function public.notify_admins_new_request();
 
 -- ---- 0011_audit_log.sql ----
--- Interview Manager — audit log + admin manual controls (Phase 8)
+-- Interview Manager â€” audit log + admin manual controls (Phase 8)
 -- Run AFTER 0010_notifications_center.sql.
 --
 -- Every meaningful change to an interview request is logged automatically by a
@@ -637,7 +637,7 @@ begin
   if new.status is distinct from old.status then
     insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
     values (actor, 'status', 'interview', new.id,
-      new.role || ': ' || old.status || ' → ' || new.status);
+      new.role || ': ' || old.status || ' â†’ ' || new.status);
   end if;
 
   if new.scheduled_at is distinct from old.scheduled_at and new.scheduled_at is not null then
@@ -648,7 +648,7 @@ begin
   if new.payment_status is distinct from old.payment_status then
     insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
     values (actor, 'payment', 'interview', new.id,
-      new.role || ' payment: ' || old.payment_status || ' → ' || new.payment_status);
+      new.role || ' payment: ' || old.payment_status || ' â†’ ' || new.payment_status);
   end if;
 
   return new;
@@ -661,7 +661,7 @@ create trigger on_interview_audit
   for each row execute function public.log_interview_change();
 
 -- ---- 0012_interviewers.sql ----
--- Interview Manager — assigned interviewer (polish pass)
+-- Interview Manager â€” assigned interviewer (polish pass)
 -- Run AFTER 0011_audit_log.sql.
 --
 -- Each request can be assigned to an interviewer (an admin). Nullable; existing
@@ -674,12 +674,12 @@ create index if not exists interview_requests_interviewer_idx
   on public.interview_requests (interviewer_id);
 
 -- ---- 0013_privacy_and_blocking.sql ----
--- Interview Manager — privacy hardening + user blocking
+-- Interview Manager â€” privacy hardening + user blocking
 -- Run AFTER 0012_interviewers.sql.
 
 -- 1) PRIVACY: candidates must never see each other's data.
 --    availability_slots previously allowed any signed-in user to SELECT every
---    row — including "event" slots that can reference a specific candidate
+--    row â€” including "event" slots that can reference a specific candidate
 --    (candidate_id, meeting_link, notes). No candidate feature reads this table,
 --    so restrict SELECT to admins. (The admin_all policy from 0008 still applies.)
 drop policy if exists "availability_select_auth" on public.availability_slots;
@@ -705,7 +705,7 @@ create policy "interviews_insert_own" on public.interview_requests
 
 -- Admin-only block/unblock. `blocked` is never a client-writable column
 -- (profiles column grants exclude it), so this SECURITY DEFINER RPC is the only
--- path — it verifies is_admin(), logs to the audit trail, and notifies the user.
+-- path â€” it verifies is_admin(), logs to the audit trail, and notifies the user.
 create or replace function public.set_user_blocked(p_user uuid, p_blocked boolean)
 returns void
 language plpgsql
@@ -748,7 +748,7 @@ $$;
 grant execute on function public.set_user_blocked(uuid, boolean) to authenticated;
 
 -- ---- 0014_telegram_reminders.sql ----
--- Interview Manager — Telegram interview reminders
+-- Interview Manager â€” Telegram interview reminders
 -- Run AFTER 0013_privacy_and_blocking.sql.
 --
 -- Each admin can connect their own Telegram bot and choose how many minutes
@@ -756,7 +756,7 @@ grant execute on function public.set_user_blocked(uuid, boolean) to authenticate
 -- process_interview_reminders() every minute, which sends due reminders via the
 -- Telegram Bot API using pg_net.
 --
--- ONE-TIME SETUP in Supabase (Dashboard → Database → Extensions, then SQL editor):
+-- ONE-TIME SETUP in Supabase (Dashboard â†’ Database â†’ Extensions, then SQL editor):
 --   1. Enable extensions:  pg_net  and  pg_cron
 --   2. Schedule the job:
 --        select cron.schedule('interview-reminders', '* * * * *',
@@ -776,7 +776,7 @@ create table if not exists public.telegram_settings (
 
 alter table public.telegram_settings enable row level security;
 
--- Only the owner (who must be an admin) can see or manage their row — this keeps
+-- Only the owner (who must be an admin) can see or manage their row â€” this keeps
 -- each admin's bot token private to them.
 drop policy if exists "telegram_owner_all" on public.telegram_settings;
 create policy "telegram_owner_all" on public.telegram_settings
@@ -837,7 +837,7 @@ begin
         )
     loop
       tz := coalesce(iv.admin_tz, 'UTC');
-      msg := '⏰ Interview reminder' || E'\n'
+      msg := 'â° Interview reminder' || E'\n'
           || 'Role: ' || iv.role || E'\n'
           || 'Candidate: ' || coalesce(nullif(iv.cand_name, ''), iv.cand_email, 'Unknown') || E'\n'
           || 'When: ' || to_char(iv.scheduled_at at time zone tz, 'Mon DD, HH24:MI') || ' (' || tz || ')'
@@ -868,11 +868,11 @@ revoke all on function public.process_interview_reminders() from anon;
 revoke all on function public.process_interview_reminders() from authenticated;
 
 -- ---- 0015_richer_requests.sql ----
--- Interview Manager — richer interview requests + candidate materials
+-- Interview Manager â€” richer interview requests + candidate materials
 -- Run AFTER 0014_telegram_reminders.sql.
 --
 -- Candidates can now submit far more context with a request, and keep reusable
--- profile materials (résumé, links, phone). The admin reviews it all and
+-- profile materials (rÃ©sumÃ©, links, phone). The admin reviews it all and
 -- approves or declines.
 
 -- Per-request detail the candidate fills in.
@@ -893,25 +893,25 @@ alter table public.profiles
   add column if not exists bio           text;
 
 -- Candidates may edit their own materials. (0006 restricted profile updates to a
--- column allow-list; extend it — role/blocked stay ungranted so they can't be
+-- column allow-list; extend it â€” role/blocked stay ungranted so they can't be
 -- self-set.) RLS profiles_update_own still scopes writes to the owner's row.
 grant update (phone, linkedin_url, github_url, portfolio_url, resume_url, bio)
   on public.profiles to authenticated;
 
 -- ---- 0016_storage_and_cleanup.sql ----
--- Interview Manager — résumé uploads + storage/data admin tools
+-- Interview Manager â€” rÃ©sumÃ© uploads + storage/data admin tools
 -- Run AFTER 0015_richer_requests.sql.
 
--- 1) Where an uploaded résumé lives (a path inside the private "resumes" bucket).
+-- 1) Where an uploaded rÃ©sumÃ© lives (a path inside the private "resumes" bucket).
 alter table public.profiles add column if not exists resume_path text;
 grant update (resume_path) on public.profiles to authenticated;
 
--- 2) Private bucket for résumés. Files are namespaced by user id: "<uid>/<file>".
+-- 2) Private bucket for rÃ©sumÃ©s. Files are namespaced by user id: "<uid>/<file>".
 insert into storage.buckets (id, name, public)
 values ('resumes', 'resumes', false)
 on conflict (id) do nothing;
 
--- Candidates manage only their own folder; admins can read every résumé.
+-- Candidates manage only their own folder; admins can read every rÃ©sumÃ©.
 drop policy if exists "resumes_owner_rw" on storage.objects;
 create policy "resumes_owner_rw" on storage.objects
   for all
@@ -997,7 +997,7 @@ $$;
 grant execute on function public.cleanup_data(text, integer) to authenticated;
 
 -- ---- 0017_interview_feedback.sql ----
--- Interview Manager — interview feedback & outcomes
+-- Interview Manager â€” interview feedback & outcomes
 -- Run AFTER 0016_storage_and_cleanup.sql.
 --
 -- One scorecard per interview. Admins write it; the candidate can only read the
@@ -1044,11 +1044,11 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ---- 0018_email_notifications.sql ----
--- Interview Manager — email notifications via Resend
+-- Interview Manager â€” email notifications via Resend
 -- Run AFTER 0017_interview_feedback.sql.
 --
 -- Every in-app notification is also emailed to its recipient. Configure the
--- Resend API key + "from" address in Admin → Settings → Email. Requires the
+-- Resend API key + "from" address in Admin â†’ Settings â†’ Email. Requires the
 -- pg_net extension (same as Telegram reminders).
 
 -- Single-row config, admin-only. The API key stays server-side (RLS + never
@@ -1121,7 +1121,7 @@ create trigger on_notification_email
   for each row execute function public.email_on_notification();
 
 -- ---- 0019_app_settings_retention.sql ----
--- Interview Manager — app settings + automatic data retention
+-- Interview Manager â€” app settings + automatic data retention
 -- Run AFTER 0018_email_notifications.sql.
 --
 -- Free-tier friendly: a scheduled job trims old rows so the database doesn't creep
@@ -1208,15 +1208,15 @@ grant execute on function public.run_retention() to authenticated;
 --     $$ select public.run_retention(); $$);
 
 -- ---- 0020_resume_hygiene.sql ----
--- Interview Manager — résumé hygiene (free-tier storage control)
+-- Interview Manager â€” rÃ©sumÃ© hygiene (free-tier storage control)
 -- Run AFTER 0019_app_settings_retention.sql.
 
--- Admins can delete any résumé file (candidates already manage their own folder).
+-- Admins can delete any rÃ©sumÃ© file (candidates already manage their own folder).
 drop policy if exists "resumes_admin_delete" on storage.objects;
 create policy "resumes_admin_delete" on storage.objects
   for delete using (bucket_id = 'resumes' and public.is_admin());
 
--- Admin clears a candidate's résumé pointer after removing the file. profiles is
+-- Admin clears a candidate's rÃ©sumÃ© pointer after removing the file. profiles is
 -- not admin-writable directly, so this SECURITY DEFINER RPC is the path.
 create or replace function public.admin_clear_resume(p_user uuid)
 returns void
@@ -1234,7 +1234,7 @@ $$;
 grant execute on function public.admin_clear_resume(uuid) to authenticated;
 
 -- ---- 0021_tags_and_templates.sql ----
--- Interview Manager — candidate tags + interview templates (lightweight org tools)
+-- Interview Manager â€” candidate tags + interview templates (lightweight org tools)
 -- Run AFTER 0020_resume_hygiene.sql.
 
 -- Candidate tags (admin-managed). profiles isn't admin-writable directly, so set
@@ -1277,7 +1277,7 @@ create policy "templates_admin_all" on public.interview_templates
   for all using (public.is_admin()) with check (public.is_admin());
 
 -- ---- 0022_candidate_stage.sql ----
--- Interview Manager — candidate pipeline stage (HR → Technical → Final)
+-- Interview Manager â€” candidate pipeline stage (HR â†’ Technical â†’ Final)
 -- Run AFTER 0021_tags_and_templates.sql.
 
 alter table public.profiles
@@ -1304,7 +1304,7 @@ begin
   from public.profiles where id = p_user;
 
   insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
-  values (auth.uid(), 'stage', 'user', p_user, who || ' → ' || p_stage);
+  values (auth.uid(), 'stage', 'user', p_user, who || ' â†’ ' || p_stage);
 
   insert into public.notifications (user_id, title, detail, type)
   values (
@@ -1313,7 +1313,7 @@ begin
     case when p_stage = 'rejected'
          then 'Thank you for interviewing with us. We won''t be moving forward at this time.'
          when p_stage = 'hired'
-         then 'Great news — you''ve reached the offer stage!'
+         then 'Great news â€” you''ve reached the offer stage!'
          else 'Your application has moved forward.' end,
     case when p_stage = 'rejected' then 'alert' else 'success' end
   );
@@ -1323,7 +1323,7 @@ $$;
 grant execute on function public.set_candidate_stage(uuid, text) to authenticated;
 
 -- ---- 0023_payment_wallets.sql ----
--- Interview Manager — crypto wallet payments
+-- Interview Manager â€” crypto wallet payments
 -- Run AFTER 0022_candidate_stage.sql.
 --
 -- The admin lists their receiving wallets (USDT/USDC on BEP20/TRC20/etc). A
@@ -1333,8 +1333,8 @@ grant execute on function public.set_candidate_stage(uuid, text) to authenticate
 
 create table if not exists public.payment_wallets (
   id         uuid primary key default gen_random_uuid(),
-  asset      text not null,            -- USDT, USDC, BTC, ETH, BNB…
-  network    text,                     -- BEP20, TRC20, ERC20, SOL…
+  asset      text not null,            -- USDT, USDC, BTC, ETH, BNBâ€¦
+  network    text,                     -- BEP20, TRC20, ERC20, SOLâ€¦
   address    text not null,
   memo       text,                     -- optional memo/tag some chains need
   active     boolean not null default true,
@@ -1384,11 +1384,11 @@ end;
 $$;
 grant execute on function public.notify_payment_sent(uuid) to authenticated;
 
--- Candidates no longer self-mark paid — the admin verifies the transfer.
+-- Candidates no longer self-mark paid â€” the admin verifies the transfer.
 revoke execute on function public.pay_interview(uuid) from authenticated;
 
 -- ---- 0024_booking_form.sql ----
--- Interview Manager — fix audit FK + richer booking fields
+-- Interview Manager â€” fix audit FK + richer booking fields
 -- Run AFTER 0023_payment_wallets.sql.
 
 -- 1) FIX: some auth users may have no profiles row (e.g. created before the
@@ -1428,7 +1428,7 @@ begin
 
   if new.status is distinct from old.status then
     insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
-    values (actor, 'status', 'interview', new.id, new.role || ': ' || old.status || ' → ' || new.status);
+    values (actor, 'status', 'interview', new.id, new.role || ': ' || old.status || ' â†’ ' || new.status);
   end if;
 
   if new.scheduled_at is distinct from old.scheduled_at and new.scheduled_at is not null then
@@ -1439,7 +1439,7 @@ begin
   if new.payment_status is distinct from old.payment_status then
     insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
     values (actor, 'payment', 'interview', new.id,
-      new.role || ' payment: ' || old.payment_status || ' → ' || new.payment_status);
+      new.role || ' payment: ' || old.payment_status || ' â†’ ' || new.payment_status);
   end if;
 
   return new;
@@ -1453,12 +1453,12 @@ alter table public.interview_requests
   add column if not exists job_desc_path  text;
 
 -- ---- 0025_candidate_booking.sql ----
--- Interview Manager — candidate self-booking (Google-Calendar style)
+-- Interview Manager â€” candidate self-booking (Google-Calendar style)
 -- Run AFTER 0024_booking_form.sql.
 --
 -- Candidates never read the admin's calendar directly. Two SECURITY DEFINER RPCs:
---   get_booking_availability → anonymized free/blocked time ranges (no names)
---   book_open_slot           → validates + books, guarding against double-booking.
+--   get_booking_availability â†’ anonymized free/blocked time ranges (no names)
+--   book_open_slot           â†’ validates + books, guarding against double-booking.
 
 create or replace function public.get_booking_availability(p_from timestamptz, p_to timestamptz)
 returns jsonb
@@ -1519,7 +1519,7 @@ begin
       and tstzrange(scheduled_at, scheduled_at + make_interval(mins => coalesce(duration_minutes, 30)))
           && tstzrange(p_starts_at, p_starts_at + make_interval(mins => dur))
   ) then
-    raise exception 'That time was just taken — please pick another.';
+    raise exception 'That time was just taken â€” please pick another.';
   end if;
 
   insert into public.interview_requests
@@ -1545,7 +1545,7 @@ $$;
 grant execute on function public.book_open_slot(text, timestamptz, integer, text, text, text) to authenticated;
 
 -- ---- 0026_booking_pending.sql ----
--- Interview Manager — calendar bookings are requests (admin-approved)
+-- Interview Manager â€” calendar bookings are requests (admin-approved)
 -- Run AFTER 0025_candidate_booking.sql.
 --
 -- A candidate can propose ANY time (green slots are only suggestions). Booking
@@ -1591,11 +1591,11 @@ end;
 $$;
 
 -- ---- 0027_telegram_for_users.sql ----
--- Interview Manager — Telegram for everyone (candidates + admins)
+-- Interview Manager â€” Telegram for everyone (candidates + admins)
 -- Run AFTER 0026_booking_pending.sql.
 --
 -- Any signed-in user can connect their own Telegram bot and get their in-app
--- notifications (accepted / rescheduled / declined / …) forwarded to Telegram.
+-- notifications (accepted / rescheduled / declined / â€¦) forwarded to Telegram.
 -- Interview reminders stay ADMIN-only.
 
 -- 1) Relax ownership: drop the admin-only requirement (each user owns their row).
@@ -1619,7 +1619,7 @@ begin
     return new;
   end if;
 
-  msg := '🔔 ' || new.title
+  msg := 'ðŸ”” ' || new.title
        || case when coalesce(new.detail, '') <> '' then E'\n' || new.detail else '' end;
 
   perform net.http_post(
@@ -1670,7 +1670,7 @@ begin
         )
     loop
       tz := coalesce(iv.admin_tz, 'UTC');
-      msg := '⏰ Interview reminder' || E'\n'
+      msg := 'â° Interview reminder' || E'\n'
           || 'Role: ' || iv.role || E'\n'
           || 'Candidate: ' || coalesce(nullif(iv.cand_name, ''), iv.cand_email, 'Unknown') || E'\n'
           || 'When: ' || to_char(iv.scheduled_at at time zone tz, 'Mon DD, HH24:MI') || ' (' || tz || ')'
@@ -1693,11 +1693,11 @@ revoke all on function public.process_interview_reminders() from anon;
 revoke all on function public.process_interview_reminders() from authenticated;
 
 -- ---- 0028_notify_resilient.sql ----
--- Interview Manager — make notification delivery fault-tolerant
+-- Interview Manager â€” make notification delivery fault-tolerant
 -- Run AFTER 0027_telegram_for_users.sql.
 --
 -- Telegram/email forwarding must NEVER break the action that created the
--- notification (approve, book, pay…). If pg_net is missing or the provider
+-- notification (approve, book, payâ€¦). If pg_net is missing or the provider
 -- errors, we swallow it so the notification (and the action) still succeed.
 
 create or replace function public.telegram_on_notification()
@@ -1715,7 +1715,7 @@ begin
     return new;
   end if;
 
-  msg := '🔔 ' || new.title
+  msg := 'ðŸ”” ' || new.title
        || case when coalesce(new.detail, '') <> '' then E'\n' || new.detail else '' end;
 
   begin
@@ -1773,20 +1773,20 @@ end;
 $$;
 
 -- ---- 0029_owner_admin.sql ----
--- Interview Manager — ensure the owner account is an admin
+-- Interview Manager â€” ensure the owner account is an admin
 -- Run AFTER 0028_notify_resilient.sql.
 --
 -- The owner email is admin by app logic (isAdminUser) regardless of role, but
 -- set the DB role too so role-filtered queries/triggers (admin notifications,
 -- the interviewers list, etc.) include this account. They can still use the
--- candidate side — access to /candidate/* isn't restricted to candidates.
+-- candidate side â€” access to /candidate/* isn't restricted to candidates.
 
 update public.profiles
 set role = 'admin'
 where lower(email) = 'victorbarbuta54@gmail.com';
 
 -- ---- 0030_reported_amount.sql ----
--- Interview Manager — candidate reports the amount they paid
+-- Interview Manager â€” candidate reports the amount they paid
 -- Run AFTER 0029_owner_admin.sql.
 --
 -- When a candidate says "I've paid", they now enter the dollar amount. We record
@@ -1840,14 +1840,14 @@ $$;
 grant execute on function public.notify_payment_sent(uuid, numeric, text) to authenticated;
 
 -- ---- 0031_colors_and_mark_paid.sql ----
--- Interview Manager — per-request color + easier "mark paid"
+-- Interview Manager â€” per-request color + easier "mark paid"
 -- Run AFTER 0030_reported_amount.sql.
 
 -- Custom color for a request/event (chosen by the candidate and/or admin).
 alter table public.interview_requests add column if not exists color text;
 
 -- When a candidate reports a payment, record the amount on the interview (if it
--- wasn't invoiced yet) so the admin can just open it and mark it paid — instead
+-- wasn't invoiced yet) so the admin can just open it and mark it paid â€” instead
 -- of a separate standalone payment row.
 create or replace function public.notify_payment_sent(
   p_interview_id uuid,
@@ -1890,7 +1890,7 @@ $$;
 grant execute on function public.notify_payment_sent(uuid, numeric, text) to authenticated;
 
 -- ---- 0032_admin_powers_and_outcomes.sql ----
--- Interview Manager — admin powers + richer interview outcomes
+-- Interview Manager â€” admin powers + richer interview outcomes
 -- Run AFTER 0031_colors_and_mark_paid.sql.
 
 -- 1) Admins can DELETE a request (remove it from the approval system entirely).
@@ -1898,7 +1898,7 @@ drop policy if exists "interviews_delete_admin" on public.interview_requests;
 create policy "interviews_delete_admin" on public.interview_requests
   for delete using (public.is_admin());
 
--- 2) Admins can UPDATE any profile — so they can rename/relabel users to make
+-- 2) Admins can UPDATE any profile â€” so they can rename/relabel users to make
 --    them easier to track. (Read access already exists via profiles_select_admin.)
 drop policy if exists "profiles_update_admin" on public.profiles;
 create policy "profiles_update_admin" on public.profiles
@@ -1914,7 +1914,7 @@ alter table public.interview_feedback add column if not exists action_items text
 --   * candidates can read them only when the row is shared (feedback_candidate_read)
 
 -- ---- 0033_checklist_pricing_reschedule_reminders.sql ----
--- Interview Manager — tickable to-do, stage pricing, reschedule proposals, pay reminders
+-- Interview Manager â€” tickable to-do, stage pricing, reschedule proposals, pay reminders
 -- Run AFTER 0032_admin_powers_and_outcomes.sql.
 
 -- ============================================================
@@ -1967,7 +1967,7 @@ create policy "pricing_read_auth" on public.interview_pricing
   for select using (auth.uid() is not null);
 
 -- ============================================================
--- 3) Reschedule proposals — candidate proposes a new time; admin accepts.
+-- 3) Reschedule proposals â€” candidate proposes a new time; admin accepts.
 -- ============================================================
 alter table public.interview_requests
   add column if not exists proposed_at timestamptz;
@@ -2004,7 +2004,7 @@ $$;
 grant execute on function public.propose_reschedule(uuid, timestamptz) to authenticated;
 
 -- ============================================================
--- 4) Payment reminders — nudge candidates with unpaid, invoiced interviews.
+-- 4) Payment reminders â€” nudge candidates with unpaid, invoiced interviews.
 --    Idempotent: only re-nudges every 3 days. Call from pg_cron (see bottom).
 -- ============================================================
 alter table public.interview_requests
@@ -2056,7 +2056,7 @@ end $$;
 --     'select public.process_payment_reminders(3);');
 
 -- ---- 0034_reminders_rules_attention.sql ----
--- Interview Manager — candidate reminders, booking rules, "needs attention" flag
+-- Interview Manager â€” candidate reminders, booking rules, "needs attention" flag
 -- Run AFTER 0033_checklist_pricing_reschedule_reminders.sql.
 
 -- ============================================================
@@ -2117,7 +2117,7 @@ $$;
 grant execute on function public.notify_payment_sent(uuid, numeric, text) to authenticated;
 
 -- ============================================================
--- Candidate interview reminders — 24h and 1h before a scheduled interview.
+-- Candidate interview reminders â€” 24h and 1h before a scheduled interview.
 -- In-app notifications (which also forward to Telegram if the candidate is
 -- connected). Deduped via reminder_log. Call from pg_cron (see bottom).
 -- ============================================================
@@ -2191,7 +2191,7 @@ end $$;
 --     'select public.process_candidate_reminders();');
 
 -- ---- 0035_tg_commands_and_reverse_booking.sql ----
--- Interview Manager — two-way Telegram commands + candidate-shared availability
+-- Interview Manager â€” two-way Telegram commands + candidate-shared availability
 -- Run AFTER 0034_reminders_rules_attention.sql.
 
 -- ============================================================
@@ -2234,17 +2234,17 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ---- 0036_payment_hidden.sql ----
--- Interview Manager — soft-hide settled invoices from the Payments board
+-- Interview Manager â€” soft-hide settled invoices from the Payments board
 -- Run AFTER 0035_tg_commands_and_reverse_booking.sql.
 --
 -- A paid invoice can be hidden from the "Recently paid" list to tidy the board,
--- WITHOUT deleting it — revenue history and KPIs still count it.
+-- WITHOUT deleting it â€” revenue history and KPIs still count it.
 
 alter table public.interview_requests
   add column if not exists payment_hidden boolean not null default false;
 
 -- ---- 0037_public_booking_and_digest.sql ----
--- Interview Manager — public booking link + admin daily digest
+-- Interview Manager â€” public booking link + admin daily digest
 -- Run AFTER 0036_payment_hidden.sql.
 
 -- ============================================================
@@ -2291,7 +2291,7 @@ begin
   insert into public.notifications (user_id, title, detail, type)
   select p.id, 'New booking request',
     new.name || ' requested "' || new.role || '"'
-      || case when new.email is not null then ' — ' || new.email else '' end,
+      || case when new.email is not null then ' â€” ' || new.email else '' end,
     'info'
   from public.profiles p where p.role = 'admin';
   return new;
@@ -2309,7 +2309,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ============================================================
--- Admin daily digest — a morning summary notification (also forwards to Telegram).
+-- Admin daily digest â€” a morning summary notification (also forwards to Telegram).
 -- ============================================================
 create or replace function public.process_admin_digest()
 returns integer
@@ -2336,8 +2336,8 @@ begin
   for a in select id from public.profiles where role = 'admin' loop
     insert into public.notifications (user_id, title, detail, type)
     values (a.id, 'Daily summary',
-      today_iv || ' interview(s) today · ' || pending || ' pending · '
-        || unpaid || ' unpaid · ' || resched || ' reschedule request(s).',
+      today_iv || ' interview(s) today Â· ' || pending || ' pending Â· '
+        || unpaid || ' unpaid Â· ' || resched || ' reschedule request(s).',
       'info');
     n := n + 1;
   end loop;
@@ -2356,7 +2356,7 @@ exception when others then null;
 end $$;
 
 -- ---- 0038_app_feedback.sql ----
--- Interview Manager — in-app feedback (bug reports / feature ideas from candidates)
+-- Interview Manager â€” in-app feedback (bug reports / feature ideas from candidates)
 -- Run AFTER 0037_public_booking_and_digest.sql.
 --
 -- Candidates submit feedback; admins get a notification (which forwards to their
@@ -2405,9 +2405,9 @@ declare
 begin
   who := coalesce(nullif(new.name, ''), new.email, 'A user');
   title := case new.category
-             when 'bug' then '🐛 Bug report'
-             when 'idea' then '💡 Feature idea'
-             else '📩 New feedback'
+             when 'bug' then 'ðŸ› Bug report'
+             when 'idea' then 'ðŸ’¡ Feature idea'
+             else 'ðŸ“© New feedback'
            end;
   insert into public.notifications (user_id, title, detail, type)
   select p.id, title,
@@ -2431,7 +2431,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ---- 0039_user_calendar_color.sql ----
--- Interview Manager — per-user calendar color (Google-Calendar style calendar list)
+-- Interview Manager â€” per-user calendar color (Google-Calendar style calendar list)
 -- Run AFTER 0038_app_feedback.sql.
 --
 -- The admin can assign each candidate a color; their interviews render in that
@@ -2440,12 +2440,12 @@ exception when duplicate_object then null; end $$;
 alter table public.profiles add column if not exists calendar_color text;
 
 -- ---- 0040_reconcile_and_resilience.sql ----
--- Interview Manager — payment reconciliation + email resilience
+-- Interview Manager â€” payment reconciliation + email resilience
 -- Run AFTER 0039_user_calendar_color.sql.
 
 -- ============================================================
 -- 1) Reconcile the payments ledger with interview_requests, the source of truth:
---    * removing an invoice (price_cents → null) now DELETES the synced ledger row
+--    * removing an invoice (price_cents â†’ null) now DELETES the synced ledger row
 --      (manual standalone payments have interview_id = null and are untouched)
 --    * marking an interview unpaid reverts the ledger row to pending + clears paid_at
 -- ============================================================
@@ -2526,7 +2526,7 @@ begin
       )
     );
   exception when others then
-    null; -- pg_net missing or errored — deliver in-app anyway
+    null; -- pg_net missing or errored â€” deliver in-app anyway
   end;
 
   return new;
@@ -2534,7 +2534,7 @@ end;
 $$;
 
 -- ---- 0041_public_booking_antispam.sql ----
--- Interview Manager — anti-spam for the public booking link
+-- Interview Manager â€” anti-spam for the public booking link
 -- Run AFTER 0040_reconcile_and_resilience.sql.
 --
 -- Locks down direct anonymous inserts and routes everything through a vetted
@@ -2542,7 +2542,7 @@ $$;
 
 alter table public.public_booking_requests add column if not exists ip_hash text;
 
--- No more direct anon/authenticated inserts — the RPC below is the only way in.
+-- No more direct anon/authenticated inserts â€” the RPC below is the only way in.
 drop policy if exists "pbr_insert_anyone" on public.public_booking_requests;
 revoke insert on public.public_booking_requests from anon;
 revoke insert on public.public_booking_requests from authenticated;
@@ -2595,10 +2595,10 @@ revoke all on function public.submit_public_booking(text, text, text, timestampt
 grant execute on function public.submit_public_booking(text, text, text, timestamptz, text, text, text) to anon, authenticated;
 
 -- ---- 0042_notify_all_admins.sql ----
--- Interview Manager — make sure admins hear about everything (incl. Telegram)
+-- Interview Manager â€” make sure admins hear about everything (incl. Telegram)
 -- Run AFTER 0041_public_booking_antispam.sql.
 
--- 1) Candidate cancellations now notify admins (previously silent) — so they also
+-- 1) Candidate cancellations now notify admins (previously silent) â€” so they also
 --    forward to Telegram like every other notification.
 create or replace function public.cancel_my_request(p_interview_id uuid)
 returns void
@@ -2646,7 +2646,7 @@ begin
     return new;
   end if;
 
-  msg := '🔔 ' || new.title
+  msg := 'ðŸ”” ' || new.title
        || case when coalesce(new.detail, '') <> '' then E'\n' || new.detail else '' end;
 
   begin
@@ -2668,7 +2668,7 @@ create trigger on_notification_telegram
   for each row execute function public.telegram_on_notification();
 
 -- ---- 0043_request_field_config.sql ----
--- Interview Manager — admin-configurable request-form fields
+-- Interview Manager â€” admin-configurable request-form fields
 -- Run AFTER 0042_notify_all_admins.sql.
 --
 -- The admin decides, per field, whether it's required / optional / hidden on the
@@ -2678,7 +2678,7 @@ create trigger on_notification_telegram
 alter table public.app_settings add column if not exists request_fields jsonb not null default '{}'::jsonb;
 
 -- ---- 0044_notification_selftest.sql ----
--- Interview Manager — end-to-end notification self-test
+-- Interview Manager â€” end-to-end notification self-test
 -- Run AFTER 0043_request_field_config.sql.
 --
 -- Inserts a notification for the caller, which exercises the full pipeline:
@@ -2705,8 +2705,8 @@ $$;
 grant execute on function public.send_self_test_notification() to authenticated;
 
 -- ---- 0045_telegram_diagnostics.sql ----
--- Interview Manager — Telegram pipeline self-diagnosis
--- Run AFTER 0044_notification_selftest.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” Telegram pipeline self-diagnosis
+-- Run AFTER 0044_notification_selftest.sql. Idempotent â€” safe to re-run.
 --
 -- Real event notifications forward to Telegram from the DATABASE via pg_net
 -- (the `telegram_on_notification` trigger). The in-app "Send test" button only
@@ -2769,8 +2769,8 @@ $$;
 grant execute on function public.telegram_diagnostics() to authenticated;
 
 -- ---- 0046_per_user_email_prefs.sql ----
--- Interview Manager — per-user email notification preferences
--- Run AFTER 0045_telegram_diagnostics.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” per-user email notification preferences
+-- Run AFTER 0045_telegram_diagnostics.sql. Idempotent â€” safe to re-run.
 --
 -- Until now email forwarding was all-or-nothing (global app_email_config) and
 -- always went to the account email. Users can now choose whether to also get
@@ -2842,7 +2842,7 @@ begin
       )
     );
   exception when others then
-    null; -- pg_net missing or errored — deliver in-app anyway
+    null; -- pg_net missing or errored â€” deliver in-app anyway
   end;
 
   return new;
@@ -2850,11 +2850,11 @@ end;
 $$;
 
 -- ---- 0047_booking_profiles.sql ----
--- Interview Manager — reusable "person" profiles for the booking form
--- Run AFTER 0046_per_user_email_prefs.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” reusable "person" profiles for the booking form
+-- Run AFTER 0046_per_user_email_prefs.sql. Idempotent â€” safe to re-run.
 --
 -- Lets a user save the repeating details for a person (name, resume, portfolio,
--- LinkedIn, GitHub, phone) under a label ("Steven", "Braden", …) and one-click
+-- LinkedIn, GitHub, phone) under a label ("Steven", "Braden", â€¦) and one-click
 -- fill the booking form instead of retyping every time. Each row is private to
 -- its owner.
 
@@ -2885,11 +2885,11 @@ create policy "booking_profiles_owner_all" on public.booking_profiles
   with check (auth.uid() = user_id);
 
 -- ---- 0048_resume_library.sql ----
--- Interview Manager — reusable résumé library
--- Run AFTER 0047_booking_profiles.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” reusable rÃ©sumÃ© library
+-- Run AFTER 0047_booking_profiles.sql. Idempotent â€” safe to re-run.
 --
--- Instead of re-uploading a résumé on every booking, users add named résumés
--- once (Settings → Résumés) — "Resume 1", "Frontend CV", … — and pick one from
+-- Instead of re-uploading a rÃ©sumÃ© on every booking, users add named rÃ©sumÃ©s
+-- once (Settings â†’ RÃ©sumÃ©s) â€” "Resume 1", "Frontend CV", â€¦ â€” and pick one from
 -- the list when booking. Files live in the existing private "resumes" bucket
 -- (owner read/write, admin read); this table just tracks the named entries.
 
@@ -2919,11 +2919,11 @@ create policy "resume_library_admin_select" on public.resume_library
   for select using (public.is_admin());
 
 -- ---- 0049_meeting_completion.sql ----
--- Interview Manager — post-meeting summary the admin sends on completion
--- Run AFTER 0048_resume_library.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” post-meeting summary the admin sends on completion
+-- Run AFTER 0048_resume_library.sql. Idempotent â€” safe to re-run.
 --
 -- When an admin marks an interview completed they can send the candidate the
--- meeting URL (a link only — no video), how long the meeting actually lasted,
+-- meeting URL (a link only â€” no video), how long the meeting actually lasted,
 -- and optional notes. Stored on the request so it also shows on the candidate's
 -- interview; the existing notification triggers forward it to Telegram/email.
 
@@ -2937,20 +2937,20 @@ alter table public.interview_requests
   add column if not exists completed_at     timestamptz;
 
 -- ---- 0050_interview_type_styles.sql ----
--- Interview Manager — per-interview-type emoji + color
--- Run AFTER 0049_meeting_completion.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” per-interview-type emoji + color
+-- Run AFTER 0049_meeting_completion.sql. Idempotent â€” safe to re-run.
 --
--- Each interview type gets an emoji + color (e.g. Phone screen → 📞 red). The
+-- Each interview type gets an emoji + color (e.g. Phone screen â†’ ðŸ“ž red). The
 -- app ships sensible defaults in code; admins can override them (and add custom
--- types) here. Stored app-wide so every calendar/badge — admin and candidate —
+-- types) here. Stored app-wide so every calendar/badge â€” admin and candidate â€”
 -- renders the same. Candidates already read app_settings; admins write it.
 
 alter table public.app_settings
   add column if not exists interview_type_styles jsonb not null default '{}'::jsonb;
 
 -- ---- 0051_candidate_meeting_link.sql ----
--- Interview Manager — let a candidate set/edit their own meeting link
--- Run AFTER 0050_interview_type_styles.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” let a candidate set/edit their own meeting link
+-- Run AFTER 0050_interview_type_styles.sql. Idempotent â€” safe to re-run.
 --
 -- Candidates can add a meeting link at booking (insert), but RLS blocks them from
 -- updating a request afterwards. This SECURITY DEFINER RPC lets a candidate set or
@@ -2989,22 +2989,22 @@ $$;
 grant execute on function public.set_my_meeting_link(uuid, text) to authenticated;
 
 -- ---- 0052_google_calendar_sync.sql ----
--- Interview Manager — two-way Google Calendar sync (multi-account) + drag support
--- Run AFTER 0051_candidate_meeting_link.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” two-way Google Calendar sync (multi-account) + drag support
+-- Run AFTER 0051_candidate_meeting_link.sql. Idempotent â€” safe to re-run.
 --
--- Design (kept lean for the free Supabase plan — we store IDs/tokens/sync
+-- Design (kept lean for the free Supabase plan â€” we store IDs/tokens/sync
 -- cursors only, never event bodies):
---  * google_accounts   — per-user OAuth accounts (MANY per user). Tokens are a
+--  * google_accounts   â€” per-user OAuth accounts (MANY per user). Tokens are a
 --                        per-user secret: owner-only RLS, NEVER selected to the
 --                        browser (mirrors telegram_settings).
---  * google_calendars  — calendars under each account; `selected` to sync, one
+--  * google_calendars  â€” calendars under each account; `selected` to sync, one
 --                        `is_push_target` per user (where new events are created);
 --                        `sync_token` is the incremental-pull cursor.
---  * google_event_links— interview_id <-> (calendar, google_event_id) map + etag.
---  * google_sync_jobs  — outbound queue (no FK on interview_id so delete jobs
+--  * google_event_linksâ€” interview_id <-> (calendar, google_event_id) map + etag.
+--  * google_sync_jobs  â€” outbound queue (no FK on interview_id so delete jobs
 --                        outlive a hard-deleted interview). Hardened: attempts
 --                        cap + dead-letter + stale-'processing' reaper.
---  * google_sync_config— single admin row: base_url + push_secret for pg_net.
+--  * google_sync_configâ€” single admin row: base_url + push_secret for pg_net.
 --
 -- PULL is cron-poll only (no events.watch webhook: Google requires a verified
 -- callback domain, which *.vercel.app cannot provide). pg_cron hits /api/google/sync
@@ -3031,7 +3031,7 @@ drop policy if exists "google_accounts_owner_all" on public.google_accounts;
 create policy "google_accounts_owner_all" on public.google_accounts
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- Column lockdown: RLS is row-level, so ALSO forbid the client role from reading
--- the token columns (defense-in-depth — tokens are only ever read server-side via
+-- the token columns (defense-in-depth â€” tokens are only ever read server-side via
 -- the service-role client). Mirrors the 0006 profiles column grant.
 revoke select on public.google_accounts from anon, authenticated;
 grant select (id, user_id, google_sub, email, enabled, token_expires_at, scopes, created_at, updated_at)
@@ -3308,12 +3308,12 @@ end $$;
 -- ---- end 0052_google_calendar_sync.sql ----
 
 -- ---- 0053_busy_override_request.sql ----
--- Interview Manager — "ask about a busy time" requests
--- Run AFTER 0052_google_calendar_sync.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” "ask about a busy time" requests
+-- Run AFTER 0052_google_calendar_sync.sql. Idempotent â€” safe to re-run.
 --
 -- A candidate can request a time the admin marked BUSY/blocked. It's a normal
 -- interview request flagged busy_override=true; admins get a distinct "exception
--- request" notification and Approve (schedule at that time — it becomes a meeting
+-- request" notification and Approve (schedule at that time â€” it becomes a meeting
 -- block) or Reject as usual. One flag column; no new tables (free plan).
 
 alter table public.interview_requests
@@ -3341,7 +3341,7 @@ begin
         'Busy-time request',
         who || ' asked to book "' || new.role || '" at '
           || to_char(coalesce(new.preferred_at, now()) at time zone a.tz, 'Mon DD, HH24:MI')
-          || ' (' || a.tz || ') — a time you marked busy. Approve to schedule it, or reject.',
+          || ' (' || a.tz || ') â€” a time you marked busy. Approve to schedule it, or reject.',
         'alert'
       );
     end loop;
@@ -3355,10 +3355,10 @@ end;
 $$;
 
 -- ---- 0054_booking_privacy.sql ----
--- Interview Manager — booking privacy hardening
+-- Interview Manager â€” booking privacy hardening
 -- Run AFTER 0053_busy_override_request.sql.
 --
--- Candidates must only see other users' times as anonymous "busy" blocks — never
+-- Candidates must only see other users' times as anonymous "busy" blocks â€” never
 -- names, emails, or roles. Admin-accepted requests (approved with a time, or
 -- scheduled) block the slot for everyone else.
 
@@ -3413,8 +3413,8 @@ $$;
 grant execute on function public.get_booking_availability(timestamptz, timestamptz) to authenticated;
 
 -- ---- 0055_edit_interview.sql ----
--- Interview Manager — candidates edit their interview anytime + edit tracking
--- Run AFTER 0054_booking_privacy.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” candidates edit their interview anytime + edit tracking
+-- Run AFTER 0054_booking_privacy.sql. Idempotent â€” safe to re-run.
 --
 -- Candidates can update key fields of their OWN interview at any time (even after
 -- it's scheduled). RLS blocks direct updates, so this SECURITY DEFINER RPC does it,
@@ -3463,14 +3463,14 @@ $$;
 grant execute on function public.edit_my_interview(uuid, text, text, text) to authenticated;
 
 -- ---- 0056_reminders_cron_and_versioning.sql ----
--- Interview Manager — auto-schedule Telegram reminders + app-version broadcast
--- Run AFTER 0055_edit_interview.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” auto-schedule Telegram reminders + app-version broadcast
+-- Run AFTER 0055_edit_interview.sql. Idempotent â€” safe to re-run.
 --
 -- 1) The interview reminder cron was previously only documented (manual SQL), so
 --    reminders never fired unless someone ran it. Self-schedule it (no-op if
 --    pg_cron is absent), mirroring the google-calendar-sync job. NOTE: reminders
 --    AND immediate confirmations still require the pg_net extension to be enabled
---    (Supabase → Database → Extensions) — the in-app "Send test" bypasses pg_net,
+--    (Supabase â†’ Database â†’ Extensions) â€” the in-app "Send test" bypasses pg_net,
 --    which is why it can work while real messages don't.
 do $$ begin
   perform cron.schedule('interview-reminders', '* * * * *', $cron$ select public.process_interview_reminders(); $cron$);
@@ -3488,11 +3488,11 @@ exception when others then null;
 end $$;
 
 -- ---- 0057_interview_attachments.sql ----
--- Interview Manager — file/image attachments on an interview
--- Run AFTER 0056_reminders_cron_and_versioning.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” file/image attachments on an interview
+-- Run AFTER 0056_reminders_cron_and_versioning.sql. Idempotent â€” safe to re-run.
 --
 -- Files live in the existing private "resumes" bucket (owner read/write, admin
--- read). We store only { name, path } refs here — no blobs (free plan).
+-- read). We store only { name, path } refs here â€” no blobs (free plan).
 
 alter table public.interview_requests
   add column if not exists attachments jsonb not null default '[]'::jsonb;
@@ -3541,11 +3541,11 @@ $$;
 grant execute on function public.edit_my_interview(uuid, text, text, text, jsonb) to authenticated;
 
 -- ---- 0058_admin_notes.sql ----
--- Interview Manager — private per-interview notes only admins can see
--- Run AFTER 0057_interview_attachments.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” private per-interview notes only admins can see
+-- Run AFTER 0057_interview_attachments.sql. Idempotent â€” safe to re-run.
 --
 -- Kept in a SEPARATE table (not a column on interview_requests) because
--- candidates can read their own interview row — a column there would leak to
+-- candidates can read their own interview row â€” a column there would leak to
 -- them. RLS here is admin-only, so candidates can't read these notes at all.
 
 create table if not exists public.interview_admin_notes (
@@ -3561,8 +3561,8 @@ create policy "interview_admin_notes_admin_all" on public.interview_admin_notes
   for all using (public.is_admin()) with check (public.is_admin());
 
 -- ---- 0059_history_meeting_link.sql ----
--- Interview Manager — record the time & meeting link the admin sends, in history
--- Run AFTER 0058_admin_notes.sql. Idempotent — safe to re-run.
+-- Interview Manager â€” record the time & meeting link the admin sends, in history
+-- Run AFTER 0058_admin_notes.sql. Idempotent â€” safe to re-run.
 --
 -- log_interview_change() already records created/status/reschedule/payment into
 -- audit_log. This adds the actual scheduled TIME and MEETING LINK to the trail so
@@ -3589,7 +3589,7 @@ begin
   if new.status is distinct from old.status then
     insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
     values (actor, 'status', 'interview', new.id,
-      new.role || ': ' || old.status || ' → ' || new.status);
+      new.role || ': ' || old.status || ' â†’ ' || new.status);
   end if;
 
   if new.scheduled_at is distinct from old.scheduled_at and new.scheduled_at is not null then
@@ -3609,9 +3609,162 @@ begin
   if new.payment_status is distinct from old.payment_status then
     insert into public.audit_log (actor_id, action, entity_type, entity_id, summary)
     values (actor, 'payment', 'interview', new.id,
-      new.role || ' payment: ' || old.payment_status || ' → ' || new.payment_status);
+      new.role || ' payment: ' || old.payment_status || ' â†’ ' || new.payment_status);
   end if;
 
   return new;
 end;
 $$;
+
+-- ---- 0060_schedule_rpc.sql ----
+-- Interview Manager â€” server-side scheduling with conflict detection.
+-- Run AFTER 0059_history_meeting_link.sql. Idempotent â€” safe to re-run.
+--
+-- Until now every admin "schedule" / "reschedule" / "book" action wrote to
+-- interview_requests directly from the browser, gated only by RLS. The overlap
+-- check lived purely in the UI grid, so two admins (or one racing themselves, a
+-- calendar drag, an accepted reschedule proposal, or a direct API call) could
+-- double-book one interviewer onto one time slot.
+--
+-- These SECURITY DEFINER functions make the database the source of truth. A
+-- shared helper takes a per-interviewer transaction lock (so concurrent
+-- schedulers are serialized) and rejects any time overlapping another SCHEDULED
+-- interview for the same interviewer. schedule_interview() updates an existing
+-- request; book_interview() inserts a brand-new already-scheduled one. Callers
+-- still send their own candidate notification, so wording/format is unchanged,
+-- and the audit-log trigger on interview_requests records the change.
+
+-- Overlap guard shared by both RPCs. NOT granted to `authenticated`: it is only
+-- ever called from the two SECURITY DEFINER functions below (which run as the
+-- owner and may call it), never directly from the client.
+create or replace function public.assert_slot_free(
+  p_exclude_id  uuid,        -- interview to ignore (the one being (re)scheduled), or null
+  p_at          timestamptz,
+  p_duration    integer,
+  p_interviewer uuid         -- null = the shared/unassigned calendar
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  conflict public.interview_requests;
+begin
+  -- Serialize scheduling for this interviewer/calendar so the check below can't
+  -- be defeated by two concurrent transactions both seeing the slot as free.
+  -- The advisory lock is released automatically at transaction end.
+  perform pg_advisory_xact_lock(
+    hashtextextended('schedule:' || coalesce(p_interviewer::text, 'unassigned'), 0)
+  );
+
+  -- Any other scheduled interview for the same interviewer whose range
+  -- [start, start + duration) overlaps [p_at, p_at + p_duration) is a conflict.
+  select * into conflict
+  from public.interview_requests o
+  where (p_exclude_id is null or o.id <> p_exclude_id)
+    and o.status = 'scheduled'
+    and o.scheduled_at is not null
+    and o.interviewer_id is not distinct from p_interviewer
+    and o.scheduled_at < p_at + make_interval(mins => p_duration)
+    and o.scheduled_at + make_interval(mins => coalesce(o.duration_minutes, 30)) > p_at
+  order by o.scheduled_at
+  limit 1;
+
+  if found then
+    raise exception 'That time overlaps another scheduled interview ("%" at %). Pick a different slot.',
+      conflict.role, to_char(conflict.scheduled_at, 'Mon DD HH24:MI');
+  end if;
+end;
+$$;
+
+-- Schedule / reschedule an EXISTING request.
+create or replace function public.schedule_interview(
+  p_interview_id   uuid,
+  p_scheduled_at   timestamptz,
+  p_duration       integer default null,   -- null keeps the existing duration
+  p_meeting_link   text    default null,   -- null keeps existing, '' clears, else sets
+  p_interviewer_id uuid    default null    -- authoritative: null means "unassigned"
+) returns public.interview_requests
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r     public.interview_requests;
+  v_dur integer;
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized' using errcode = '42501';
+  end if;
+  if p_scheduled_at is null then raise exception 'Pick a time'; end if;
+  if p_scheduled_at <= now() then raise exception 'Pick a future time'; end if;
+
+  select * into r from public.interview_requests where id = p_interview_id;
+  if not found then raise exception 'Interview not found'; end if;
+
+  v_dur := greatest(coalesce(p_duration, r.duration_minutes, 30), 1);
+  perform public.assert_slot_free(p_interview_id, p_scheduled_at, v_dur, p_interviewer_id);
+
+  update public.interview_requests set
+    scheduled_at     = p_scheduled_at,
+    duration_minutes = v_dur,
+    meeting_link     = case when p_meeting_link is null then meeting_link
+                            else nullif(trim(p_meeting_link), '') end,
+    interviewer_id   = p_interviewer_id,
+    proposed_at      = null,
+    status           = 'scheduled'
+  where id = p_interview_id
+  returning * into r;
+
+  return r;
+end;
+$$;
+
+-- Create a NEW already-scheduled request (admin books on a candidate's behalf).
+create or replace function public.book_interview(
+  p_candidate_id   uuid,
+  p_role           text,
+  p_scheduled_at   timestamptz,
+  p_duration       integer default 30,
+  p_meeting_link   text    default null,
+  p_interviewer_id uuid    default null,
+  p_interview_type text    default null,
+  p_level          text    default null,
+  p_format         text    default null
+) returns public.interview_requests
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r     public.interview_requests;
+  v_dur integer;
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized' using errcode = '42501';
+  end if;
+  if p_candidate_id is null then raise exception 'Select a candidate'; end if;
+  if coalesce(trim(p_role), '') = '' then raise exception 'Enter a role'; end if;
+  if p_scheduled_at is null then raise exception 'Pick a time'; end if;
+  if p_scheduled_at <= now() then raise exception 'Pick a future time'; end if;
+
+  v_dur := greatest(coalesce(p_duration, 30), 1);
+  perform public.assert_slot_free(null, p_scheduled_at, v_dur, p_interviewer_id);
+
+  insert into public.interview_requests (
+    candidate_id, role, interview_type, level, format,
+    preferred_at, scheduled_at, duration_minutes, meeting_link,
+    interviewer_id, status, payment_status, currency
+  ) values (
+    p_candidate_id, trim(p_role), nullif(p_interview_type, ''), nullif(p_level, ''), nullif(p_format, ''),
+    p_scheduled_at, p_scheduled_at, v_dur, nullif(trim(p_meeting_link), ''),
+    p_interviewer_id, 'scheduled', 'unpaid', 'USD'
+  )
+  returning * into r;
+
+  return r;
+end;
+$$;
+
+grant execute on function public.schedule_interview(uuid, timestamptz, integer, text, uuid) to authenticated;
+grant execute on function public.book_interview(uuid, text, timestamptz, integer, text, uuid, text, text) to authenticated;

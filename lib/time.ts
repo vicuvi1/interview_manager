@@ -70,8 +70,16 @@ export function wallTimeToUtcISO(local: string, timeZone: string): string {
   const [y, mo, d] = datePart.split("-").map(Number);
   const [h, mi] = (timePart ?? "00:00").split(":").map(Number);
   const guessUTC = Date.UTC(y, mo - 1, d, h, mi);
+  // First pass: sample the offset at the wall time treated as UTC.
   const offset = timeZoneOffsetMs(timeZone, new Date(guessUTC));
-  return new Date(guessUTC - offset).toISOString();
+  let utc = guessUTC - offset;
+  // Near a DST transition the true instant can land in a different offset than
+  // the one we sampled (the sample point is `offset` hours from the real
+  // instant). Re-sample at the computed instant and correct if it disagrees —
+  // otherwise the result is off by the DST gap (usually one hour).
+  const refined = timeZoneOffsetMs(timeZone, new Date(utc));
+  if (refined !== offset) utc = guessUTC - refined;
+  return new Date(utc).toISOString();
 }
 
 /**

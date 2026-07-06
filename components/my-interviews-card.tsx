@@ -17,7 +17,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
+import { formatInTimeZone, relativeTime, utcToLocalInput, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Attachment, InterviewFeedback, InterviewRequest } from "@/lib/types";
 
@@ -398,7 +398,13 @@ function RescheduleDialog({
           </p>
         </div>
         <Field label="Your proposed time" htmlFor="resched-when" hint={`Times in ${timezone}. The admin approves it.`}>
-          <Input id="resched-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+          <Input
+            id="resched-when"
+            type="datetime-local"
+            min={utcToLocalInput(new Date().toISOString(), timezone)}
+            value={when}
+            onChange={(e) => setWhen(e.target.value)}
+          />
         </Field>
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button className="w-full" loading={busy} disabled={busy || !when} onClick={submit}>
