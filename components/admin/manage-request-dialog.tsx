@@ -136,6 +136,35 @@ export function ManageRequestDialog({
   const [color, setColor] = useState<string | null>(request.color ?? null);
   const [savingColor, setSavingColor] = useState(false);
 
+  // Private per-interview notes only admins can see (separate table, admin RLS).
+  const [adminNotes, setAdminNotes] = useState("");
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("interview_admin_notes")
+        .select("notes")
+        .eq("interview_id", request.id)
+        .maybeSingle();
+      setAdminNotes((data as { notes?: string | null } | null)?.notes ?? "");
+      setNotesLoaded(true);
+    })();
+  }, [request.id]);
+
+  async function saveAdminNotes() {
+    setSavingNotes(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("interview_admin_notes")
+      .upsert({ interview_id: request.id, notes: adminNotes, updated_at: new Date().toISOString() }, { onConflict: "interview_id" });
+    setSavingNotes(false);
+    if (error) return toast({ title: "Couldn't save notes", description: error.message, variant: "error" });
+    toast({ title: "Private notes saved", variant: "success" });
+  }
+
   // Post-meeting summary the admin sends when completing.
   const [recordingUrl, setRecordingUrl] = useState(request.recording_url ?? request.meeting_link ?? "");
   const [actualMinutes, setActualMinutes] = useState<number>(request.actual_minutes ?? request.duration_minutes);
@@ -682,6 +711,25 @@ export function ManageRequestDialog({
             </div>
           ) : null}
         </dl>
+
+        <div className="space-y-2 border-t border-white/[0.06] pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] font-medium text-white/80">
+              Private notes <span className="text-white/40">· only you can see these</span>
+            </p>
+            <CopyButton value={adminNotes} title="Copy notes" />
+          </div>
+          <Textarea
+            value={adminNotes}
+            onChange={(e) => setAdminNotes(e.target.value)}
+            placeholder={notesLoaded ? "Meeting link, dial-in, prep notes, anything private to you…" : "Loading…"}
+            disabled={!notesLoaded}
+            className="min-h-[90px]"
+          />
+          <Button size="sm" variant="secondary" loading={savingNotes} disabled={!notesLoaded || savingNotes} onClick={saveAdminNotes}>
+            Save notes
+          </Button>
+        </div>
 
         {request.status === "pending" && request.preferred_at ? (
           <div className="rounded-lg border border-[#6366f1]/25 bg-[#6366f1]/[0.08] p-3.5">
