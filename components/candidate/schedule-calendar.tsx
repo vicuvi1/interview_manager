@@ -12,7 +12,8 @@ import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lu
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
-import { Badge, statusTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -319,7 +320,7 @@ export function ScheduleCalendar({
         <Dialog open onClose={() => setDetail(null)} title={detail.role} description={detail.interview_type ?? undefined}>
           <div className="space-y-3 text-[13px]">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={statusTone[detail.status] ?? "slate"}>{detail.status}</Badge>
+              <StatusBadge status={detail.status} />
               {detail.format ? <Badge tone="slate">{FORMAT_LABEL[detail.format] ?? detail.format}</Badge> : null}
               <Badge tone={detail.payment_status === "paid" ? "green" : "amber"}>{detail.payment_status}</Badge>
             </div>

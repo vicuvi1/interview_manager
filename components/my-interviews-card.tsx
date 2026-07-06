@@ -6,7 +6,8 @@ import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, Link as LinkI
 import { CalendarInvite } from "@/components/calendar-invite";
 import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
-import { Badge, statusTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -221,7 +222,7 @@ export function MyInterviewsCard({
                   </td>
                   <td className="px-3 py-3 text-white/60">{row.duration_minutes} min</td>
                   <td className="px-3 py-3">
-                    <Badge tone={statusTone[row.status] ?? "slate"}>{row.status}</Badge>
+                    <StatusBadge status={row.status} />
                   </td>
                   <td className="px-3 py-3">
                     {row.payment_status === "paid" ? (

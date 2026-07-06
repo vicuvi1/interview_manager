@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Send, Trash2, Wand2 } from "lucide-react";
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
-import { Badge, statusTone } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -649,7 +649,7 @@ export function ManageRequestDialog({
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Status</dt>
             <dd>
-              <Badge tone={statusTone[request.status] ?? "slate"}>{request.status}</Badge>
+              <StatusBadge status={request.status} />
             </dd>
           </div>
           <div>

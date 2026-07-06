@@ -15,7 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-import { statusTone, Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { createClient } from "@/lib/supabase/client";
 import { cn, initials } from "@/lib/utils";
 
@@ -231,7 +231,7 @@ export function CommandPalette({
                         <span className="block truncate text-[13px] font-medium text-[#f0f0f5]">{item.label}</span>
                         {item.sublabel ? <span className="block truncate text-[12px] text-white/40">{item.sublabel}</span> : null}
                       </span>
-                      {item.status ? <Badge tone={statusTone[item.status] ?? "slate"}>{item.status}</Badge> : null}
+                      {item.status ? <StatusBadge status={item.status} /> : null}
                     </button>
                   );
                 })}

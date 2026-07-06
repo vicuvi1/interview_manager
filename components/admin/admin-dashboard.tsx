@@ -19,7 +19,8 @@ import {
 
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { Calendar, type CalendarEvent } from "@/components/calendar/calendar";
-import { Badge, paymentTone, statusTone, type Tone } from "@/components/ui/badge";
+import { Badge, paymentTone, type Tone } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -372,7 +373,7 @@ export function AdminDashboard({
                             {formatInTimeZone(r.preferred_at, c?.timezone ?? "UTC")}
                           </td>
                           <td className="px-3 py-3">
-                            <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                            <StatusBadge status={r.status} />
                           </td>
                           <td className="px-5 py-3 sm:px-6">
                             <div className="flex items-center justify-end gap-1.5">

@@ -7,7 +7,8 @@ import { CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Plus, Search, 
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { ScheduleDialog } from "@/components/admin/schedule-dialog";
-import { Badge, statusTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -386,7 +387,7 @@ export function RequestsConsole({
                       ) : null}
                     </td>
                     <td className="px-3 py-3">
-                      <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                      <StatusBadge status={r.status} />
                     </td>
                     <td className="px-3 py-3 text-white/55">
                       {r.scheduled_at ? formatInTimeZone(r.scheduled_at, adminTimezone) : relativeTime(r.created_at)}

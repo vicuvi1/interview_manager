@@ -36,7 +36,8 @@ import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { StageTracker } from "@/components/admin/stage-tracker";
 import { StatCard } from "@/components/admin/stat-card";
-import { Badge, statusTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -361,7 +362,7 @@ export function CandidateDetail({
                         <td className="px-5 py-3 font-medium text-[#f0f0f5] sm:px-6">{r.role}</td>
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                            <StatusBadge status={r.status} />
                             {feedbackMap[r.id] ? (
                               <Badge tone={OUTCOME_TONE[feedbackMap[r.id].outcome] ?? "slate"}>
                                 {OUTCOME_LABEL[feedbackMap[r.id].outcome] ?? feedbackMap[r.id].outcome}

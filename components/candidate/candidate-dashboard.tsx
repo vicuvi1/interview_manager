@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
-import { Badge, statusTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -226,7 +227,7 @@ export function CandidateDashboard({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-[13px] font-medium text-[#f0f0f5]">{r.role}</p>
-                        <Badge tone={statusTone[r.status] ?? "slate"}>{r.status}</Badge>
+                        <StatusBadge status={r.status} />
                       </div>
                       <p className="mt-0.5 text-[12px] text-white/50">
                         {r.scheduled_at

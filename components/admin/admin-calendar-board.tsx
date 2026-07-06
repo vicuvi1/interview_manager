@@ -38,6 +38,8 @@ import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { colorBg } from "@/lib/colors";
 import { type TypeStyleMap, typeStyle } from "@/lib/interview";
+import { statusColor, statusLabel } from "@/lib/status";
+import { useStatusSettings } from "@/lib/use-status-settings";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, utcToLocalInput, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -55,25 +57,6 @@ const VIEWS = [
   { value: "listWeek", label: "Agenda" },
 ] as const;
 
-// At-a-glance status color: yellow = pending (needs action), blue = accepted
-// (approved/scheduled, still upcoming), green = already passed / completed.
-const STATUS_COLORS = {
-  pending: "#f59e0b", // yellow
-  accepted: "#3b82f6", // blue
-  passed: "#22c55e", // green
-} as const;
-
-/** Which color bucket an interview falls into, given the current time. */
-function interviewBucket(
-  status: string,
-  endMs: number,
-  nowMs: number,
-): keyof typeof STATUS_COLORS {
-  if (status === "completed" || endMs < nowMs) return "passed";
-  if (status === "pending") return "pending";
-  return "accepted"; // approved / scheduled, upcoming
-}
-
 const SLOT_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   available: { bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.45)", text: "#6ee7b7" },
   busy: { bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.55)" },
@@ -87,14 +70,15 @@ const SLOT_LABEL: Record<string, string> = {
 };
 
 // key = interview status OR slot_type; used for the clickable filter legend.
-const LEGEND = [
-  { key: "pending", color: STATUS_COLORS.pending, label: "Pending" },
-  { key: "approved", color: STATUS_COLORS.accepted, label: "Approved" },
-  { key: "scheduled", color: STATUS_COLORS.accepted, label: "Scheduled" },
-  { key: "completed", color: STATUS_COLORS.passed, label: "Completed / passed" },
-  { key: "available", color: "rgba(16,185,129,0.45)", label: "Available" },
-  { key: "busy", color: "rgba(255,255,255,0.3)", label: "Blocked" },
-  { key: "event", color: "#8b5cf6", label: "Event" },
+// "status" entries take their color/label from the admin's status settings.
+const LEGEND: Array<{ key: string; kind: "status" | "slot"; color?: string; label?: string }> = [
+  { key: "pending", kind: "status" },
+  { key: "approved", kind: "status" },
+  { key: "scheduled", kind: "status" },
+  { key: "completed", kind: "status" },
+  { key: "available", kind: "slot", color: "rgba(16,185,129,0.45)", label: "Available" },
+  { key: "busy", kind: "slot", color: "rgba(255,255,255,0.3)", label: "Blocked" },
+  { key: "event", kind: "slot", color: "#8b5cf6", label: "Event" },
 ];
 
 const DAY = 86400000;
@@ -179,6 +163,7 @@ export function AdminCalendarBoard({
   initialProfiles: ProfileLite[];
 }) {
   const { toast } = useToast();
+  const { labels: statusLabels, colors: statusColors } = useStatusSettings();
   const calendarRef = useRef<FullCalendar>(null);
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<string>("timeGridWeek");
@@ -373,10 +358,12 @@ export function AdminCalendarBoard({
       // Only feed FullCalendar events in the visible window — keeps it light.
       if (range && (end.getTime() < range.start || start.getTime() > range.end)) continue;
       const ts = typeStyle(r.interview_type, typeStyles);
-      const bucket = interviewBucket(r.status, end.getTime(), nowMs);
-      const sc = STATUS_COLORS[bucket];
-      // Fill/border = status (what the admin asked for). The per-person color
-      // (set in the People list) is kept as a left-edge stripe — see eventDidMount.
+      // Fill/border = status color (admin-configurable). A scheduled interview
+      // whose time has passed shows in the "completed" color.
+      const effStatus = r.status === "scheduled" && end.getTime() < nowMs ? "completed" : r.status;
+      const sc = statusColor(effStatus, statusColors);
+      // The per-person color (set in the People list) is kept as a left-edge
+      // stripe — see eventDidMount.
       const personColor = userColors[r.candidate_id] ?? r.color ?? null;
       const person = candName(r.candidate_id);
       out.push({
@@ -395,7 +382,7 @@ export function AdminCalendarBoard({
           role: r.role,
           person,
           emoji: ts.emoji,
-          statusLabel: bucket === "passed" ? "Completed / passed" : r.status,
+          statusLabel: statusLabel(effStatus, statusLabels),
           durationMin: r.duration_minutes ?? 30,
           startMs: start.getTime(),
           interviewType: r.interview_type ?? null,
@@ -432,7 +419,7 @@ export function AdminCalendarBoard({
       }
     }
     return out;
-  }, [requests, slots, range, candName, prefs.hiddenStatuses, hiddenUsers, userColors, typeStyles]);
+  }, [requests, slots, range, candName, prefs.hiddenStatuses, hiddenUsers, userColors, typeStyles, statusColors, statusLabels]);
 
   // Auto-expand the visible hours so no request is ever clipped by the day range,
   // while respecting the gear's day-start/end as a minimum window.
@@ -843,6 +830,8 @@ export function AdminCalendarBoard({
         <span className="text-white/30">Show:</span>
         {LEGEND.map((l) => {
           const hidden = prefs.hiddenStatuses.includes(l.key);
+          const color = l.kind === "status" ? statusColor(l.key, statusColors) : l.color;
+          const label = l.kind === "status" ? statusLabel(l.key, statusLabels) : l.label;
           return (
             <button
               key={l.key}
@@ -857,14 +846,14 @@ export function AdminCalendarBoard({
                 setPrefs(next);
                 savePrefs(next);
               }}
-              title={hidden ? `Show ${l.label}` : `Hide ${l.label}`}
+              title={hidden ? `Show ${label}` : `Hide ${label}`}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors hover:bg-white/[0.06]",
                 hidden && "opacity-40",
               )}
             >
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
-              <span className={cn(hidden && "line-through")}>{l.label}</span>
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} />
+              <span className={cn(hidden && "line-through")}>{label}</span>
             </button>
           );
         })}
