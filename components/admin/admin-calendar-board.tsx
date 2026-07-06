@@ -241,10 +241,16 @@ export function AdminCalendarBoard({
   }, []);
 
   const setUserColor = useCallback(async (id: string, color: string | null) => {
+    const prevColor = profiles.find((p) => p.id === id)?.calendar_color ?? null;
     setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, calendar_color: color } : p)));
     const supabase = createClient();
-    await supabase.from("profiles").update({ calendar_color: color }).eq("id", id);
-  }, []);
+    const { error } = await supabase.from("profiles").update({ calendar_color: color }).eq("id", id);
+    if (error) {
+      // Revert so the UI matches what actually persisted (and don't fail silently).
+      setProfiles((prev) => prev.map((p) => (p.id === id ? { ...p, calendar_color: prevColor } : p)));
+      toast({ title: "Couldn't save color", description: error.message, variant: "error" });
+    }
+  }, [profiles, toast]);
 
   const gotoDate = useCallback((d: Date) => calendarRef.current?.getApi()?.gotoDate(d), []);
 
