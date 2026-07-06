@@ -173,6 +173,8 @@ export function AdminCalendarBoard({
   const setZoom = (z: number) => savePref({ zoom: Math.max(0.6, Math.min(2.5, Math.round(z * 10) / 10)) });
   const [manageRequest, setManageRequest] = useState<InterviewRequest | null>(null);
   const [slotDetail, setSlotDetail] = useState<AvailabilitySlot | null>(null);
+  // Right-click context menu (delete an interview or a free/busy time block).
+  const [ctx, setCtx] = useState<{ x: number; y: number; kind: string; id: string; label: string } | null>(null);
   const [move, setMove] = useState<{
     request: InterviewRequest;
     startISO: string;
@@ -423,6 +425,47 @@ export function AdminCalendarBoard({
       if (s) setSlotDetail(s);
     }
   };
+
+  // Right-click on any event → offer a quick Delete.
+  const onEventContext = (arg: { jsEvent: MouseEvent; event: { extendedProps: Record<string, unknown>; title: string } }) => {
+    arg.jsEvent.preventDefault();
+    const kind = arg.event.extendedProps.kind as string;
+    const id = (kind === "interview" ? arg.event.extendedProps.requestId : arg.event.extendedProps.slotId) as string;
+    if (!id) return;
+    setCtx({
+      x: arg.jsEvent.clientX,
+      y: arg.jsEvent.clientY,
+      kind,
+      id,
+      label: kind === "interview" ? "Delete interview" : "Delete this time block",
+    });
+  };
+
+  async function deleteFromCtx() {
+    if (!ctx) return;
+    const supabase = createClient();
+    if (ctx.kind === "interview") {
+      const r = requests.find((x) => x.id === ctx.id);
+      // Tell the candidate before the row (and its Google event) is removed.
+      if (r) {
+        await supabase.from("notifications").insert({
+          user_id: r.candidate_id,
+          title: "Interview removed",
+          detail: `Your interview for "${r.role}" was removed by the admin.`,
+          type: "alert",
+        });
+      }
+      const { error } = await supabase.from("interview_requests").delete().eq("id", ctx.id);
+      if (error) toast({ title: "Couldn't delete", description: error.message, variant: "error" });
+      else toast({ title: "Interview deleted", variant: "success" });
+    } else {
+      const { error } = await supabase.from("availability_slots").delete().eq("id", ctx.id);
+      if (error) toast({ title: "Couldn't delete", description: error.message, variant: "error" });
+      else toast({ title: "Removed from calendar", variant: "success" });
+    }
+    setCtx(null);
+    load();
+  }
   const onEventChange = (arg: {
     event: { start: Date | null; end: Date | null; extendedProps: Record<string, unknown> };
     revert: () => void;
@@ -620,6 +663,11 @@ export function AdminCalendarBoard({
             eventClick={onEventClick}
             eventDrop={onEventChange}
             eventResize={onEventChange}
+            eventDidMount={(info) => {
+              info.el.addEventListener("contextmenu", (e) =>
+                onEventContext({ jsEvent: e as MouseEvent, event: info.event }),
+              );
+            }}
               />
             ) : (
               <div className="h-[660px] animate-pulse rounded-lg bg-white/[0.02]" />
@@ -713,6 +761,30 @@ export function AdminCalendarBoard({
           requests={requests}
           onClose={() => setManageRequest(null)}
         />
+      ) : null}
+
+      {ctx ? (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setCtx(null)} onContextMenu={(e) => { e.preventDefault(); setCtx(null); }} />
+          <div
+            className="fixed z-50 min-w-[180px] overflow-hidden rounded-lg border border-white/10 bg-[#13131a] py-1 shadow-xl"
+            style={{ left: Math.min(ctx.x, (typeof window !== "undefined" ? window.innerWidth : 9999) - 200), top: ctx.y }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(ctx.kind === "interview" ? "Delete this interview? This can't be undone." : "Delete this time block?")) {
+                  deleteFromCtx();
+                } else {
+                  setCtx(null);
+                }
+              }}
+              className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#f87171] hover:bg-white/[0.06]"
+            >
+              <Trash2 className="h-4 w-4" /> {ctx.label}
+            </button>
+          </div>
+        </>
       ) : null}
     </div>
   );

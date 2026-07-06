@@ -589,6 +589,12 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Requested</dt>
             <dd className="text-white/80">{relativeTime(request.created_at)}</dd>
           </div>
+          {request.last_edited_at ? (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Last edited</dt>
+              <dd className="text-white/80">{relativeTime(request.last_edited_at)}</dd>
+            </div>
+          ) : null}
           {request.meeting_link ? (
             <div className="col-span-2">
               <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Meeting link</dt>

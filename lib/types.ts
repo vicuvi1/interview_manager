@@ -106,6 +106,8 @@ export interface InterviewRequest {
   completion_notes?: string | null;
   completed_at?: string | null;
   busy_override?: boolean;
+  last_edited_at?: string | null;
+  last_edited_by?: string | null;
   status: InterviewStatus;
   payment_status: PaymentStatus;
   price_cents: number | null;

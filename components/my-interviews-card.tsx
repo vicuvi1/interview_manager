@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, Link as LinkIcon, ListChecks, MessageSquareText, Star } from "lucide-react";
+import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, Link as LinkIcon, ListChecks, MessageSquareText, Pencil, Star } from "lucide-react";
 
 import { CalendarInvite } from "@/components/calendar-invite";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
@@ -12,11 +12,11 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
+import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
 
@@ -40,6 +40,7 @@ export function MyInterviewsCard({
   const [payTarget, setPayTarget] = useState<InterviewRequest | null>(null);
   const [reschedTarget, setReschedTarget] = useState<InterviewRequest | null>(null);
   const [linkTarget, setLinkTarget] = useState<InterviewRequest | null>(null);
+  const [editTarget, setEditTarget] = useState<InterviewRequest | null>(null);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, InterviewFeedback>>({});
   const [viewing, setViewing] = useState<InterviewFeedback | null>(null);
   const [todoDone, setTodoDone] = useState<number[]>([]);
@@ -158,6 +159,9 @@ export function MyInterviewsCard({
                       />
                       {row.role}
                     </span>
+                    {row.last_edited_at ? (
+                      <span className="mt-0.5 block text-[11px] text-white/35">Edited {relativeTime(row.last_edited_at)}</span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-white/60">
                     {row.scheduled_at ? (
@@ -246,6 +250,11 @@ export function MyInterviewsCard({
                         )
                       ) : null}
                       {CANCELLABLE.has(row.status) ? (
+                        <Button variant="secondary" size="sm" onClick={() => setEditTarget(row)}>
+                          <Pencil className="h-4 w-4" /> Edit
+                        </Button>
+                      ) : null}
+                      {CANCELLABLE.has(row.status) ? (
                         <Button variant="secondary" size="sm" onClick={() => setLinkTarget(row)}>
                           <LinkIcon className="h-4 w-4" /> {row.meeting_link ? "Link" : "Add link"}
                         </Button>
@@ -272,6 +281,9 @@ export function MyInterviewsCard({
       ) : null}
       {linkTarget ? (
         <MeetingLinkDialog request={linkTarget} onClose={() => setLinkTarget(null)} />
+      ) : null}
+      {editTarget ? (
+        <EditDetailsDialog request={editTarget} onClose={() => setEditTarget(null)} />
       ) : null}
       {viewing ? (
         <Dialog open onClose={() => setViewing(null)} title="Interview feedback" description="Shared by your interviewer.">
@@ -440,6 +452,59 @@ function MeetingLinkDialog({ request, onClose }: { request: InterviewRequest; on
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
         <Button className="w-full" loading={busy} disabled={busy} onClick={save}>
           <LinkIcon className="h-4 w-4" /> Save link
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
+function EditDetailsDialog({ request, onClose }: { request: InterviewRequest; onClose: () => void }) {
+  const { toast } = useToast();
+  const [role, setRole] = useState(request.role);
+  const [notes, setNotes] = useState(request.notes ?? "");
+  const [link, setLink] = useState(request.meeting_link ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (!role.trim()) return setError("Role / topic can't be empty.");
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: rpcError } = await supabase.rpc("edit_my_interview", {
+      p_interview_id: request.id,
+      p_role: role.trim(),
+      p_notes: notes,
+      p_meeting_link: link,
+    });
+    setBusy(false);
+    if (rpcError) {
+      setError(rpcError.message);
+      return;
+    }
+    toast({ title: "Details updated", description: "Your interviewer has been notified.", variant: "success" });
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="Edit interview details" description="You can change these anytime.">
+      <div className="space-y-4">
+        <Field label="Role / topic" htmlFor="ed-role">
+          <Input id="ed-role" value={role} onChange={(e) => setRole(e.target.value)} />
+        </Field>
+        <Field label="Notes" htmlFor="ed-notes" hint="Anything your interviewer should know.">
+          <Textarea id="ed-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+        </Field>
+        <Field label="Meeting link" htmlFor="ed-link" hint="Optional — Zoom / Meet / Teams.">
+          <Input id="ed-link" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
+        </Field>
+        {request.last_edited_at ? (
+          <p className="text-[11px] text-white/35">Last edited {relativeTime(request.last_edited_at)}.</p>
+        ) : null}
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+        <Button className="w-full" loading={busy} disabled={busy} onClick={save}>
+          <Pencil className="h-4 w-4" /> Save changes
         </Button>
       </div>
     </Dialog>

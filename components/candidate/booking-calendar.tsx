@@ -6,7 +6,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
@@ -82,6 +82,7 @@ export function BookingCalendar({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<{ startISO: string; dur: number; busy?: boolean } | null>(null);
   const [busyAsk, setBusyAsk] = useState<{ startISO: string; dur: number } | null>(null);
+  const [ctx, setCtx] = useState<{ x: number; y: number; row: MyRow } | null>(null);
   const [detail, setDetail] = useState<MyRow | null>(null);
   const [editWhen, setEditWhen] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
@@ -389,6 +390,15 @@ export function BookingCalendar({
                 setSelected({ startISO: p.startISO, dur: p.dur ?? 30 });
               }
             }}
+            eventDidMount={(info) => {
+              const p = info.event.extendedProps as { own?: boolean; rowId?: string };
+              if (!p.own || !p.rowId) return;
+              info.el.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                const row = mine.find((m) => m.id === p.rowId);
+                if (row) setCtx({ x: (e as MouseEvent).clientX, y: (e as MouseEvent).clientY, row });
+              });
+            }}
             eventDrop={async (info) => {
               const start = info.event.start;
               if (!start || start.getTime() <= Date.now()) {
@@ -504,6 +514,54 @@ export function BookingCalendar({
             }}
           />
         </Dialog>
+      ) : null}
+
+      {ctx ? (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setCtx(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setCtx(null);
+            }}
+          />
+          <div
+            className="fixed z-50 min-w-[190px] overflow-hidden rounded-lg border border-white/10 bg-[#13131a] py-1 shadow-xl"
+            style={{ left: Math.min(ctx.x, (typeof window !== "undefined" ? window.innerWidth : 9999) - 210), top: ctx.y }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setDetail(ctx.row);
+                setCtx(null);
+              }}
+              className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-white/80 hover:bg-white/[0.06]"
+            >
+              <Pencil className="h-4 w-4" /> View / edit details
+            </button>
+            {["pending", "approved", "scheduled"].includes(ctx.row.status) ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  const row = ctx.row;
+                  setCtx(null);
+                  if (!window.confirm(`Cancel your interview for "${row.role}"?`)) return;
+                  const supabase = createClient();
+                  const { error } = await supabase.rpc("cancel_my_request", { p_interview_id: row.id });
+                  if (error) toast({ title: "Couldn't cancel", description: error.message, variant: "error" });
+                  else {
+                    toast({ title: "Interview cancelled", variant: "success" });
+                    if (range) load(range.start, range.end);
+                  }
+                }}
+                className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#f87171] hover:bg-white/[0.06]"
+              >
+                <Trash2 className="h-4 w-4" /> Cancel interview
+              </button>
+            ) : null}
+          </div>
+        </>
       ) : null}
 
       {detail ? (
