@@ -13,10 +13,8 @@ import { useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone } from "@/lib/time";
 import { formatMoney } from "@/lib/utils";
+import { isPayableStatus } from "@/lib/payments";
 import type { InterviewRequest } from "@/lib/types";
-
-// Payable once the admin has accepted (approved/scheduled) or it's completed.
-const ACTIVE = new Set(["approved", "scheduled", "completed"]);
 
 export function CandidatePayments({
   userId,
@@ -61,7 +59,7 @@ export function CandidatePayments({
   }, [userId, load]);
 
   const { unpaid, dueCents } = useMemo(() => {
-    const active = rows.filter((r) => ACTIVE.has(r.status));
+    const active = rows.filter((r) => isPayableStatus(r.status));
     const unpaid = active.filter((r) => r.payment_status !== "paid");
     const dueCents = unpaid.reduce((sum, r) => sum + (r.price_cents ?? 0), 0);
     return { unpaid, dueCents };

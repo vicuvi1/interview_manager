@@ -106,16 +106,40 @@ export function FeedbackDialog({
     if (nextLink !== (request.meeting_link ?? null)) {
       await supabase.from("interview_requests").update({ meeting_link: nextLink }).eq("id", request.id);
     }
+    // Marking the interview completed is the part the admin actually relies on —
+    // if it fails, don't claim success (the interview would stay "scheduled").
     if (markCompleted && request.status !== "completed") {
-      await supabase.from("interview_requests").update({ status: "completed" }).eq("id", request.id);
+      const { error: completeError } = await supabase
+        .from("interview_requests")
+        .update({ status: "completed" })
+        .eq("id", request.id);
+      if (completeError) {
+        toast({
+          title: "Feedback saved, but couldn't mark completed",
+          description: completeError.message,
+          variant: "error",
+        });
+        setBusy(false);
+        notifyChanged("interviews");
+        return;
+      }
     }
     if (shared) {
-      await supabase.from("notifications").insert({
+      const { error: notifyError } = await supabase.from("notifications").insert({
         user_id: request.candidate_id,
         title: "Interview feedback is ready",
         detail: `Feedback${mins ? ` (${mins} min session)` : ""} for your "${request.role}" interview is now available.`,
         type: "info",
       });
+      if (notifyError) {
+        // Feedback + completion landed; only the candidate ping failed.
+        toast({ title: "Saved, but the candidate wasn't notified", description: notifyError.message, variant: "error" });
+        setBusy(false);
+        notifyChanged("interviews");
+        onDone();
+        onClose();
+        return;
+      }
     }
     toast({ title: "Feedback saved", variant: "success" });
     setBusy(false);

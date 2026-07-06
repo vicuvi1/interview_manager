@@ -590,10 +590,14 @@ function TagsCard({ candidateId, initial }: { candidateId: string; initial: stri
   const [input, setInput] = useState("");
 
   async function persist(next: string[]) {
+    const prev = tags;
     setTags(next);
     const supabase = createClient();
     const { error } = await supabase.rpc("set_candidate_tags", { p_user: candidateId, p_tags: next });
-    if (error) toast({ title: "Couldn't update tags", description: error.message, variant: "error" });
+    if (error) {
+      setTags(prev); // revert so the UI matches what persisted
+      toast({ title: "Couldn't update tags", description: error.message, variant: "error" });
+    }
   }
   function add() {
     const t = input.trim();

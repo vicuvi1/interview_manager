@@ -26,6 +26,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { isPayableStatus } from "@/lib/payments";
 import { dateKeyInTimeZone, timeInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
@@ -187,7 +188,9 @@ export function AdminDashboard({
   const invoiced = useMemo(
     () =>
       requests
-        .filter((r) => r.price_cents)
+        // Keep paid invoices (collected revenue) but drop unpaid ones that are no
+        // longer collectible (cancelled / rejected / still pending).
+        .filter((r) => r.price_cents != null && (r.payment_status === "paid" || isPayableStatus(r.status)))
         .sort((a, b) => (a.payment_status === "paid" ? 1 : 0) - (b.payment_status === "paid" ? 1 : 0)),
     [requests],
   );

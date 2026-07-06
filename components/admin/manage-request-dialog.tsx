@@ -321,11 +321,13 @@ export function ManageRequestDialog({
       return;
     }
     // The invoice is a separate concern from the (now conflict-checked) time.
+    let invoiced = false;
     if (autoInvoice) {
-      await supabase
+      const { error: invoiceError } = await supabase
         .from("interview_requests")
         .update({ price_cents: autoInvoice, currency: "USD" })
         .eq("id", request.id);
+      invoiced = !invoiceError;
     }
     await supabase.from("notifications").insert({
       user_id: request.candidate_id,
@@ -333,7 +335,7 @@ export function ManageRequestDialog({
       detail: `Your interview for "${request.role}" is set for ${formatInTimeZone(scheduledUtc, candTz)}.`,
       type: "approved",
     });
-    if (autoInvoice) {
+    if (invoiced && autoInvoice) {
       await supabase.from("notifications").insert({
         user_id: request.candidate_id,
         title: "Payment requested",
@@ -341,7 +343,10 @@ export function ManageRequestDialog({
         type: "alert",
       });
     }
-    toast({ title: autoInvoice ? `Scheduled · invoiced ${formatMoney(autoInvoice, "USD")}` : "Interview scheduled", variant: "success" });
+    toast({
+      title: invoiced && autoInvoice ? `Scheduled · invoiced ${formatMoney(autoInvoice, "USD")}` : "Interview scheduled",
+      variant: "success",
+    });
     setScheduling(false);
     notifyChanged("interviews");
     onClose();

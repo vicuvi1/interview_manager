@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/admin/stat-card";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
+import { isOutstandingInvoice } from "@/lib/payments";
 import { notifMeta } from "@/lib/notifications";
 import { STAGE_LABEL, stageTone } from "@/lib/stages";
 import { createClient } from "@/lib/supabase/client";
@@ -114,13 +115,13 @@ export function CandidateDashboard({
       if (r.status === "scheduled" && r.scheduled_at && new Date(r.scheduled_at).getTime() >= now) upcoming += 1;
       if (r.status === "completed") completed += 1;
       if (r.status === "pending" || r.status === "approved") pending += 1;
-      if (r.price_cents && r.payment_status !== "paid") outstanding += r.price_cents;
+      if (isOutstandingInvoice(r)) outstanding += r.price_cents ?? 0;
     }
     return { upcoming, completed, pending, outstanding };
   }, [rows, now]);
 
   const outstandingInvoices = useMemo(
-    () => rows.filter((r) => r.price_cents && r.payment_status !== "paid"),
+    () => rows.filter((r) => isOutstandingInvoice(r)),
     [rows],
   );
 

@@ -1,4 +1,28 @@
 import type { Tone } from "@/components/ui/badge";
+import type { InterviewRequest, InterviewStatus } from "@/lib/types";
+
+/**
+ * Interview statuses at which a candidate can be billed and can pay. Cancelled,
+ * rejected, and still-pending interviews are never "owed" — counting them
+ * inflates outstanding revenue and shows dead Pay / Mark-paid buttons. This is
+ * the single source of truth shared by the admin boards and candidate views.
+ */
+export const PAYABLE_STATUSES: ReadonlySet<InterviewStatus> = new Set<InterviewStatus>([
+  "approved",
+  "scheduled",
+  "completed",
+]);
+
+export function isPayableStatus(status: InterviewStatus): boolean {
+  return PAYABLE_STATUSES.has(status);
+}
+
+/** An invoiced interview whose payment is still collectible (unpaid + payable). */
+export function isOutstandingInvoice(
+  r: Pick<InterviewRequest, "price_cents" | "payment_status" | "status">,
+): boolean {
+  return r.price_cents != null && r.payment_status !== "paid" && PAYABLE_STATUSES.has(r.status);
+}
 
 export const PAYMENT_METHODS = [
   { value: "crypto_btc", label: "Bitcoin (BTC)", short: "BTC" },

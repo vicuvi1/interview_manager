@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
 import { useDebouncedCallback } from "@/lib/use-debounced";
 import { createClient } from "@/lib/supabase/client";
+import { isOutstandingInvoice } from "@/lib/payments";
 import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { cn, formatMoney, initials } from "@/lib/utils";
@@ -64,7 +65,9 @@ export function PaymentsBoard({
   useDataChanged("interviews", load);
 
   const invoiced = useMemo(() => requests.filter((r) => r.price_cents != null), [requests]);
-  const awaiting = useMemo(() => invoiced.filter((r) => r.payment_status !== "paid"), [invoiced]);
+  // Only interviews that are still collectible count as awaiting — a cancelled
+  // or rejected invoice is not outstanding revenue.
+  const awaiting = useMemo(() => invoiced.filter((r) => isOutstandingInvoice(r)), [invoiced]);
   const paid = useMemo(
     () => invoiced.filter((r) => r.payment_status === "paid").sort((a, b) => (b.paid_at ?? "").localeCompare(a.paid_at ?? "")),
     [invoiced],
