@@ -149,4 +149,4 @@ end;
 $$;
 
 grant execute on function public.schedule_interview(uuid, timestamptz, integer, text, uuid) to authenticated;
-grant execute on function public.book_interview(uuid, text, timestamptz, integer, text, uuid, text, text) to authenticated;
+grant execute on function public.book_interview(uuid, text, timestamptz, integer, text, uuid, text, text, text) to authenticated;
