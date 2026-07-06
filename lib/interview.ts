@@ -34,6 +34,28 @@ export const FORMATS = [
   { value: "in_person", label: "In person" },
 ] as const;
 
+/** Duration options offered when none are configured by the admin. */
+export const DEFAULT_DURATIONS = [15, 30, 45, 60, 90];
+
+/** A map of interview type -> default duration in minutes. */
+export type DurationMap = Record<string, number>;
+
+/** Clean, de-duplicated, sorted duration options (admin config → defaults). */
+export function durationOptions(opts?: number[] | null): number[] {
+  const list = (opts && opts.length ? opts : DEFAULT_DURATIONS).filter((n) => Number.isFinite(n) && n > 0);
+  return Array.from(new Set(list)).sort((a, b) => a - b);
+}
+
+/** The default duration for an interview type: per-type override → fallback (30). */
+export function defaultDurationFor(
+  type: string | null | undefined,
+  map?: DurationMap | null,
+  fallback = 30,
+): number {
+  if (type && map && typeof map[type] === "number" && map[type] > 0) return map[type];
+  return fallback;
+}
+
 export const FORMAT_LABEL: Record<string, string> = {
   video: "Video call",
   phone: "Phone",

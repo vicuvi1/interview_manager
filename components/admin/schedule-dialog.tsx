@@ -11,6 +11,8 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
 import { MONTH_NAMES, WEEKDAYS, todayKeyInTimeZone } from "@/lib/calendar";
+import { durationOptions } from "@/lib/interview";
+import { useDurationSettings } from "@/lib/use-duration-settings";
 import { expandRecurring, overlaps, within } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
@@ -53,6 +55,7 @@ export function ScheduleDialog({
   onDone: () => void;
 }) {
   const { toast } = useToast();
+  const { options: durOpts } = useDurationSettings();
   const candTz = candidate?.timezone ?? adminTimezone;
 
   const [dayKey, setDayKey] = useState(() => todayKeyInTimeZone(adminTimezone));
@@ -187,11 +190,11 @@ export function ScheduleDialog({
           </p>
           <div className="w-36">
             <Select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="h-9">
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-              <option value={60}>60 minutes</option>
-              <option value={90}>90 minutes</option>
+              {durationOptions([...durOpts, duration]).map((m) => (
+                <option key={m} value={m}>
+                  {m} minutes
+                </option>
+              ))}
             </Select>
           </div>
         </div>

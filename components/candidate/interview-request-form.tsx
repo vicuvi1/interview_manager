@@ -14,7 +14,8 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
-import { FORMATS, INTERVIEW_TYPES, LEVELS } from "@/lib/interview";
+import { FORMATS, INTERVIEW_TYPES, LEVELS, defaultDurationFor, durationOptions } from "@/lib/interview";
+import { useDurationSettings } from "@/lib/use-duration-settings";
 import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
@@ -117,6 +118,15 @@ export function InterviewRequestForm({
       if (cfg) setFields(cfg);
     })();
   }, []);
+
+  // Admin-configured duration options + per-type defaults.
+  const { options: durOpts, typeDurations } = useDurationSettings();
+  const durManual = useRef(false); // did the user hand-pick a duration?
+  useEffect(() => {
+    // Pre-select the type's default duration until the user picks one themselves.
+    if (durManual.current || fixedStart || customDuration) return;
+    setDuration(defaultDurationFor(interviewType, typeDurations));
+  }, [interviewType, typeDurations, fixedStart, customDuration]);
 
   // The user's saved résumé library, to pick from instead of re-uploading.
   const [resumeLib, setResumeLib] = useState<ResumeItem[]>([]);
@@ -291,7 +301,14 @@ export function InterviewRequestForm({
             <div className="grid gap-3 sm:grid-cols-2">
               {lvl("interview_type") !== "hidden" ? (
                 <Field label="Interview type" htmlFor="ir-type">
-                  <Select id="ir-type" value={interviewType} onChange={(e) => setInterviewType(e.target.value)}>
+                  <Select
+                    id="ir-type"
+                    value={interviewType}
+                    onChange={(e) => {
+                      durManual.current = false; // new type → apply its default duration
+                      setInterviewType(e.target.value);
+                    }}
+                  >
                     {INTERVIEW_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </Select>
                 </Field>
@@ -353,6 +370,7 @@ export function InterviewRequestForm({
                     id="ir-dur"
                     value={customDuration ? "custom" : String(duration)}
                     onChange={(e) => {
+                      durManual.current = true;
                       if (e.target.value === "custom") {
                         setCustomDuration(true);
                       } else {
@@ -361,11 +379,11 @@ export function InterviewRequestForm({
                       }
                     }}
                   >
-                    <option value="15">15 minutes</option>
-                    <option value="30">30 minutes</option>
-                    <option value="45">45 minutes</option>
-                    <option value="60">60 minutes</option>
-                    <option value="90">90 minutes</option>
+                    {durationOptions([...durOpts, duration]).map((m) => (
+                      <option key={m} value={m}>
+                        {m} minutes
+                      </option>
+                    ))}
                     <option value="custom">Custom…</option>
                   </Select>
                   {customDuration ? (
@@ -374,7 +392,10 @@ export function InterviewRequestForm({
                       min={5}
                       max={480}
                       value={duration}
-                      onChange={(e) => setDuration(Number(e.target.value) || 30)}
+                      onChange={(e) => {
+                        durManual.current = true;
+                        setDuration(Number(e.target.value) || 30);
+                      }}
                       className="w-28"
                       aria-label="Custom minutes"
                       placeholder="min"

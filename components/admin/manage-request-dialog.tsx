@@ -14,7 +14,8 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
-import { FORMAT_LABEL, INTERVIEW_TYPES } from "@/lib/interview";
+import { FORMAT_LABEL, INTERVIEW_TYPES, durationOptions } from "@/lib/interview";
+import { useDurationSettings } from "@/lib/use-duration-settings";
 import { autoMeetingLink } from "@/lib/meeting";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -74,6 +75,7 @@ export function ManageRequestDialog({
   onClose: () => void;
 }) {
   const { toast } = useToast();
+  const { options: durOpts } = useDurationSettings();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -863,11 +865,11 @@ export function ManageRequestDialog({
                       }
                     }}
                   >
-                    <option value="15">15 minutes</option>
-                    <option value="30">30 minutes</option>
-                    <option value="45">45 minutes</option>
-                    <option value="60">60 minutes</option>
-                    <option value="90">90 minutes</option>
+                    {durationOptions([...durOpts, schedDuration]).map((m) => (
+                      <option key={m} value={m}>
+                        {m} minutes
+                      </option>
+                    ))}
                     <option value="custom">Custom…</option>
                   </Select>
                   {customDur ? (

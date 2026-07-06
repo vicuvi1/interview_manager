@@ -18,7 +18,8 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
 import { useDebouncedCallback } from "@/lib/use-debounced";
-import { FORMAT_LABEL } from "@/lib/interview";
+import { FORMAT_LABEL, durationOptions } from "@/lib/interview";
+import { useDurationSettings } from "@/lib/use-duration-settings";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime, wallTimeToUtcISO } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
@@ -476,6 +477,7 @@ function ManualBookingDialog({
   onDone: () => void;
 }) {
   const { toast } = useToast();
+  const { options: durOpts } = useDurationSettings();
   const candidatesList = useMemo(() => profiles.filter((p) => p.role !== "admin"), [profiles]);
   const [candidateId, setCandidateId] = useState(candidatesList[0]?.id ?? "");
   const [role, setRole] = useState("");
@@ -581,11 +583,11 @@ function ManualBookingDialog({
           </Field>
           <Field label="Duration" htmlFor="mb-dur">
             <Select id="mb-dur" value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-              <option value={60}>60 minutes</option>
-              <option value={90}>90 minutes</option>
+              {durationOptions([...durOpts, duration]).map((m) => (
+                <option key={m} value={m}>
+                  {m} minutes
+                </option>
+              ))}
             </Select>
           </Field>
         </div>

@@ -8,6 +8,7 @@ import { SectionCard } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { DEFAULT_DURATIONS, durationOptions } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
 
 export function BookingRulesCard() {
@@ -17,19 +18,22 @@ export function BookingRulesCard() {
   const [minNotice, setMinNotice] = useState("0");
   const [buffer, setBuffer] = useState("0");
   const [horizon, setHorizon] = useState("0");
+  const [durations, setDurations] = useState(DEFAULT_DURATIONS.join(", "));
 
   useEffect(() => {
     (async () => {
       const supabase = createClient();
       const { data } = await supabase
         .from("app_settings")
-        .select("min_notice_hours, buffer_minutes, booking_horizon_days")
+        .select("min_notice_hours, buffer_minutes, booking_horizon_days, duration_options")
         .eq("id", 1)
         .maybeSingle();
       if (data) {
         setMinNotice(String(data.min_notice_hours ?? 0));
         setBuffer(String(data.buffer_minutes ?? 0));
         setHorizon(String(data.booking_horizon_days ?? 0));
+        const opts = durationOptions((data as { duration_options?: number[] }).duration_options);
+        setDurations(opts.join(", "));
       }
       setLoading(false);
     })();
@@ -38,17 +42,20 @@ export function BookingRulesCard() {
   async function save() {
     setBusy(true);
     const supabase = createClient();
+    const parsedDurations = durationOptions(durations.split(",").map((s) => Math.round(Number(s.trim()))));
     const { error } = await supabase
       .from("app_settings")
       .update({
         min_notice_hours: Math.max(0, Math.round(Number(minNotice) || 0)),
         buffer_minutes: Math.max(0, Math.round(Number(buffer) || 0)),
         booking_horizon_days: Math.max(0, Math.round(Number(horizon) || 0)),
+        duration_options: parsedDurations,
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1);
     setBusy(false);
     if (error) return toast({ title: "Couldn't save rules", description: error.message, variant: "error" });
+    setDurations(parsedDurations.join(", "));
     toast({ title: "Booking rules saved", variant: "success" });
   }
 
@@ -75,6 +82,9 @@ export function BookingRulesCard() {
               <Input id="br-horizon" type="number" min={0} value={horizon} onChange={(e) => setHorizon(e.target.value)} />
             </Field>
           </div>
+          <Field label="Offered durations (minutes)" htmlFor="br-durations" hint="Comma-separated. These are the length options shown when booking or scheduling.">
+            <Input id="br-durations" value={durations} onChange={(e) => setDurations(e.target.value)} placeholder="15, 30, 45, 60, 90" />
+          </Field>
           <p className="text-[11px] text-white/35">
             Minimum notice blocks last-minute requests; buffer warns you about back-to-back interviews; the horizon caps
             how far ahead candidates can book. All default to no limit.
