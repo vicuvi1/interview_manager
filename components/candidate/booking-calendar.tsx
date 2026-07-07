@@ -12,6 +12,7 @@ import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { AttachmentsField } from "@/components/candidate/attachments-field";
+import { EditDetailsDialog } from "@/components/candidate/edit-details-dialog";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -50,10 +51,15 @@ interface MyRow {
   duration_minutes: number;
   meeting_link: string | null;
   interview_type: string | null;
+  notes: string | null;
   attachments: Attachment[] | null;
+  last_edited_at: string | null;
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
+
+// Statuses a candidate may still edit (mirrors "My interviews" gating).
+const EDITABLE = new Set(["pending", "approved", "scheduled"]);
 
 const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = {
   scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
@@ -88,6 +94,7 @@ export function BookingCalendar({
   const [busyAsk, setBusyAsk] = useState<{ startISO: string; dur: number } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; row: MyRow } | null>(null);
   const [detail, setDetail] = useState<MyRow | null>(null);
+  const [editing, setEditing] = useState<MyRow | null>(null);
   const [editWhen, setEditWhen] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
@@ -159,7 +166,7 @@ export function BookingCalendar({
       }),
       supabase
         .from("interview_requests")
-        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type, attachments")
+        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type, notes, attachments, last_edited_at")
         .eq("candidate_id", userId),
     ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
@@ -634,6 +641,20 @@ export function BookingCalendar({
                 <AttachmentsField userId={userId} value={detail.attachments} readOnly />
               </div>
             ) : null}
+            {EDITABLE.has(detail.status) ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  setEditing(detail);
+                  setDetail(null);
+                  setEditWhen("");
+                }}
+              >
+                <Pencil className="h-4 w-4" /> Edit interview details
+              </Button>
+            ) : null}
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
               <p className="text-[12px] font-medium text-white/70">Need a different time?</p>
               <p className="mb-2 text-[11px] text-white/40">Pick a new time and we&apos;ll send it to the admin to confirm.</p>
@@ -655,6 +676,9 @@ export function BookingCalendar({
             </p>
           </div>
         </Dialog>
+      ) : null}
+      {editing ? (
+        <EditDetailsDialog request={editing} userId={userId} onClose={() => setEditing(null)} />
       ) : null}
     </div>
   );

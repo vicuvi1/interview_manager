@@ -16,6 +16,13 @@ import { createClient } from "@/lib/supabase/client";
 import { relativeTime } from "@/lib/time";
 import type { Attachment, InterviewRequest } from "@/lib/types";
 
+/** The subset of an interview this dialog reads — so calendar row types
+ *  (which carry only a few columns) can open it without the full record. */
+export type EditableInterview = Pick<
+  InterviewRequest,
+  "id" | "role" | "notes" | "meeting_link" | "interview_type" | "duration_minutes" | "attachments" | "last_edited_at"
+>;
+
 /**
  * Candidate-facing editor for their own interview. Saves via the
  * `edit_my_interview` RPC (SECURITY DEFINER — direct updates are blocked by
@@ -27,7 +34,7 @@ export function EditDetailsDialog({
   userId,
   onClose,
 }: {
-  request: InterviewRequest;
+  request: EditableInterview;
   userId: string;
   onClose: () => void;
 }) {
