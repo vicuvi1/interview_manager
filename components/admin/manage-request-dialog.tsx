@@ -14,6 +14,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
+import { ACTION_META, ACTIONS_BY_STATUS } from "@/lib/interview-lifecycle";
 import { FORMAT_LABEL, INTERVIEW_TYPES, durationOptions } from "@/lib/interview";
 import { useDurationSettings } from "@/lib/use-duration-settings";
 import { autoMeetingLink } from "@/lib/meeting";
@@ -29,23 +30,23 @@ import type { CandidateLite, InterviewRequest, InterviewStatus } from "@/lib/typ
 
 type ActionKind = "approve" | "reject" | "complete" | "cancel";
 
+// Labels/variants are UI; target/title/type come from the shared lifecycle spec
+// (lib/interview-lifecycle) so behavior stays in sync with the money-path test.
+const ACTION_UI: Record<ActionKind, { label: string; variant: "primary" | "secondary" | "danger" }> = {
+  approve: { label: "Approve", variant: "primary" },
+  reject: { label: "Reject", variant: "danger" },
+  complete: { label: "Mark completed", variant: "primary" },
+  cancel: { label: "Cancel", variant: "secondary" },
+};
+
 const ACTIONS: Record<
   ActionKind,
   { target: InterviewStatus; label: string; variant: "primary" | "secondary" | "danger"; title: string; type: string }
 > = {
-  approve: { target: "approved", label: "Approve", variant: "primary", title: "Interview approved", type: "approved" },
-  reject: { target: "rejected", label: "Reject", variant: "danger", title: "Interview not approved", type: "rejected" },
-  complete: { target: "completed", label: "Mark completed", variant: "primary", title: "Interview completed", type: "success" },
-  cancel: { target: "cancelled", label: "Cancel", variant: "secondary", title: "Interview cancelled", type: "alert" },
-};
-
-const ACTIONS_BY_STATUS: Record<string, ActionKind[]> = {
-  pending: ["approve", "reject"],
-  approved: ["complete", "cancel"],
-  scheduled: ["complete", "cancel"],
-  rejected: [],
-  completed: [],
-  cancelled: [],
+  approve: { target: ACTION_META.approve.target as InterviewStatus, ...ACTION_UI.approve, title: ACTION_META.approve.title, type: ACTION_META.approve.type },
+  reject: { target: ACTION_META.reject.target as InterviewStatus, ...ACTION_UI.reject, title: ACTION_META.reject.title, type: ACTION_META.reject.type },
+  complete: { target: ACTION_META.complete.target as InterviewStatus, ...ACTION_UI.complete, title: ACTION_META.complete.title, type: ACTION_META.complete.type },
+  cancel: { target: ACTION_META.cancel.target as InterviewStatus, ...ACTION_UI.cancel, title: ACTION_META.cancel.title, type: ACTION_META.cancel.type },
 };
 
 function defaultDetail(kind: ActionKind, role: string): string {
