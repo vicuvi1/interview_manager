@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
 
@@ -156,7 +157,9 @@ export function MyInterviewsCard({
                         style={{ backgroundColor: row.color ?? "rgba(255,255,255,0.18)" }}
                         aria-hidden
                       />
-                      {row.role}
+                      <Link href={`/candidate/interviews/${row.id}`} className="hover:text-white hover:underline">
+                        {row.role}
+                      </Link>
                     </span>
                     {row.last_edited_at ? (
                       <span className="mt-0.5 block text-[11px] text-white/35">Edited {relativeTime(row.last_edited_at)}</span>
