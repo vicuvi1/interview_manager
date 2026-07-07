@@ -182,4 +182,18 @@ describe("relativeTime", () => {
   it("is empty for an invalid date", () => {
     expect(relativeTime("not-a-date")).toBe("");
   });
+
+  it("renders days within a week", () => {
+    expect(relativeTime(new Date(Date.now() - 3 * 86_400_000).toISOString())).toBe("3d ago");
+  });
+
+  // The optional timeZone controls the absolute-date fallback (> 1 week old).
+  it("resolves the fallback date in the given timezone", () => {
+    const iso = "2020-01-01T00:30:00.000Z"; // near midnight UTC, long ago
+    const utc = relativeTime(iso, "UTC");
+    const honolulu = relativeTime(iso, "Pacific/Honolulu"); // UTC-10 → previous calendar day
+    expect(utc).not.toBe("");
+    expect(honolulu).not.toBe("");
+    expect(utc).not.toBe(honolulu);
+  });
 });
