@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Clock, ExternalLink, FileText, History, Inbox, Search, Send, Settings2 } from "lucide-react";
+import { ChevronDown, Clock, Download, ExternalLink, FileText, History, Inbox, Search, Send, Settings2 } from "lucide-react";
 
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
+import { toCsv, downloadCsv } from "@/lib/csv";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { cn, formatMoney } from "@/lib/utils";
 import type { CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
@@ -167,6 +168,28 @@ export function InterviewsBoard({
     }
     toast({ title: "Details sent to candidate", description: "Also forwarded by Telegram / email.", variant: "success" });
     notifyChanged("interviews");
+  }
+
+  function exportCsv() {
+    const all = [...rows.upcoming, ...rows.past];
+    const body = all.map((r) => [
+      candName(r.candidate_id),
+      candidates[r.candidate_id]?.email ?? "",
+      r.role,
+      r.interview_type ?? "",
+      effTime(r) ? formatInTimeZone(effTime(r), adminTimezone) : "",
+      r.scheduled_at ? "scheduled" : r.preferred_at ? "requested" : "",
+      r.duration_minutes,
+      r.status,
+      r.payment_status,
+      r.price_cents ? formatMoney(r.price_cents, r.currency) : "",
+      r.meeting_link ?? "",
+    ]);
+    const csv = toCsv(
+      ["Candidate", "Email", "Role", "Type", "When", "When type", "Duration (min)", "Status", "Payment", "Amount", "Meeting link"],
+      body,
+    );
+    downloadCsv(`interviews-${new Date().toISOString().slice(0, 10)}.csv`, csv);
   }
 
   function toggleSelect(id: string) {
@@ -450,14 +473,26 @@ export function InterviewsBoard({
               </button>
             ))}
           </div>
-          <div className="relative ml-auto w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search candidate or role…"
-              className="pl-9"
-            />
+          <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search candidate or role…"
+                className="pl-9"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="shrink-0"
+              onClick={exportCsv}
+              disabled={rows.upcoming.length + rows.past.length === 0}
+              title="Export the current list as CSV"
+            >
+              <Download className="h-4 w-4" /> CSV
+            </Button>
           </div>
         </div>
 
