@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
+import { ErrorReporter } from "@/components/error-reporter";
 import { Providers } from "@/components/providers";
 
 import "./globals.css";
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans">
+        <ErrorReporter />
         <Providers>{children}</Providers>
       </body>
     </html>

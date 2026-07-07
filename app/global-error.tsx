@@ -1,11 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
+
+import { reportClientError } from "@/lib/report-error";
+
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    reportClientError(error, { source: "global-error", digest: error.digest });
+  }, [error]);
+
   return (
     <html lang="en">
       <body
