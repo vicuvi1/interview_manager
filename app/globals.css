@@ -280,7 +280,7 @@
    ============================================================ */
 /* Density: taller GCal rows, crisp hour lines */
 .cand-cal .fc .fc-timegrid-slot {
-  height: 60px; /* ~120px/hr — roomy enough to read a 30-min block */
+  height: 74px; /* ~148px/hr — roomy enough to read a 30-min block */
   border-color: rgba(255, 255, 255, 0.04) !important;
 }
 .cand-cal .fc .fc-timegrid-slot-lane {
