@@ -94,6 +94,12 @@ export function ManageRequestDialog({
   const [customDur, setCustomDur] = useState(!STD_DURATIONS.includes(request.duration_minutes));
   const [stage, setStage] = useState(request.interview_type ?? "");
   const [savingStage, setSavingStage] = useState(false);
+  // Free-text "edit details" (role / notes / link) — saved directly (admin RLS
+  // allows it), stamps last_edited_*, and notifies the candidate.
+  const [editRole, setEditRole] = useState(request.role);
+  const [editNotes, setEditNotes] = useState(request.notes ?? "");
+  const [editLink, setEditLink] = useState(request.meeting_link ?? "");
+  const [savingDetails, setSavingDetails] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
   const [bufferMin, setBufferMin] = useState(0);
   const [candAvail, setCandAvail] = useState<{ id: string; starts_at: string; ends_at: string; note: string | null }[]>([]);
@@ -294,6 +300,46 @@ export function ManageRequestDialog({
     });
     toast({ title: "Interview completed", variant: "success" });
     setBusy(null);
+    notifyChanged("interviews");
+    onClose();
+  }
+
+  async function saveDetails() {
+    if (!editRole.trim()) {
+      setError("Role / topic can't be empty.");
+      return;
+    }
+    setSavingDetails(true);
+    setError(null);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { error: upErr } = await supabase
+      .from("interview_requests")
+      .update({
+        role: editRole.trim(),
+        notes: editNotes.trim() || null,
+        meeting_link: editLink.trim() || null,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: user?.id ?? null,
+      })
+      .eq("id", request.id);
+    if (upErr) {
+      setError(upErr.message);
+      toast({ title: "Couldn't save", description: upErr.message, variant: "error" });
+      setSavingDetails(false);
+      return;
+    }
+    // Notify the candidate that their interview changed (auto-forwards to Telegram/email).
+    await supabase.from("notifications").insert({
+      user_id: request.candidate_id,
+      title: "Interview details updated",
+      detail: `Your interviewer updated the details for "${editRole.trim()}".`,
+      type: "info",
+    });
+    setSavingDetails(false);
+    toast({ title: "Details saved", description: "The candidate has been notified.", variant: "success" });
     notifyChanged("interviews");
     onClose();
   }
@@ -656,12 +702,6 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Requested</dt>
             <dd className="text-white/80">{relativeTime(request.created_at)}</dd>
           </div>
-          {request.last_edited_at ? (
-            <div>
-              <dt className="text-[11px] uppercase tracking-wide text-white/40">Last edited</dt>
-              <dd className="text-white/80">{relativeTime(request.last_edited_at)}</dd>
-            </div>
-          ) : null}
           {request.meeting_link ? (
             <div className="col-span-2">
               <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Meeting link</dt>
@@ -748,6 +788,38 @@ export function ManageRequestDialog({
             </div>
           ) : null}
         </dl>
+
+        <div className="space-y-3 rounded-lg border border-white/[0.08] bg-white/[0.02] p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] font-medium text-[#f0f0f5]">Edit details</p>
+            {request.last_edited_at ? (
+              <span className="text-[11px] text-white/40">
+                Last edited {relativeTime(request.last_edited_at)}
+                {request.last_edited_by
+                  ? ` · by ${request.last_edited_by === request.candidate_id ? candidate?.full_name || "the candidate" : "you"}`
+                  : ""}
+              </span>
+            ) : null}
+          </div>
+          <Field label="Role / topic" htmlFor="ed-role">
+            <Input id="ed-role" value={editRole} onChange={(e) => setEditRole(e.target.value)} />
+          </Field>
+          <Field label="Notes" htmlFor="ed-notes" hint="Shared with the candidate.">
+            <Textarea id="ed-notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional" />
+          </Field>
+          <Field label="Meeting link" htmlFor="ed-link" hint="Optional — Zoom / Meet / Teams.">
+            <Input id="ed-link" placeholder="https://…" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
+          </Field>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={savingDetails}
+            disabled={savingDetails}
+            onClick={saveDetails}
+          >
+            <Check className="h-4 w-4" /> Save details &amp; notify candidate
+          </Button>
+        </div>
 
         <div className="space-y-2 border-t border-white/[0.06] pt-4">
           <div className="flex items-center justify-between gap-2">
