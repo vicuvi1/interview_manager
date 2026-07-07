@@ -8,6 +8,7 @@ import { EmailCard } from "@/components/admin/email-card";
 import { GoogleCalendarCard } from "@/components/admin/google-calendar-card";
 import { InterviewTypeStylesCard } from "@/components/admin/interview-type-styles-card";
 import { RequestFieldsCard } from "@/components/admin/request-fields-card";
+import { SchemaHealthCard } from "@/components/admin/schema-health-card";
 import { StagePricingCard } from "@/components/admin/stage-pricing-card";
 import { StatusStylesCard } from "@/components/admin/status-styles-card";
 import { TelegramCard } from "@/components/admin/telegram-card";
@@ -59,6 +60,7 @@ export default async function AdminSettingsPage() {
           <GoogleCalendarCard />
           <TelegramCard />
           <EmailCard />
+          <SchemaHealthCard />
           <AppVersionCard />
         </div>
 
