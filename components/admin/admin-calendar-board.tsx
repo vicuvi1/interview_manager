@@ -753,15 +753,22 @@ export function AdminCalendarBoard({
           />
         </aside>
         <Card className="min-w-0 flex-1 p-3 sm:p-4">
-          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 2.6}em` } as CSSProperties}>
+          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 3.2}em` } as CSSProperties}>
             <style>{`
               .gcal-cal .fc-timegrid-slot{height:var(--slh)!important}
               .gcal-cal .fc-pending-req{border-style:dashed!important;border-width:2px!important;}
-              .gcal-cal .fc-iv{border-left-width:3px}
-              .gcal-cal .fc-iv-content{display:flex;flex-direction:column;gap:1px;line-height:1.2;overflow:hidden;height:100%;padding:1px 0}
-              .gcal-cal .fc-iv-title{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-              .gcal-cal .fc-iv-person{font-size:11px;font-weight:500;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-              .gcal-cal .fc-iv-time{font-size:10.5px;font-weight:600;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              /* Fill the full slot: no inset gap on the right, snug to the grid lines. */
+              .gcal-cal .fc-timegrid-event-harness{inset-inline-end:1px!important}
+              .gcal-cal .fc-timegrid-event{margin:0!important}
+              .gcal-cal .fc-iv{border-left-width:3px;padding:3px 8px}
+              .gcal-cal .fc-iv-content{display:flex;flex-direction:column;gap:2px;line-height:1.25;overflow:hidden;height:100%;justify-content:center}
+              .gcal-cal .fc-iv-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+              .gcal-cal .fc-iv-person{font-size:11.5px;font-weight:500;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              .gcal-cal .fc-iv-time{font-size:11px;font-weight:600;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              /* Cramped events: collapse to title + time so nothing clips. */
+              .gcal-cal .fc-timegrid-event-short .fc-iv-content{gap:0}
+              .gcal-cal .fc-timegrid-event-short .fc-iv-title{-webkit-line-clamp:1}
+              .gcal-cal .fc-timegrid-event-short .fc-iv-person{display:none}
             `}</style>
             {mounted ? (
               <FullCalendar
@@ -776,6 +783,9 @@ export function AdminCalendarBoard({
             selectMirror
             editable
             eventResizableFromStart
+            slotEventOverlap={false}
+            eventMinHeight={30}
+            eventShortHeight={34}
             slotDuration="00:30:00"
             snapDuration="00:05:00"
             dayMaxEvents={3}

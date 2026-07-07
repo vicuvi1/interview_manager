@@ -334,6 +334,14 @@
   font-weight: 500;
   transition: filter 0.12s ease, box-shadow 0.12s ease;
 }
+/* Fill the full column: drop FullCalendar's default right-side inset gap so a
+   scheduled interview spans the whole slot instead of only half of it. */
+.cand-cal .fc .fc-timegrid-event-harness {
+  inset-inline-end: 1px !important;
+}
+.cand-cal .fc .fc-timegrid-event {
+  margin-right: 0 !important;
+}
 .cand-cal .fc .fc-timegrid-event:hover,
 .cand-cal .fc .fc-daygrid-event:hover {
   filter: brightness(1.08);

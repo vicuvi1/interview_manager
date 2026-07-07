@@ -355,7 +355,9 @@ export function BookingCalendar({
             headerToolbar={false}
             height={calHeight}
             expandRows
-            eventMinHeight={22}
+            slotEventOverlap={false}
+            eventMinHeight={28}
+            eventShortHeight={40}
             allDaySlot={false}
             nowIndicator
             selectable
