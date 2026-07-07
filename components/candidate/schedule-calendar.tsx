@@ -12,6 +12,7 @@ import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lu
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
+import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function ScheduleCalendar({
 }) {
   const { toast } = useToast();
   const calRef = useRef<FullCalendar>(null);
+  const calHeight = useCalendarHeight(240);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
   const [view, setView] = useState("dayGridMonth");
@@ -197,7 +199,7 @@ export function ScheduleCalendar({
             initialView={prefs.scheduleView}
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={720}
+            height={calHeight}
             expandRows
             eventMinHeight={22}
             allDaySlot={false}
@@ -273,7 +275,7 @@ export function ScheduleCalendar({
             }}
           />
         ) : (
-          <div className="h-[720px] animate-pulse rounded-lg bg-white/[0.02]" />
+          <div className="animate-pulse rounded-lg bg-white/[0.02]" style={{ height: calHeight }} />
         )}
       </Card>
 

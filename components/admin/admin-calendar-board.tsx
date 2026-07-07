@@ -36,6 +36,7 @@ import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeFormat } from "@/lib/calendar-prefs";
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
+import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { colorBg } from "@/lib/colors";
 import { type TypeStyleMap, typeStyle } from "@/lib/interview";
 import { statusColor, statusLabel } from "@/lib/status";
@@ -165,6 +166,8 @@ export function AdminCalendarBoard({
   const { toast } = useToast();
   const { labels: statusLabels, colors: statusColors } = useStatusSettings();
   const calendarRef = useRef<FullCalendar>(null);
+  // Admin has a header toolbar + a legend row below the grid, so reserve a bit more.
+  const calHeight = useCalendarHeight(260);
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<string>("timeGridWeek");
   const [title, setTitle] = useState("");
@@ -767,7 +770,7 @@ export function AdminCalendarBoard({
             initialView="timeGridWeek"
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={760}
+            height={calHeight}
             nowIndicator
             selectable
             selectMirror
@@ -820,7 +823,7 @@ export function AdminCalendarBoard({
             }}
               />
             ) : (
-              <div className="h-[760px] animate-pulse rounded-lg bg-white/[0.02]" />
+              <div className="animate-pulse rounded-lg bg-white/[0.02]" style={{ height: calHeight }} />
             )}
           </div>
         </Card>

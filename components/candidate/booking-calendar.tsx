@@ -10,6 +10,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
+import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,7 @@ export function BookingCalendar({
   const { toast } = useToast();
   const calRef = useRef<FullCalendar>(null);
   const rangeRef = useRef<{ start: number; end: number } | null>(null);
+  const calHeight = useCalendarHeight(240);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("");
   const [view, setView] = useState("timeGridWeek");
@@ -351,7 +353,7 @@ export function BookingCalendar({
             initialView={prefs.bookingView}
             timeZone={prefs.timeZone}
             headerToolbar={false}
-            height={720}
+            height={calHeight}
             expandRows
             eventMinHeight={22}
             allDaySlot={false}
@@ -460,7 +462,7 @@ export function BookingCalendar({
             }}
           />
         ) : (
-          <div className="h-[720px] animate-pulse rounded-lg bg-white/[0.02]" />
+          <div className="animate-pulse rounded-lg bg-white/[0.02]" style={{ height: calHeight }} />
         )}
       </Card>
 

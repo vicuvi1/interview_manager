@@ -130,6 +130,9 @@ export interface ShellProps {
 
 export function AppShell({ variant, user, userId, isAdmin = false, counts, children }: ShellProps) {
   const pathname = usePathname();
+  // Calendar/booking views get a wider container so the week grid can breathe on
+  // large screens (other pages stay comfortably readable at max-w-6xl).
+  const wide = /\/calendar(\/|$)|\/book(\/|$)/.test(pathname ?? "");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -246,7 +249,7 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
 
         <UpdateBanner />
 
-        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <main className={cn("mx-auto px-4 py-6 sm:px-6 sm:py-8", wide ? "max-w-[1600px]" : "max-w-6xl")}>
           {variant === "admin" ? <MigrationBanner /> : null}
           <UpcomingBanner userId={userId} />
           {children}
