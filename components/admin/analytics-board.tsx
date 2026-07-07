@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CheckCircle2, Star, TrendingUp, UserX, Users, Wallet } from "lucide-react";
+import { BarChart3, CheckCircle2, Clock, Star, TrendingUp, UserCog, UserX, Users, Wallet } from "lucide-react";
 
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -12,7 +12,8 @@ import { useDebouncedCallback } from "@/lib/use-debounced";
 import { MONTH_NAMES, dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatAmount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/client";
-import type { InterviewFeedback, InterviewRequest, Payment } from "@/lib/types";
+import { formatMoney } from "@/lib/utils";
+import type { InterviewFeedback, InterviewRequest, Payment, ProfileLite } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "#fbbf24",
@@ -35,17 +36,20 @@ export function AnalyticsBoard({
   const [requests, setRequests] = useState<InterviewRequest[]>(initialRequests);
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
   const [feedback, setFeedback] = useState<InterviewFeedback[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: reqs }, { data: pays }, { data: fb }] = await Promise.all([
+    const [{ data: reqs }, { data: pays }, { data: fb }, { data: profs }] = await Promise.all([
       supabase.from("interview_requests").select("*"),
       supabase.from("payments").select("*"),
       supabase.from("interview_feedback").select("outcome, rating"),
+      supabase.from("profiles").select("id, full_name, email, timezone, role, created_at"),
     ]);
     if (reqs) setRequests(reqs as InterviewRequest[]);
     if (pays) setPayments(pays as Payment[]);
     if (fb) setFeedback(fb as InterviewFeedback[]);
+    if (profs) setProfiles(profs as ProfileLite[]);
   }, []);
 
   const reload = useDebouncedCallback(load);
@@ -131,6 +135,35 @@ export function AnalyticsBoard({
     return { avgRating, ratedCount: rated.length, noShowRate, hasOutcomes: withOutcome.length > 0 };
   }, [feedback]);
 
+  // Avg time from request → booked meeting time (schedule lead time), in days.
+  const avgToSchedule = useMemo(() => {
+    const spans = requests
+      .filter((r) => r.scheduled_at && r.created_at)
+      .map((r) => new Date(r.scheduled_at!).getTime() - new Date(r.created_at).getTime())
+      .filter((ms) => ms > 0);
+    if (!spans.length) return null;
+    const avgMs = spans.reduce((s, v) => s + v, 0) / spans.length;
+    return avgMs / 86_400_000;
+  }, [requests]);
+
+  // Per-interviewer load + revenue (paid requests attributed to their interviewer).
+  const byInterviewer = useMemo(() => {
+    const name = (id: string) => {
+      const p = profiles.find((x) => x.id === id);
+      return (p && (p.full_name || p.email)) || "Unknown";
+    };
+    const map = new Map<string, { name: string; completed: number; assigned: number; revenue: number }>();
+    for (const r of requests) {
+      if (!r.interviewer_id) continue;
+      const cur = map.get(r.interviewer_id) ?? { name: name(r.interviewer_id), completed: 0, assigned: 0, revenue: 0 };
+      cur.assigned += 1;
+      if (r.status === "completed") cur.completed += 1;
+      if (r.payment_status === "paid" && r.price_cents) cur.revenue += r.price_cents;
+      map.set(r.interviewer_id, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue || b.completed - a.completed);
+  }, [requests, profiles]);
+
   const funnelMax = Math.max(1, funnel[0]?.value ?? 1);
   const reqMax = Math.max(1, ...requestsByMonth.map((x) => x.n));
   const revMax = Math.max(1, ...revenueByMonth.map((x) => x.v));
@@ -163,7 +196,7 @@ export function AnalyticsBoard({
           tone="amber"
         />
         <StatCard label="No-show rate" value={quality.hasOutcomes ? `${quality.noShowRate}%` : "—"} icon={UserX} tone="red" />
-        <StatCard label="Feedback given" value={feedback.length} icon={CheckCircle2} tone="indigo" />
+        <StatCard label="Avg time to schedule" value={avgToSchedule != null ? `${avgToSchedule.toFixed(1)}d` : "—"} icon={Clock} tone="blue" />
         <StatCard label="Completed" value={byStatus.completed ?? 0} icon={CheckCircle2} tone="green" />
       </div>
 
@@ -291,6 +324,35 @@ export function AnalyticsBoard({
           )}
         </SectionCard>
       </div>
+
+      <SectionCard title="By interviewer" description="Load and paid revenue per interviewer." icon={UserCog}>
+        {byInterviewer.length === 0 ? (
+          <EmptyState icon={UserCog} title="No interviews assigned yet" description="Assign an interviewer when scheduling to see their load here." />
+        ) : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[420px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wide text-white/40">
+                  <th className="py-2 pr-3 font-medium">Interviewer</th>
+                  <th className="py-2 pr-3 text-right font-medium">Assigned</th>
+                  <th className="py-2 pr-3 text-right font-medium">Completed</th>
+                  <th className="py-2 text-right font-medium">Revenue</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {byInterviewer.map((iv) => (
+                  <tr key={iv.name}>
+                    <td className="py-2 pr-3 text-white/80">{iv.name}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-white/60">{iv.assigned}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-white/60">{iv.completed}</td>
+                    <td className="py-2 text-right tabular-nums text-[#34d399]">{iv.revenue ? formatMoney(iv.revenue, "USD") : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
     </div>
   );
 }
