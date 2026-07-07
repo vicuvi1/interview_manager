@@ -8,7 +8,9 @@ import { SectionCard } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { TimezonePicker } from "@/components/timezone-picker";
 import { createClient } from "@/lib/supabase/client";
+import { browserTimeZone } from "@/lib/time";
 
 export function SettingsForm({
   userId,
@@ -23,18 +25,20 @@ export function SettingsForm({
 }) {
   const { toast } = useToast();
   const [name, setName] = useState(initialName);
-  const [tz, setTz] = useState(initialTimezone);
+  const [tz, setTz] = useState(initialTimezone || "local");
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    const zone = tz.trim() || "UTC";
+    // The picker's "local" means "match this device"; store the concrete IANA
+    // zone so every server-rendered page can format dates in it consistently.
+    const zone = tz === "local" ? browserTimeZone() : tz.trim() || "UTC";
     try {
       // Throws on an unknown IANA zone.
       new Intl.DateTimeFormat(undefined, { timeZone: zone });
     } catch {
       toast({
         title: "Invalid timezone",
-        description: "Use an IANA name like America/New_York.",
+        description: "Pick a timezone from the list.",
         variant: "error",
       });
       return;
@@ -52,7 +56,8 @@ export function SettingsForm({
       toast({ title: "Couldn't save", description: error.message, variant: "error" });
       return;
     }
-    toast({ title: "Settings saved", variant: "success" });
+    setTz(zone);
+    toast({ title: "Settings saved", description: `All dates now show in ${zone}.`, variant: "success" });
   }
 
   return (
@@ -69,11 +74,10 @@ export function SettingsForm({
           <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field
-          label="Timezone (IANA)"
-          htmlFor="tz"
-          hint="e.g. America/New_York, Europe/London, Asia/Tokyo"
+          label="Timezone"
+          hint="Every date and time across the app — calendar, requests, payments — displays in this zone."
         >
-          <Input id="tz" value={tz} onChange={(e) => setTz(e.target.value)} />
+          <TimezonePicker value={tz} onChange={setTz} />
         </Field>
         <Button onClick={save} loading={saving}>
           <Save className="h-4 w-4" />

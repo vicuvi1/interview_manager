@@ -196,10 +196,13 @@ export function AdminCalendarBoard({
     hasLink: boolean;
     color: string;
   } | null>(null);
-  // Resolve "local" to a real IANA zone so tooltip times format correctly.
+  // Resolve the calendar's display zone. By default ("local") the calendar
+  // follows the admin's account timezone (Settings → Your timezone) so a single
+  // setting drives every date in the app; picking a specific zone in the
+  // toolbar overrides it just for this view.
   const realTz =
     prefs.timeZone === "local"
-      ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+      ? adminTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
       : prefs.timeZone;
 
   const savePref = (patch: Partial<CalendarPrefs>) => {
@@ -716,9 +719,9 @@ export function AdminCalendarBoard({
           </div>
           <span
             className="rounded-lg border border-white/10 bg-[#13131a] px-2.5 py-[7px] text-[11px] font-medium text-white/50"
-            title={prefs.timeZone === "local" ? "Your device timezone" : prefs.timeZone}
+            title={prefs.timeZone === "local" ? `Following your account timezone (${realTz})` : prefs.timeZone}
           >
-            {tzLabel(prefs.timeZone)}
+            {tzLabel(realTz)}
           </span>
           <TimezonePicker
             value={prefs.timeZone}
@@ -775,7 +778,7 @@ export function AdminCalendarBoard({
                 ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, luxonPlugin]}
             initialView="timeGridWeek"
-            timeZone={prefs.timeZone}
+            timeZone={realTz}
             headerToolbar={false}
             height={calHeight}
             nowIndicator
