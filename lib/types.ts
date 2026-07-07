@@ -92,6 +92,7 @@ export interface InterviewRequest {
   id: string;
   candidate_id: string;
   role: string;
+  company?: string | null;
   interviewer_id: string | null;
   interview_type?: string | null;
   level?: string | null;

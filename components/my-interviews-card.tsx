@@ -162,6 +162,9 @@ export function MyInterviewsCard({
                         {row.role}
                       </Link>
                     </span>
+                    {row.company ? (
+                      <span className="mt-0.5 block text-[11px] text-white/45">{row.company}</span>
+                    ) : null}
                     {row.last_edited_at ? (
                       <span className="mt-0.5 block text-[11px] text-white/35">Edited {relativeTime(row.last_edited_at)}</span>
                     ) : null}

@@ -44,6 +44,13 @@ export function CandidateInterviewView({
             <Badge tone={r.payment_status === "paid" ? "green" : "amber"}>{r.payment_status}</Badge>
           </div>
 
+          {r.company ? (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-white/40">Company</p>
+              <p className="mt-0.5 text-white/80">{r.company}</p>
+            </div>
+          ) : null}
+
           <div>
             <p className="text-[11px] uppercase tracking-wide text-white/40">
               {r.scheduled_at ? "Scheduled" : "Requested time"}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Plus, Search, Slash, X } from "lucide-react";
+import { Building2, CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Plus, Search, Slash, X } from "lucide-react";
 
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useDataChanged } from "@/lib/bus";
+import { interviewHaystack, matchesSearch } from "@/lib/search";
 import { useDebouncedCallback } from "@/lib/use-debounced";
 import { FORMAT_LABEL, durationOptions } from "@/lib/interview";
 import { useDurationSettings } from "@/lib/use-duration-settings";
@@ -143,11 +144,14 @@ export function RequestsConsole({
   }, [requests]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return requests.filter((r) => {
       if (filter !== "all" && r.status !== filter) return false;
-      if (!q) return true;
-      return candName(r.candidate_id).toLowerCase().includes(q) || r.role.toLowerCase().includes(q);
+      if (!query.trim()) return true;
+      // Smart search: match across the company field AND the free-text fields
+      // (role, notes, goals, focus…) so a company mentioned only in the notes is
+      // still found. Multi-term = AND, e.g. "acme senior".
+      const hay = interviewHaystack(r, candName(r.candidate_id), candidates[r.candidate_id]?.email);
+      return matchesSearch(hay, query);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests, filter, query, candidates]);
@@ -264,8 +268,8 @@ export function RequestsConsole({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name or role…"
-              className="h-9 w-52 pl-9"
+              placeholder="Search company, name, role, notes…"
+              className="h-9 w-64 pl-9"
             />
           </div>
         }
@@ -382,6 +386,11 @@ export function RequestsConsole({
                           <span className="rounded-full bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-white/50">{FORMAT_LABEL[r.format] ?? r.format}</span>
                         ) : null}
                       </div>
+                      {r.company ? (
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-white/45">
+                          <Building2 className="h-3 w-3 shrink-0 text-white/30" /> {r.company}
+                        </p>
+                      ) : null}
                       {interviewerName(r.interviewer_id) ? (
                         <p className="mt-0.5 text-[11px] text-white/35">with {interviewerName(r.interviewer_id)}</p>
                       ) : null}

@@ -6,6 +6,7 @@ export type FieldLevel = "required" | "optional" | "hidden";
 export const REQUEST_FIELDS: { key: string; label: string }[] = [
   { key: "cv", label: "Résumé / CV" },
   { key: "role", label: "Role / topic" },
+  { key: "company", label: "Company name" },
   { key: "interview_type", label: "Interview type / stage" },
   { key: "level", label: "Level" },
   { key: "focus", label: "Focus areas / skills" },

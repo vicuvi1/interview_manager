@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 // One probe per recent schema migration: if the column/table is missing, that
 // migration hasn't been applied. Admin-readable objects only (no false negatives).
 const MARKERS: { key: string; table: string; col: string }[] = [
+  { key: "0070", table: "interview_requests", col: "company" },
   { key: "0041", table: "public_booking_requests", col: "ip_hash" },
   { key: "0039", table: "profiles", col: "calendar_color" },
   { key: "0038", table: "app_feedback", col: "id" },

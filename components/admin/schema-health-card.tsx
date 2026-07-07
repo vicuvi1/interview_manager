@@ -48,6 +48,7 @@ const CHECKS: Check[] = [
   { key: "sent", label: "Meeting-details “sent” stamp", migration: "0067", run: () => checkColumn("interview_requests", "details_sent_at") },
   { key: "icsfn", label: "Calendar .ics feed function", migration: "0068", run: () => checkRpc("ics_feed", { p_token: "schema-health-probe-000000" }) },
   { key: "icstoken", label: "Calendar feed token column", migration: "0068", run: () => checkColumn("profiles", "ics_token") },
+  { key: "company", label: "Company name on requests", migration: "0070", run: () => checkColumn("interview_requests", "company") },
 ];
 
 export function SchemaHealthCard() {

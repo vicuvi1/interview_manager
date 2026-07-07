@@ -332,6 +332,11 @@ export function ScheduleCalendar({
               {detail.format ? <Badge tone="slate">{FORMAT_LABEL[detail.format] ?? detail.format}</Badge> : null}
               <Badge tone={detail.payment_status === "paid" ? "green" : "amber"}>{detail.payment_status}</Badge>
             </div>
+            {detail.company ? (
+              <p className="text-white/75">
+                <span className="text-white/40">Company:</span> {detail.company}
+              </p>
+            ) : null}
             <p className="flex items-center gap-2 text-white/75">
               <Clock className="h-4 w-4 text-white/40" />
               {detail.scheduled_at
