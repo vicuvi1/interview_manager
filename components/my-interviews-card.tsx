@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
 
 import { CalendarInvite } from "@/components/calendar-invite";
+import { RequestNextStage } from "@/components/candidate/request-next-stage";
 import { RescheduleDialog } from "@/components/candidate/reschedule-dialog";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -245,6 +246,9 @@ export function MyInterviewsCard({
                         <Button variant="secondary" size="sm" onClick={() => setViewing(feedbackMap[row.id])}>
                           <MessageSquareText className="h-4 w-4" /> Feedback
                         </Button>
+                      ) : null}
+                      {row.status === "completed" ? (
+                        <RequestNextStage interview={row} userId={userId} timezone={timezone} />
                       ) : null}
                       {RESCHEDULABLE.has(row.status) ? (
                         row.proposed_at ? (

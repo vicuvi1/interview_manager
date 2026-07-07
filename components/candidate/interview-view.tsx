@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, FileText } from "lucide-react";
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
+import { RequestNextStage } from "@/components/candidate/request-next-stage";
 import { CalendarInvite } from "@/components/calendar-invite";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -122,6 +123,15 @@ export function CandidateInterviewView({
             <p className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/50">
               <FileText className="h-3.5 w-3.5" /> This interview is complete. Results will appear here if your interviewer shares them.
             </p>
+          ) : null}
+
+          {completed ? (
+            <div className="border-t border-white/[0.06] pt-4">
+              <RequestNextStage interview={r} userId={r.candidate_id} timezone={timezone} variant="primary" />
+              <p className="mt-2 text-[12px] text-white/40">
+                Passed this round? Request the next stage and propose a time — your interviewer will confirm it.
+              </p>
+            </div>
           ) : null}
         </div>
       </SectionCard>

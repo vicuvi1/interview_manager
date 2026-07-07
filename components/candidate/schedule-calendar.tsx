@@ -8,12 +8,13 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
-import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil } from "lucide-react";
+import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil, TrendingUp } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { EditDetailsDialog } from "@/components/candidate/edit-details-dialog";
 import { RescheduleDialog } from "@/components/candidate/reschedule-dialog";
+import { NextStageDialog } from "@/components/candidate/request-next-stage";
 import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -64,6 +65,7 @@ export function ScheduleCalendar({
   const [detail, setDetail] = useState<InterviewRequest | null>(null);
   const [editing, setEditing] = useState<InterviewRequest | null>(null);
   const [reschedule, setReschedule] = useState<InterviewRequest | null>(null);
+  const [nextStage, setNextStage] = useState<InterviewRequest | null>(null);
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
@@ -361,9 +363,22 @@ export function ScheduleCalendar({
               // (edit the details, propose a new time) rather than re-booked.
               const canEdit = ["pending", "approved", "scheduled", "rejected"].includes(detail.status);
               const canReschedule = ["approved", "scheduled", "rejected"].includes(detail.status);
-              if (!canEdit && !canReschedule) return null;
+              // A passed (completed) interview can kick off the next round.
+              const canNextStage = detail.status === "completed";
+              if (!canEdit && !canReschedule && !canNextStage) return null;
               return (
                 <div className="flex flex-wrap justify-end gap-2 border-t border-white/[0.06] pt-3">
+                  {canNextStage ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setNextStage(detail);
+                        setDetail(null);
+                      }}
+                    >
+                      <TrendingUp className="h-4 w-4" /> Request next stage
+                    </Button>
+                  ) : null}
                   {canReschedule ? (
                     <Button
                       size="sm"
@@ -399,6 +414,9 @@ export function ScheduleCalendar({
       ) : null}
       {reschedule ? (
         <RescheduleDialog request={reschedule} timezone={timezone} onClose={() => setReschedule(null)} />
+      ) : null}
+      {nextStage ? (
+        <NextStageDialog previous={nextStage} userId={userId} timezone={timezone} onClose={() => setNextStage(null)} />
       ) : null}
     </div>
   );
