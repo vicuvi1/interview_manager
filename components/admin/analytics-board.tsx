@@ -152,10 +152,10 @@ export function AnalyticsBoard({
       const p = profiles.find((x) => x.id === id);
       return (p && (p.full_name || p.email)) || "Unknown";
     };
-    const map = new Map<string, { name: string; completed: number; assigned: number; revenue: number }>();
+    const map = new Map<string, { id: string; name: string; completed: number; assigned: number; revenue: number }>();
     for (const r of requests) {
       if (!r.interviewer_id) continue;
-      const cur = map.get(r.interviewer_id) ?? { name: name(r.interviewer_id), completed: 0, assigned: 0, revenue: 0 };
+      const cur = map.get(r.interviewer_id) ?? { id: r.interviewer_id, name: name(r.interviewer_id), completed: 0, assigned: 0, revenue: 0 };
       cur.assigned += 1;
       if (r.status === "completed") cur.completed += 1;
       if (r.payment_status === "paid" && r.price_cents) cur.revenue += r.price_cents;
@@ -341,7 +341,7 @@ export function AnalyticsBoard({
               </thead>
               <tbody className="divide-y divide-white/[0.06]">
                 {byInterviewer.map((iv) => (
-                  <tr key={iv.name}>
+                  <tr key={iv.id}>
                     <td className="py-2 pr-3 text-white/80">{iv.name}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-white/60">{iv.assigned}</td>
                     <td className="py-2 pr-3 text-right tabular-nums text-white/60">{iv.completed}</td>

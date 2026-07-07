@@ -26,8 +26,11 @@ async function checkRpc(fn: string, args: Record<string, unknown>): Promise<Stat
   if (!error) return "ok";
   const m = error.message.toLowerCase();
   if (m.includes("could not find") || m.includes("does not exist")) return "missing";
-  // A domain error (e.g. "Interview not found") means the function *exists*.
-  return "ok";
+  // A validation/domain error raised inside the function (e.g. "Interview not
+  // found", "Not authorized") means the function EXISTS → applied.
+  if (m.includes("not found") || m.includes("not authorized") || m.includes("invalid") || error.code === "P0001") return "ok";
+  // Anything else (permission, network, unexpected) — don't claim it's applied.
+  return "unknown";
 }
 
 interface Check {

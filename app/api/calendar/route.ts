@@ -47,9 +47,10 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": 'inline; filename="interviews.ics"',
-      // Short CDN cache: calendar apps poll often; the token is in the URL so
-      // each candidate's feed caches separately.
-      "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+      // Private per-user data — cache only in the requesting client, never a
+      // shared CDN (avoids any risk of one candidate's feed being served to
+      // another if an intermediary normalizes away the ?token query string).
+      "Cache-Control": "private, max-age=120",
     },
   });
 }

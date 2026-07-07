@@ -661,22 +661,24 @@ export function BookingCalendar({
                 <Pencil className="h-4 w-4" /> Edit interview details
               </Button>
             ) : null}
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-              <p className="text-[12px] font-medium text-white/70">Need a different time?</p>
-              <p className="mb-2 text-[11px] text-white/40">Pick a new time and we&apos;ll send it to the admin to confirm.</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  type="datetime-local"
-                  value={editWhen}
-                  onChange={(e) => setEditWhen(e.target.value)}
-                  className="h-9 flex-1"
-                  aria-label="New time"
-                />
-                <Button size="sm" loading={savingEdit} disabled={savingEdit || !editWhen} onClick={proposeEdit}>
-                  Send to admin
-                </Button>
+            {["pending", "approved", "scheduled"].includes(detail.status) ? (
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                <p className="text-[12px] font-medium text-white/70">Need a different time?</p>
+                <p className="mb-2 text-[11px] text-white/40">Pick a new time and we&apos;ll send it to the admin to confirm.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="datetime-local"
+                    value={editWhen}
+                    onChange={(e) => setEditWhen(e.target.value)}
+                    className="h-9 flex-1"
+                    aria-label="New time"
+                  />
+                  <Button size="sm" loading={savingEdit} disabled={savingEdit || !editWhen} onClick={proposeEdit}>
+                    Send to admin
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : null}
             <p className="text-[11px] text-white/35">
               You can also cancel or leave notes from <span className="text-white/60">My interviews</span>.
             </p>

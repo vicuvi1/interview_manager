@@ -26,6 +26,12 @@ export function Dialog({
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const prevFocus = React.useRef<HTMLElement | null>(null);
+  // Keep the latest onClose without making it an effect dependency — otherwise
+  // the inline `onClose={() => …}` most callers pass would re-run the focus
+  // effect on every parent re-render (e.g. realtime reloads) and yank the
+  // cursor back to the first field mid-typing.
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
   const titleId = React.useId();
   const descId = React.useId();
 
@@ -49,7 +55,7 @@ export function Dialog({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -75,7 +81,8 @@ export function Dialog({
       const prev = prevFocus.current;
       if (prev && prev.isConnected) prev.focus();
     };
-  }, [open, onClose]);
+    // Only re-run when the dialog opens/closes — not on every parent re-render.
+  }, [open]);
 
   if (!open) return null;
 
