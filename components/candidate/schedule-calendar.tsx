@@ -31,13 +31,27 @@ import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { InterviewRequest } from "@/lib/types";
 
+// Status color scheme (also drives the status pill + filter legend):
+// amber = pending, blue = approved/in-review, green = confirmed, red = rejected,
+// slate = cancelled/completed. The block's fill still uses the interview-type /
+// custom color, so the pill is what makes the status unmistakable.
 const COLORS: Record<string, { bg: string; border: string; text: string }> = {
   pending: { bg: "rgba(245,158,11,0.2)", border: "#f59e0b", text: "#fbbf24" },
-  approved: { bg: "rgba(16,185,129,0.2)", border: "#10b981", text: "#6ee7b7" },
-  scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
+  approved: { bg: "rgba(59,130,246,0.2)", border: "#3b82f6", text: "#93c5fd" },
+  scheduled: { bg: "rgba(16,185,129,0.28)", border: "#10b981", text: "#6ee7b7" },
   completed: { bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.25)", text: "rgba(255,255,255,0.6)" },
-  cancelled: { bg: "rgba(239,68,68,0.14)", border: "#ef4444", text: "#fca5a5" },
+  cancelled: { bg: "rgba(148,163,184,0.16)", border: "#94a3b8", text: "#cbd5e1" },
   rejected: { bg: "rgba(239,68,68,0.14)", border: "#ef4444", text: "#fca5a5" },
+};
+
+// Short, human status word shown on the pill (candidate-facing wording).
+const STATUS_TEXT: Record<string, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  scheduled: "Confirmed",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  rejected: "Rejected",
 };
 
 const VIEWS = [
@@ -255,10 +269,18 @@ export function ScheduleCalendar({
                 typeLabel?: string | null;
                 statusLabel?: string;
               };
-              const sub = [arg.timeText, p.typeLabel || p.statusLabel].filter(Boolean).join(" · ");
+              const st = p.statusLabel ?? "";
+              const pillColor = (COLORS[st] ?? COLORS.pending).border;
+              const pillText = STATUS_TEXT[st] ?? st;
+              const sub = [arg.timeText, p.typeLabel].filter(Boolean).join(" · ");
               return (
                 <div className="fc-chip">
                   <div className="fc-chip-title">
+                    {pillText ? (
+                      <span className="fc-chip-status" style={{ backgroundColor: pillColor }}>
+                        {pillText}
+                      </span>
+                    ) : null}
                     {p.emoji ? `${p.emoji} ` : ""}
                     {arg.event.title}
                   </div>
@@ -292,7 +314,7 @@ export function ScheduleCalendar({
         {[
           { s: "pending", l: "Pending" },
           { s: "approved", l: "Approved" },
-          { s: "scheduled", l: "Scheduled" },
+          { s: "scheduled", l: "Confirmed" },
           { s: "completed", l: "Completed" },
           { s: "cancelled", l: "Cancelled" },
           { s: "rejected", l: "Rejected" },
