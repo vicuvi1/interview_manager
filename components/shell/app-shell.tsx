@@ -249,7 +249,7 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
 
         <UpdateBanner />
 
-        <main className={cn("mx-auto px-4 py-6 sm:px-6 sm:py-8", wide ? "max-w-[1600px]" : "max-w-6xl")}>
+        <main className={cn("mx-auto px-4 py-6 sm:px-6 sm:py-8", wide ? "max-w-none" : "max-w-6xl")}>
           {variant === "admin" ? <MigrationBanner /> : null}
           <UpcomingBanner userId={userId} />
           {children}
