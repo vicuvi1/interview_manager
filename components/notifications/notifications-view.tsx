@@ -189,7 +189,7 @@ export function NotificationsView({ initial, userId }: { initial: Notification[]
                             <span className="truncate text-[13px] font-medium text-[#f0f0f5]">{n.title}</span>
                             {!n.read ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8b5cf6]" /> : null}
                           </span>
-                          {n.detail ? <span className="mt-0.5 block text-[12px] text-white/55">{n.detail}</span> : null}
+                          {n.detail ? <span className="mt-0.5 block whitespace-pre-line text-[12px] text-white/55">{n.detail}</span> : null}
                           <span className="mt-1 block text-[11px] text-white/30">{relativeTime(n.created_at)}</span>
                         </button>
                         <button

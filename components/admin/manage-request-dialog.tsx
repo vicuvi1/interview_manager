@@ -383,10 +383,13 @@ export function ManageRequestDialog({
         .eq("id", request.id);
       invoiced = !invoiceError;
     }
+    const scheduledLink = schedLink.trim() || autoMeetingLink(request.id);
     await supabase.from("notifications").insert({
       user_id: request.candidate_id,
       title: "Interview scheduled",
-      detail: `Your interview for "${request.role}" is set for ${formatInTimeZone(scheduledUtc, candTz)}.`,
+      detail:
+        `Your interview for "${request.role}" is set for ${formatInTimeZone(scheduledUtc, candTz)}.` +
+        (scheduledLink ? `\nJoin: ${scheduledLink}` : ""),
       type: "approved",
     });
     if (invoiced && autoInvoice) {
