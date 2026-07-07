@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { icsFeed } from "@/lib/calendar-invite";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,11 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token")?.trim();
   if (!token) return new Response("Missing token", { status: 400 });
 
+  // Defense-in-depth against abusive polling (the token itself is the real gate).
+  if (!rateLimit(`ics:${clientIp(req)}`, 60, 60_000)) {
+    return new Response("Too many requests", { status: 429 });
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
   });
@@ -41,7 +47,9 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": 'inline; filename="interviews.ics"',
-      "Cache-Control": "no-cache, max-age=0",
+      // Short CDN cache: calendar apps poll often; the token is in the URL so
+      // each candidate's feed caches separately.
+      "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
     },
   });
 }
