@@ -196,7 +196,7 @@ export function RevenueBoard({
       <div class="row"><span class="k">Candidate</span><span>${candName(p.candidate_id)}</span></div>
       <div class="row"><span class="k">Method</span><span>${p.method ? METHOD_LABEL[p.method] ?? p.method : "—"}</span></div>
       <div class="row"><span class="k">Status</span><span>${p.status}</span></div>
-      <div class="row"><span class="k">Date</span><span>${p.paid_at ? new Date(p.paid_at).toLocaleString() : "—"}</span></div>
+      <div class="row"><span class="k">Date</span><span>${p.paid_at ? formatInTimeZone(p.paid_at, adminTimezone) : "—"}</span></div>
       <div class="row"><span class="k">Reference</span><span>${p.id}</span></div>
       ${p.notes ? `<div class="row"><span class="k">Notes</span><span>${p.notes}</span></div>` : ""}
       </body></html>`);

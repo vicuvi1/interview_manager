@@ -1,5 +1,9 @@
-/** "2h ago" style relative time. */
-export function relativeTime(iso: string | null | undefined): string {
+/**
+ * "2h ago" style relative time. For items older than a week it falls back to an
+ * absolute date; pass `timeZone` so that date renders in the viewer's chosen
+ * zone (defaults to the browser's if omitted).
+ */
+export function relativeTime(iso: string | null | undefined, timeZone?: string): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
@@ -12,6 +16,7 @@ export function relativeTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
+    ...(timeZone ? { timeZone } : {}),
   });
 }
 
