@@ -15,6 +15,8 @@ import { TimezonePicker } from "@/components/timezone-picker";
 import { EditDetailsDialog } from "@/components/candidate/edit-details-dialog";
 import { RescheduleDialog } from "@/components/candidate/reschedule-dialog";
 import { NextStageDialog } from "@/components/candidate/request-next-stage";
+import { InterviewProgress } from "@/components/interview-progress";
+import { statusHint } from "@/lib/status";
 import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -309,8 +311,10 @@ export function ScheduleCalendar({
         )}
       </Card>
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[12px] text-white/45">
-        <span className="text-white/30">Filter:</span>
+      {/* Legend + filter in one: each chip is the same colored status pill shown
+          on the blocks, and tapping it shows/hides that status. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-1 text-[12px] text-white/45">
+        <span className="text-white/30">Status — tap to show/hide:</span>
         {[
           { s: "pending", l: "Pending" },
           { s: "approved", l: "Approved" },
@@ -336,12 +340,12 @@ export function ScheduleCalendar({
               }}
               title={hidden ? `Show ${x.l.toLowerCase()}` : `Hide ${x.l.toLowerCase()}`}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors hover:bg-white/[0.06]",
-                hidden && "opacity-40",
+                "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white transition-opacity",
+                hidden ? "opacity-30 line-through" : "opacity-100 hover:opacity-80",
               )}
+              style={{ backgroundColor: (COLORS[x.s] ?? COLORS.cancelled).border }}
             >
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: (COLORS[x.s] ?? COLORS.cancelled).border }} />
-              <span className={cn(hidden && "line-through")}>{x.l}</span>
+              {x.l}
             </button>
           );
         })}
@@ -355,6 +359,13 @@ export function ScheduleCalendar({
               <StatusBadge status={detail.status} />
               {detail.format ? <Badge tone="slate">{FORMAT_LABEL[detail.format] ?? detail.format}</Badge> : null}
               <Badge tone={detail.payment_status === "paid" ? "green" : "amber"}>{detail.payment_status}</Badge>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+              <InterviewProgress status={detail.status} />
+              {statusHint(detail.status) ? (
+                <p className="mt-3 border-t border-white/[0.06] pt-2.5 text-[12px] text-white/50">{statusHint(detail.status)}</p>
+              ) : null}
             </div>
             {detail.company ? (
               <p className="text-white/75">

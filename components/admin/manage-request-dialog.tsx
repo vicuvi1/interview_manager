@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CalendarClock, Check, CheckCircle2, Clock, ExternalLink, FileText, RotateCcw, Send, Trash2, Wand2 } from "lucide-react";
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
+import { InterviewProgress } from "@/components/interview-progress";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -653,6 +654,9 @@ export function ManageRequestDialog({
   return (
     <Dialog open onClose={onClose} title="Manage request" description={request.role}>
       <div className="space-y-4">
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3.5">
+          <InterviewProgress status={request.status} />
+        </div>
         {request.busy_override && (request.status === "pending" || request.status === "approved") ? (
           <div className="rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.1] px-3.5 py-2.5 text-[12px] text-[#fbbf24]">
             <span className="font-semibold">Busy-time request.</span> The candidate asked for a time you marked busy.

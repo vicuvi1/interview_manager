@@ -49,3 +49,17 @@ export function statusColor(status: string | null | undefined, map?: StatusColor
   if (custom && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(custom)) return custom;
   return DEFAULT_STATUS_COLORS[status] ?? "#9ca3af";
 }
+
+/** Plain-language, candidate-facing "what does this mean / what's next" line. */
+export const STATUS_HINTS: Record<string, string> = {
+  pending: "Waiting for your interviewer to review it and pick a time — you'll be notified.",
+  approved: "Approved! Your interviewer will confirm a time shortly.",
+  scheduled: "You're confirmed. Use the Join link when it's time.",
+  completed: "This interview is complete. Any results your interviewer shares show up here.",
+  rejected: "Not approved this time — you can edit the details and propose a new time.",
+  cancelled: "This interview was cancelled.",
+};
+
+export function statusHint(status: string | null | undefined): string {
+  return status ? STATUS_HINTS[status] ?? "" : "";
+}

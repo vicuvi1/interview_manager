@@ -4,10 +4,12 @@ import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, FileText } from "
 import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { RequestNextStage } from "@/components/candidate/request-next-stage";
 import { CalendarInvite } from "@/components/calendar-invite";
+import { InterviewProgress } from "@/components/interview-progress";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SectionCard } from "@/components/ui/card";
 import { FORMAT_LABEL } from "@/lib/interview";
+import { statusHint } from "@/lib/status";
 import { formatInTimeZone } from "@/lib/time";
 import type { InterviewRequest } from "@/lib/types";
 
@@ -43,6 +45,13 @@ export function CandidateInterviewView({
             {r.format ? <Badge tone="slate">{FORMAT_LABEL[r.format] ?? r.format}</Badge> : null}
             {r.level ? <Badge tone="slate">{r.level}</Badge> : null}
             <Badge tone={r.payment_status === "paid" ? "green" : "amber"}>{r.payment_status}</Badge>
+          </div>
+
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3.5">
+            <InterviewProgress status={r.status} />
+            {statusHint(r.status) ? (
+              <p className="mt-3 border-t border-white/[0.06] pt-2.5 text-[12px] text-white/50">{statusHint(r.status)}</p>
+            ) : null}
           </div>
 
           {r.company || r.interviewer_name ? (
