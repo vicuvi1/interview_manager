@@ -753,7 +753,7 @@ export function AdminCalendarBoard({
           />
         </aside>
         <Card className="min-w-0 flex-1 p-3 sm:p-4">
-          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 3.2}em` } as CSSProperties}>
+          <div className="gcal-cal" style={{ ["--slh"]: `${(prefs.zoom ?? 1) * 4.2}em` } as CSSProperties}>
             <style>{`
               .gcal-cal .fc-timegrid-slot{height:var(--slh)!important}
               .gcal-cal .fc-pending-req{border-style:dashed!important;border-width:2px!important;}
@@ -784,8 +784,8 @@ export function AdminCalendarBoard({
             editable
             eventResizableFromStart
             slotEventOverlap={false}
-            eventMinHeight={30}
-            eventShortHeight={34}
+            eventMinHeight={44}
+            eventShortHeight={40}
             slotDuration="00:30:00"
             snapDuration="00:05:00"
             dayMaxEvents={3}
