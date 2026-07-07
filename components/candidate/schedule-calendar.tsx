@@ -8,11 +8,10 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
-import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
-import { EditDetailsDialog } from "@/components/candidate/edit-details-dialog";
 import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -25,12 +24,9 @@ import { type CalendarPrefs, DEFAULT_PREFS, hourStr, loadPrefs, savePrefs, timeF
 import { colorBg } from "@/lib/colors";
 import { FORMAT_LABEL, type TypeStyleMap, typeStyle } from "@/lib/interview";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone, relativeTime } from "@/lib/time";
+import { formatInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { InterviewRequest } from "@/lib/types";
-
-// Statuses a candidate may still edit (mirrors the "My interviews" gating).
-const EDITABLE = new Set(["pending", "approved", "scheduled"]);
 
 const COLORS: Record<string, { bg: string; border: string; text: string }> = {
   pending: { bg: "rgba(245,158,11,0.2)", border: "#f59e0b", text: "#fbbf24" },
@@ -64,7 +60,6 @@ export function ScheduleCalendar({
   const [view, setView] = useState("dayGridMonth");
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [detail, setDetail] = useState<InterviewRequest | null>(null);
-  const [editing, setEditing] = useState<InterviewRequest | null>(null);
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
@@ -352,28 +347,8 @@ export function ScheduleCalendar({
                 <p className="whitespace-pre-wrap text-white/75">{detail.notes}</p>
               </div>
             ) : null}
-            {detail.last_edited_at ? (
-              <p className="text-[11px] text-white/35">Last edited {relativeTime(detail.last_edited_at)}.</p>
-            ) : null}
-            {EDITABLE.has(detail.status) ? (
-              <div className="flex justify-end border-t border-white/[0.06] pt-3">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setEditing(detail);
-                    setDetail(null);
-                  }}
-                >
-                  <Pencil className="h-4 w-4" /> Edit details
-                </Button>
-              </div>
-            ) : null}
           </div>
         </Dialog>
-      ) : null}
-      {editing ? (
-        <EditDetailsDialog request={editing} userId={userId} onClose={() => setEditing(null)} />
       ) : null}
     </div>
   );

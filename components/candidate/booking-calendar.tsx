@@ -12,7 +12,6 @@ import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { AttachmentsField } from "@/components/candidate/attachments-field";
-import { EditDetailsDialog } from "@/components/candidate/edit-details-dialog";
 import { InterviewRequestForm } from "@/components/candidate/interview-request-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,9 +57,6 @@ interface MyRow {
 
 const ms = (iso: string) => new Date(iso).getTime();
 
-// Statuses a candidate may still edit (mirrors "My interviews" gating).
-const EDITABLE = new Set(["pending", "approved", "scheduled"]);
-
 const MINE_TONE: Record<string, { bg: string; border: string; text: string }> = {
   scheduled: { bg: "rgba(99,102,241,0.28)", border: "#6366f1", text: "#c7d2fe" },
   pending: { bg: "rgba(245,158,11,0.22)", border: "#f59e0b", text: "#fbbf24" },
@@ -94,7 +90,6 @@ export function BookingCalendar({
   const [busyAsk, setBusyAsk] = useState<{ startISO: string; dur: number } | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number; row: MyRow } | null>(null);
   const [detail, setDetail] = useState<MyRow | null>(null);
-  const [editing, setEditing] = useState<MyRow | null>(null);
   const [editWhen, setEditWhen] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [rules, setRules] = useState<BookingRules>({ min_notice_hours: 0, booking_horizon_days: 0 });
@@ -570,7 +565,7 @@ export function BookingCalendar({
               }}
               className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-white/80 hover:bg-white/[0.06]"
             >
-              <Pencil className="h-4 w-4" /> View / edit details
+              <Pencil className="h-4 w-4" /> View details
             </button>
             {["pending", "approved", "scheduled"].includes(ctx.row.status) ? (
               <button
@@ -641,20 +636,6 @@ export function BookingCalendar({
                 <AttachmentsField userId={userId} value={detail.attachments} readOnly />
               </div>
             ) : null}
-            {EDITABLE.has(detail.status) ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="w-full"
-                onClick={() => {
-                  setEditing(detail);
-                  setDetail(null);
-                  setEditWhen("");
-                }}
-              >
-                <Pencil className="h-4 w-4" /> Edit interview details
-              </Button>
-            ) : null}
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
               <p className="text-[12px] font-medium text-white/70">Need a different time?</p>
               <p className="mb-2 text-[11px] text-white/40">Pick a new time and we&apos;ll send it to the admin to confirm.</p>
@@ -676,9 +657,6 @@ export function BookingCalendar({
             </p>
           </div>
         </Dialog>
-      ) : null}
-      {editing ? (
-        <EditDetailsDialog request={editing} userId={userId} onClose={() => setEditing(null)} />
       ) : null}
     </div>
   );
