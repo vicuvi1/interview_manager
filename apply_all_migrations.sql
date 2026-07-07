@@ -4322,3 +4322,83 @@ grant execute on function public.reschedule_to_open_slot(uuid, timestamptz) to a
 -- no index or RPC is required here.
 
 alter table public.interview_requests add column if not exists company text;
+
+
+-- ---- 0071_edit_all_fields.sql ----
+-- Interview Manager — candidates can edit ALL their interview fields + interviewer name
+-- Run AFTER 0070_company_name.sql. Idempotent — safe to re-run.
+--
+-- Adds an optional free-text interviewer_name column and widens edit_my_interview
+-- (0055/0057/0065) so a candidate can change every interview-specific field, not
+-- just role/notes/link/type/duration: also company, level, format, focus areas,
+-- notes-for-the-interviewer, and the interviewer's name. Still SECURITY DEFINER
+-- (RLS blocks direct candidate updates), still stamps last_edited_at/by and
+-- notifies admins. New params are optional (null = leave unchanged) so any
+-- older caller keeps working.
+
+alter table public.interview_requests add column if not exists interviewer_name text;
+
+-- Collapse every prior overload to a single canonical signature (avoids
+-- PostgREST "could not choose a function" ambiguity).
+drop function if exists public.edit_my_interview(uuid, text, text, text);
+drop function if exists public.edit_my_interview(uuid, text, text, text, jsonb);
+drop function if exists public.edit_my_interview(uuid, text, text, text, jsonb, text, integer);
+
+create or replace function public.edit_my_interview(
+  p_interview_id     uuid,
+  p_role             text    default null,
+  p_notes            text    default null,
+  p_meeting_link     text    default null,
+  p_attachments      jsonb   default null,
+  p_interview_type   text    default null,
+  p_duration         integer default null,
+  p_company          text    default null,
+  p_level            text    default null,
+  p_format           text    default null,
+  p_focus_areas      text[]  default null,
+  p_caller_notes     text    default null,
+  p_interviewer_name text    default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r   public.interview_requests;
+  who text;
+begin
+  select * into r from public.interview_requests where id = p_interview_id;
+  if not found then raise exception 'Interview not found'; end if;
+  if r.candidate_id <> auth.uid() then raise exception 'Not authorized'; end if;
+
+  -- For every text field: null param = leave unchanged, else set (empty = clear).
+  -- focus_areas: null = unchanged, [] or a list = set.
+  update public.interview_requests set
+    role             = coalesce(nullif(trim(p_role), ''), role),
+    notes            = case when p_notes is null then notes else nullif(trim(p_notes), '') end,
+    meeting_link     = case when p_meeting_link is null then meeting_link else nullif(trim(p_meeting_link), '') end,
+    attachments      = coalesce(p_attachments, attachments),
+    interview_type   = case when p_interview_type is null then interview_type else nullif(trim(p_interview_type), '') end,
+    duration_minutes = case when p_duration is null then duration_minutes else greatest(5, least(480, p_duration)) end,
+    company          = case when p_company is null then company else nullif(trim(p_company), '') end,
+    level            = case when p_level is null then level else nullif(trim(p_level), '') end,
+    format           = case when p_format is null then format else nullif(trim(p_format), '') end,
+    focus_areas      = coalesce(p_focus_areas, focus_areas),
+    caller_notes     = case when p_caller_notes is null then caller_notes else nullif(trim(p_caller_notes), '') end,
+    interviewer_name = case when p_interviewer_name is null then interviewer_name else nullif(trim(p_interviewer_name), '') end,
+    last_edited_at   = now(),
+    last_edited_by   = auth.uid()
+  where id = p_interview_id;
+
+  select coalesce(nullif(full_name, ''), email, 'A candidate') into who
+  from public.profiles where id = auth.uid();
+
+  insert into public.notifications (user_id, title, detail, type)
+  select p.id, 'Interview details edited',
+    who || ' updated the details for "' || (select role from public.interview_requests where id = p_interview_id) || '".',
+    'info'
+  from public.profiles p where p.role = 'admin';
+end;
+$$;
+
+grant execute on function public.edit_my_interview(uuid, text, text, text, jsonb, text, integer, text, text, text, text[], text, text) to authenticated;

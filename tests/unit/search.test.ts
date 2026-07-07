@@ -5,10 +5,11 @@ import type { InterviewRequest } from "@/lib/types";
 
 const base: Pick<
   InterviewRequest,
-  "role" | "company" | "interview_type" | "level" | "notes" | "caller_notes" | "goals" | "focus_areas"
+  "role" | "company" | "interviewer_name" | "interview_type" | "level" | "notes" | "caller_notes" | "goals" | "focus_areas"
 > = {
   role: "Senior Node.js Developer",
   company: null,
+  interviewer_name: null,
   interview_type: "Technical",
   level: "Senior",
   notes: null,
@@ -44,6 +45,11 @@ describe("interviewHaystack", () => {
   it("finds a company mentioned only in the notes (smart search)", () => {
     const hay = interviewHaystack({ ...base, notes: "Interviewing at Acme next week" });
     expect(matchesSearch(hay, "acme")).toBe(true);
+  });
+
+  it("finds a row by the interviewer's name", () => {
+    const hay = interviewHaystack({ ...base, interviewer_name: "Jordan Lee" });
+    expect(matchesSearch(hay, "jordan")).toBe(true);
   });
 
   it("finds a company mentioned only in caller notes, goals, or focus areas", () => {

@@ -94,6 +94,9 @@ export interface InterviewRequest {
   role: string;
   company?: string | null;
   interviewer_id: string | null;
+  /** Free-text name of the interviewer, candidate-editable (separate from the
+   *  admin-assigned interviewer_id). */
+  interviewer_name?: string | null;
   interview_type?: string | null;
   level?: string | null;
   focus_areas?: string[] | null;

@@ -339,6 +339,11 @@ export function ScheduleCalendar({
                 <span className="text-white/40">Company:</span> {detail.company}
               </p>
             ) : null}
+            {detail.interviewer_name ? (
+              <p className="text-white/75">
+                <span className="text-white/40">Interviewer:</span> {detail.interviewer_name}
+              </p>
+            ) : null}
             <p className="flex items-center gap-2 text-white/75">
               <Clock className="h-4 w-4 text-white/40" />
               {detail.scheduled_at

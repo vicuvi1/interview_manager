@@ -77,6 +77,7 @@ export function InterviewRequestForm({
   // Interview
   const [role, setRole] = useState("");
   const [company, setCompany] = useState("");
+  const [interviewerName, setInterviewerName] = useState("");
   const [interviewType, setInterviewType] = useState(INTERVIEW_TYPES[0]);
   const [level, setLevel] = useState("Not sure");
   const [focus, setFocus] = useState("");
@@ -195,6 +196,7 @@ export function InterviewRequestForm({
     if (req("cv") && !resumePath && !resumeUrl.trim()) missing.push("Résumé / CV");
     if (req("role") && role.trim().length < 2) missing.push("Role / topic");
     if (req("company") && !company.trim()) missing.push("Company name");
+    if (req("interviewer_name") && !interviewerName.trim()) missing.push("Interviewer name");
     if (req("focus") && !focus.trim()) missing.push("Focus areas / skills");
     if (req("job_desc") && !jobDescUrl.trim() && !jobDescPath) missing.push("Job description");
     if (req("caller_notes") && !callerNotes.trim()) missing.push("Notes for the caller");
@@ -230,6 +232,7 @@ export function InterviewRequestForm({
         candidate_id: userId,
         role: role.trim() || interviewType,
         company: company.trim() || null,
+        interviewer_name: interviewerName.trim() || null,
         interview_type: interviewType,
         level,
         focus_areas: focusAreas.length ? focusAreas : null,
@@ -307,10 +310,19 @@ export function InterviewRequestForm({
               <Input id="ir-role" placeholder="e.g. Senior Frontend Engineer" value={role} onChange={(e) => setRole(e.target.value)} />
             </Field>
           ) : null}
-          {lvl("company") !== "hidden" ? (
-            <Field label={`Company name${levelSuffix(lvl("company"))}`} htmlFor="ir-company" hint="Who the interview is with.">
-              <Input id="ir-company" placeholder="e.g. Acme Corp" value={company} onChange={(e) => setCompany(e.target.value)} />
-            </Field>
+          {lvl("company") !== "hidden" || lvl("interviewer_name") !== "hidden" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {lvl("company") !== "hidden" ? (
+                <Field label={`Company name${levelSuffix(lvl("company"))}`} htmlFor="ir-company" hint="Who the interview is with.">
+                  <Input id="ir-company" placeholder="e.g. Acme Corp" value={company} onChange={(e) => setCompany(e.target.value)} />
+                </Field>
+              ) : null}
+              {lvl("interviewer_name") !== "hidden" ? (
+                <Field label={`Interviewer name${levelSuffix(lvl("interviewer_name"))}`} htmlFor="ir-interviewer" hint="Who will run it, if you know.">
+                  <Input id="ir-interviewer" placeholder="e.g. Jordan Lee" value={interviewerName} onChange={(e) => setInterviewerName(e.target.value)} />
+                </Field>
+              ) : null}
+            </div>
           ) : null}
           {lvl("interview_type") !== "hidden" || lvl("level") !== "hidden" ? (
             <div className="grid gap-3 sm:grid-cols-2">

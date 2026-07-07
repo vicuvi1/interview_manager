@@ -99,6 +99,7 @@ export function ManageRequestDialog({
   // allows it), stamps last_edited_*, and notifies the candidate.
   const [editRole, setEditRole] = useState(request.role);
   const [editCompany, setEditCompany] = useState(request.company ?? "");
+  const [editInterviewerName, setEditInterviewerName] = useState(request.interviewer_name ?? "");
   const [editNotes, setEditNotes] = useState(request.notes ?? "");
   const [editLink, setEditLink] = useState(request.meeting_link ?? "");
   const [savingDetails, setSavingDetails] = useState(false);
@@ -322,6 +323,7 @@ export function ManageRequestDialog({
       .update({
         role: editRole.trim(),
         company: editCompany.trim() || null,
+        interviewer_name: editInterviewerName.trim() || null,
         notes: editNotes.trim() || null,
         meeting_link: editLink.trim() || null,
         last_edited_at: new Date().toISOString(),
@@ -683,6 +685,12 @@ export function ManageRequestDialog({
               <dd className="text-white/80">{request.company}</dd>
             </div>
           ) : null}
+          {request.interviewer_name ? (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Interviewer</dt>
+              <dd className="text-white/80">{request.interviewer_name}</dd>
+            </div>
+          ) : null}
           {request.interview_type ? (
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-white/40">Type</dt>
@@ -813,9 +821,14 @@ export function ManageRequestDialog({
           <Field label="Role / topic" htmlFor="ed-role">
             <Input id="ed-role" value={editRole} onChange={(e) => setEditRole(e.target.value)} />
           </Field>
-          <Field label="Company" htmlFor="ed-company" hint="Who the interview is with.">
-            <Input id="ed-company" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} placeholder="e.g. Acme Corp" />
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Company" htmlFor="ed-company" hint="Who the interview is with.">
+              <Input id="ed-company" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} placeholder="e.g. Acme Corp" />
+            </Field>
+            <Field label="Interviewer name" htmlFor="ed-interviewer" hint="Optional.">
+              <Input id="ed-interviewer" value={editInterviewerName} onChange={(e) => setEditInterviewerName(e.target.value)} placeholder="e.g. Jordan Lee" />
+            </Field>
+          </div>
           <Field label="Notes" htmlFor="ed-notes" hint="Shared with the candidate.">
             <Textarea id="ed-notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional" />
           </Field>

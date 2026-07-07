@@ -25,7 +25,7 @@ export function matchesSearch(haystack: string, query: string): boolean {
 export function interviewHaystack(
   r: Pick<
     InterviewRequest,
-    "role" | "company" | "interview_type" | "level" | "notes" | "caller_notes" | "goals" | "focus_areas"
+    "role" | "company" | "interviewer_name" | "interview_type" | "level" | "notes" | "caller_notes" | "goals" | "focus_areas"
   >,
   candidateName?: string | null,
   candidateEmail?: string | null,
@@ -35,6 +35,7 @@ export function interviewHaystack(
     candidateEmail,
     r.role,
     r.company,
+    r.interviewer_name,
     r.interview_type,
     r.level,
     r.notes,
