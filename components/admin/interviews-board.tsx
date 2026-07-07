@@ -14,15 +14,18 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
+import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { cn, formatMoney } from "@/lib/utils";
 import type { CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
 
-type Filter = "all" | "upcoming" | "completed" | "unpaid";
+type Filter = "all" | "upcoming" | "today" | "needs" | "completed" | "unpaid";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "upcoming", label: "Upcoming" },
+  { key: "today", label: "Today" },
+  { key: "needs", label: "Needs scheduling" },
   { key: "completed", label: "Completed" },
   { key: "unpaid", label: "Unpaid" },
 ];
@@ -52,6 +55,8 @@ export function InterviewsBoard({
   const [history, setHistory] = useState<Record<string, { id: string; summary: string; created_at: string }[]>>({});
   const [manage, setManage] = useState<InterviewRequest | null>(null);
   const [sending, setSending] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const candidates = useMemo(() => {
     const map: Record<string, CandidateLite> = {};
@@ -88,10 +93,13 @@ export function InterviewsBoard({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const todayKey = todayKeyInTimeZone(adminTimezone);
     const matches = requests.filter((r) => {
       if (filter === "upcoming" && isPast(r)) return false;
       if (filter === "completed" && r.status !== "completed") return false;
       if (filter === "unpaid" && !(r.payment_status !== "paid" && (r.price_cents ?? 0) > 0)) return false;
+      if (filter === "today" && !(r.status === "scheduled" && r.scheduled_at && dateKeyInTimeZone(r.scheduled_at, adminTimezone) === todayKey)) return false;
+      if (filter === "needs" && !((r.status === "pending" || r.status === "approved") && !r.scheduled_at)) return false;
       if (!q) return true;
       const cand = candidates[r.candidate_id];
       return (
@@ -107,7 +115,7 @@ export function InterviewsBoard({
       .filter((r) => isPast(r))
       .sort((a, b) => new Date(effTime(b) ?? 0).getTime() - new Date(effTime(a) ?? 0).getTime());
     return { upcoming, past };
-  }, [requests, filter, query, candidates]);
+  }, [requests, filter, query, candidates, adminTimezone]);
 
   async function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -129,7 +137,8 @@ export function InterviewsBoard({
     }
   }
 
-  async function sendDetails(r: InterviewRequest) {
+  // Core send used by both the single-row button and the bulk action.
+  async function sendOne(r: InterviewRequest): Promise<string | null> {
     const tz = candidates[r.candidate_id]?.timezone ?? adminTimezone;
     const whenTxt = r.scheduled_at
       ? formatInTimeZone(r.scheduled_at, tz)
@@ -138,21 +147,79 @@ export function InterviewsBoard({
         : "TBD";
     const parts = [`Your interview for "${r.role}" is on ${whenTxt}.`];
     if (r.meeting_link) parts.push(`Join: ${r.meeting_link}`);
-    setSending(r.id);
     const supabase = createClient();
     const { error } = await supabase
       .from("notifications")
       .insert({ user_id: r.candidate_id, title: "Meeting details", detail: parts.join(" "), type: "info" });
-    if (error) {
-      setSending(null);
-      toast({ title: "Couldn't send", description: error.message, variant: "error" });
-      return;
-    }
+    if (error) return error.message;
     // Record the send so the row can show "details sent … ago".
     await supabase.from("interview_requests").update({ details_sent_at: new Date().toISOString() }).eq("id", r.id);
+    return null;
+  }
+
+  async function sendDetails(r: InterviewRequest) {
+    setSending(r.id);
+    const err = await sendOne(r);
     setSending(null);
+    if (err) {
+      toast({ title: "Couldn't send", description: err, variant: "error" });
+      return;
+    }
     toast({ title: "Details sent to candidate", description: "Also forwarded by Telegram / email.", variant: "success" });
     notifyChanged("interviews");
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function bulkSend() {
+    const byId = new Map(requests.map((r) => [r.id, r]));
+    const targets = Array.from(selected).map((id) => byId.get(id)).filter(Boolean) as InterviewRequest[];
+    setBulkBusy(true);
+    let ok = 0;
+    for (const r of targets) {
+      if (!(await sendOne(r))) ok += 1;
+    }
+    setBulkBusy(false);
+    setSelected(new Set());
+    notifyChanged("interviews");
+    toast({ title: `Details sent to ${ok} candidate${ok === 1 ? "" : "s"}`, variant: "success" });
+  }
+
+  async function bulkMarkPaid() {
+    const byId = new Map(requests.map((r) => [r.id, r]));
+    const targets = Array.from(selected).map((id) => byId.get(id)).filter(Boolean) as InterviewRequest[];
+    const ids = targets.map((r) => r.id);
+    setBulkBusy(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("interview_requests")
+      .update({ payment_status: "paid", paid_at: new Date().toISOString() })
+      .in("id", ids);
+    if (!error) {
+      await supabase.from("notifications").insert(
+        targets.map((r) => ({
+          user_id: r.candidate_id,
+          title: "Payment confirmed",
+          detail: `Your payment for "${r.role}" is confirmed. Thank you!`,
+          type: "success",
+        })),
+      );
+    }
+    setBulkBusy(false);
+    setSelected(new Set());
+    if (error) {
+      toast({ title: "Couldn't mark paid", description: error.message, variant: "error" });
+      return;
+    }
+    notifyChanged("interviews");
+    toast({ title: `Marked ${ids.length} paid`, variant: "success" });
   }
 
   async function viewResume(r: InterviewRequest) {
@@ -184,6 +251,13 @@ export function InterviewsBoard({
     return (
       <div key={r.id} className="border-b border-white/[0.06] last:border-b-0">
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
+          <input
+            type="checkbox"
+            checked={selected.has(r.id)}
+            onChange={() => toggleSelect(r.id)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+            aria-label={`Select ${r.role}`}
+          />
           <span
             className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
             style={{ backgroundColor: r.color ?? "rgba(255,255,255,0.18)" }}
@@ -386,6 +460,27 @@ export function InterviewsBoard({
             />
           </div>
         </div>
+
+        {selected.size > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-[#6366f1]/[0.06] px-3 py-2.5 sm:px-4">
+            <span className="text-[13px] font-medium text-[#c7d2fe]">{selected.size} selected</span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button size="sm" variant="secondary" loading={bulkBusy} disabled={bulkBusy} onClick={bulkSend}>
+                <Send className="h-3.5 w-3.5" /> Send details
+              </Button>
+              <Button size="sm" variant="secondary" loading={bulkBusy} disabled={bulkBusy} onClick={bulkMarkPaid}>
+                Mark paid
+              </Button>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                className="rounded-md px-2 py-1 text-[12px] text-white/50 hover:bg-white/[0.06] hover:text-white/80"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {!hasAny ? (
           <div className="p-6">
