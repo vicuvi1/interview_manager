@@ -279,12 +279,12 @@ export function InterviewsBoard({
               <span className="text-white/30">· {r.duration_minutes} min</span>
             </p>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <div className="flex items-center gap-1.5">
+          <div className="flex w-full flex-col items-start gap-1.5 sm:w-auto sm:items-end">
+            <div className="flex flex-wrap items-center gap-1.5">
               <StatusBadge status={r.status} />
               {paymentBadge(r)}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
               {r.meeting_link ? (
                 <>
                   <a href={r.meeting_link} target="_blank" rel="noreferrer">
@@ -435,7 +435,7 @@ export function InterviewsBoard({
 
       <Card className="animate-fade-in overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] p-3 sm:p-4">
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {FILTERS.map((f) => (
               <button
                 key={f.key}
