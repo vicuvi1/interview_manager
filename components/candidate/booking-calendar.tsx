@@ -135,16 +135,25 @@ export function BookingCalendar({
     if (!detail || !editWhen) return;
     setSavingEdit(true);
     const supabase = createClient();
-    const { error } = await supabase.rpc("propose_reschedule", {
-      p_interview_id: detail.id,
-      p_at: wallTimeToUtcISO(editWhen, timezone),
-    });
+    const iso = wallTimeToUtcISO(editWhen, timezone);
+    // Instant rebook if the new time is an open slot; else propose to the admin.
+    const { data: booked } = await supabase.rpc("reschedule_to_open_slot", { p_interview_id: detail.id, p_at: iso });
+    if (booked === true) {
+      setSavingEdit(false);
+      toast({ title: "Rescheduled", description: "Your new time is confirmed.", variant: "success" });
+      setDetail(null);
+      setEditWhen("");
+      const rr = rangeRef.current;
+      if (rr) load(rr.start, rr.end);
+      return;
+    }
+    const { error } = await supabase.rpc("propose_reschedule", { p_interview_id: detail.id, p_at: iso });
     setSavingEdit(false);
     if (error) {
       toast({ title: "Couldn't send", description: error.message, variant: "error" });
       return;
     }
-    toast({ title: "New time sent to the admin", description: "They'll review and confirm it.", variant: "success" });
+    toast({ title: "New time sent to the admin", description: "That time isn't open — they'll review and confirm it.", variant: "success" });
     setDetail(null);
     setEditWhen("");
     const r = rangeRef.current;
