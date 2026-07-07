@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarClock, Check, ExternalLink, FileText, RotateCcw, Send, Trash2, Wand2 } from "lucide-react";
+import { CalendarClock, Check, CheckCircle2, Clock, ExternalLink, FileText, RotateCcw, Send, Trash2, Wand2 } from "lucide-react";
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -671,9 +671,17 @@ export function ManageRequestDialog({
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Preferred</dt>
             <dd className="text-white/80">{formatInTimeZone(request.preferred_at, candTz)}</dd>
           </div>
+          {request.scheduled_at ? (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-white/40">Scheduled</dt>
+              <dd className="text-white/80">{formatInTimeZone(request.scheduled_at, adminTimezone)}</dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Duration</dt>
-            <dd className="text-white/80">{request.duration_minutes} min</dd>
+            <dd className="text-white/80">
+              {request.duration_minutes} min{request.actual_minutes ? ` · lasted ${request.actual_minutes} min` : ""}
+            </dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Candidate timezone</dt>
@@ -805,6 +813,48 @@ export function ManageRequestDialog({
             </div>
           ) : null}
         </dl>
+
+        {/* Persistent read-back of the completed meeting — the link, when it
+            happened, how long it lasted, and the notes — so the admin can see
+            what was sent to the candidate long after completing it. */}
+        {request.status === "completed" ? (
+          <div className="space-y-2.5 rounded-lg border border-[#10b981]/25 bg-[#10b981]/[0.06] p-3.5 text-[13px]">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[#6ee7b7]">
+              <CheckCircle2 className="h-4 w-4" /> Meeting summary
+            </p>
+            {request.scheduled_at ? (
+              <p className="flex items-center gap-2 text-white/75">
+                <CalendarClock className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                {formatInTimeZone(request.scheduled_at, adminTimezone)}
+              </p>
+            ) : null}
+            <p className="flex items-center gap-2 text-white/75">
+              <Clock className="h-3.5 w-3.5 shrink-0 text-white/40" />
+              Lasted {request.actual_minutes ?? request.duration_minutes} min
+            </p>
+            {request.recording_url || request.meeting_link ? (
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={request.recording_url || request.meeting_link || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-w-0 items-center gap-1.5 text-[#a5b4fc] hover:text-[#c7d2fe]"
+                  title={request.recording_url || request.meeting_link || undefined}
+                >
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{request.recording_url || request.meeting_link}</span>
+                </a>
+                <CopyButton value={request.recording_url || request.meeting_link || undefined} title="Copy link" />
+              </div>
+            ) : null}
+            {request.completion_notes ? (
+              <p className="whitespace-pre-wrap text-white/75">{request.completion_notes}</p>
+            ) : null}
+            {request.completed_at ? (
+              <p className="text-[11px] text-white/35">Completed {relativeTime(request.completed_at)}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="space-y-3 rounded-lg border border-white/[0.08] bg-white/[0.02] p-3.5">
           <div className="flex items-center justify-between gap-2">
