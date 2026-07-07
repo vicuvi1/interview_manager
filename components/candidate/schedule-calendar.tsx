@@ -8,11 +8,12 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import type { EventInput } from "@fullcalendar/core";
-import { CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil } from "lucide-react";
+import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil } from "lucide-react";
 
 import { CalendarSettings } from "@/components/calendar-settings";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { EditDetailsDialog } from "@/components/candidate/edit-details-dialog";
+import { RescheduleDialog } from "@/components/candidate/reschedule-dialog";
 import { useCalendarHeight } from "@/lib/use-calendar-height";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -62,6 +63,7 @@ export function ScheduleCalendar({
   const [rows, setRows] = useState<InterviewRequest[]>(initial);
   const [detail, setDetail] = useState<InterviewRequest | null>(null);
   const [editing, setEditing] = useState<InterviewRequest | null>(null);
+  const [reschedule, setReschedule] = useState<InterviewRequest | null>(null);
   const [prefs, setPrefs] = useState<CalendarPrefs>(DEFAULT_PREFS);
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
 
@@ -349,25 +351,49 @@ export function ScheduleCalendar({
                 <p className="whitespace-pre-wrap text-white/75">{detail.notes}</p>
               </div>
             ) : null}
-            {["pending", "approved", "scheduled"].includes(detail.status) ? (
-              <div className="flex justify-end border-t border-white/[0.06] pt-3">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setEditing(detail);
-                    setDetail(null);
-                  }}
-                >
-                  <Pencil className="h-4 w-4" /> Edit details
-                </Button>
-              </div>
-            ) : null}
+            {(() => {
+              // Rejected is included: a declined interview can be re-worked
+              // (edit the details, propose a new time) rather than re-booked.
+              const canEdit = ["pending", "approved", "scheduled", "rejected"].includes(detail.status);
+              const canReschedule = ["approved", "scheduled", "rejected"].includes(detail.status);
+              if (!canEdit && !canReschedule) return null;
+              return (
+                <div className="flex flex-wrap justify-end gap-2 border-t border-white/[0.06] pt-3">
+                  {canReschedule ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setReschedule(detail);
+                        setDetail(null);
+                      }}
+                    >
+                      <CalendarClock className="h-4 w-4" /> Reschedule
+                    </Button>
+                  ) : null}
+                  {canEdit ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setEditing(detail);
+                        setDetail(null);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" /> Edit details
+                    </Button>
+                  ) : null}
+                </div>
+              );
+            })()}
           </div>
         </Dialog>
       ) : null}
       {editing ? (
         <EditDetailsDialog request={editing} userId={userId} onClose={() => setEditing(null)} />
+      ) : null}
+      {reschedule ? (
+        <RescheduleDialog request={reschedule} timezone={timezone} onClose={() => setReschedule(null)} />
       ) : null}
     </div>
   );

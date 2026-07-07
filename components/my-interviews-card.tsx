@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, CalendarRange, Clock, ExternalLink, Inbox, ListChecks, MessageSquareText, Star } from "lucide-react";
 
 import { CalendarInvite } from "@/components/calendar-invite";
+import { RescheduleDialog } from "@/components/candidate/reschedule-dialog";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -13,17 +14,17 @@ import { SectionCard } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
-import { formatInTimeZone, relativeTime, utcToLocalInput, wallTimeToUtcISO } from "@/lib/time";
+import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { InterviewFeedback, InterviewRequest } from "@/lib/types";
 
 const CANCELLABLE = new Set(["pending", "approved", "scheduled"]);
-const RESCHEDULABLE = new Set(["approved", "scheduled"]);
+// Rejected is included so a candidate can propose a workable new time on a
+// declined request instead of starting a fresh booking.
+const RESCHEDULABLE = new Set(["approved", "scheduled", "rejected"]);
 // Once the admin accepts (approved/scheduled) or it's done, the candidate can pay —
 // no invoice needed; they pay by crypto and report the amount.
 const PAYABLE = new Set(["approved", "scheduled", "completed"]);
@@ -339,77 +340,5 @@ export function MyInterviewsCard({
         </Dialog>
       ) : null}
     </>
-  );
-}
-
-function RescheduleDialog({
-  request,
-  timezone,
-  onClose,
-}: {
-  request: InterviewRequest;
-  timezone: string;
-  onClose: () => void;
-}) {
-  const { toast } = useToast();
-  const [when, setWhen] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    if (!when) return setError("Pick a new date & time.");
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-    const iso = wallTimeToUtcISO(when, timezone);
-    // If the new time is genuinely inside published availability, rebook it
-    // instantly; otherwise fall back to a proposal the admin confirms.
-    const { data: booked } = await supabase.rpc("reschedule_to_open_slot", { p_interview_id: request.id, p_at: iso });
-    if (booked === true) {
-      setBusy(false);
-      toast({ title: "Rescheduled", description: "Your new time is confirmed — it's on your calendar.", variant: "success" });
-      notifyChanged("interviews");
-      onClose();
-      return;
-    }
-    const { error: rpcError } = await supabase.rpc("propose_reschedule", { p_interview_id: request.id, p_at: iso });
-    setBusy(false);
-    if (rpcError) {
-      setError(rpcError.message);
-      return;
-    }
-    toast({ title: "New time proposed", description: "That time isn't open — we've sent it to the admin to confirm.", variant: "success" });
-    notifyChanged("interviews");
-    onClose();
-  }
-
-  return (
-    <Dialog open onClose={onClose} title="Reschedule" description={request.role}>
-      <div className="space-y-4">
-        <div className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[13px]">
-          <p className="text-white/45">Currently scheduled</p>
-          <p className="mt-0.5 font-medium text-[#f0f0f5]">
-            {formatInTimeZone(request.scheduled_at ?? request.preferred_at, timezone)}
-          </p>
-        </div>
-        <Field
-          label="New time"
-          htmlFor="resched-when"
-          hint={`Times in ${timezone}. If it's an open slot you're rebooked instantly; otherwise the admin confirms.`}
-        >
-          <Input
-            id="resched-when"
-            type="datetime-local"
-            min={utcToLocalInput(new Date().toISOString(), timezone)}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-          />
-        </Field>
-        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
-        <Button className="w-full" loading={busy} disabled={busy || !when} onClick={submit}>
-          <CalendarClock className="h-4 w-4" /> Reschedule
-        </Button>
-      </div>
-    </Dialog>
   );
 }
