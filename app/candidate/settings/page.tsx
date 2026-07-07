@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { CalendarSubscribeCard } from "@/components/candidate/calendar-subscribe-card";
 import { ProfileMaterialsForm } from "@/components/candidate/profile-materials-form";
 import { ResumeLibraryCard } from "@/components/candidate/resume-library-card";
 import { GoogleCalendarCard } from "@/components/admin/google-calendar-card";
@@ -66,6 +67,7 @@ export default async function CandidateSettingsPage() {
           initialEnabled={profile?.notify_email_enabled ?? true}
           initialCustomEmail={profile?.notify_email ?? null}
         />
+        <CalendarSubscribeCard />
         <GoogleCalendarCard variant="candidate" />
         <TelegramCard variant="candidate" />
       </div>

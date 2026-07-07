@@ -64,6 +64,35 @@ export function icsContent({ title, startISO, durationMin, details, location }: 
   return lines.join("\r\n");
 }
 
+/** A full .ics calendar body containing many events (for a subscription feed). */
+export function icsFeed(events: InviteInput[], calName = "Interviews"): string {
+  const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+  const head = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Interview Manager//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    `X-WR-CALNAME:${esc(calName)}`,
+  ];
+  const body = events.flatMap((e) => {
+    const { start, end } = bounds(e.startISO, e.durationMin);
+    const uid = `${stampUTC(start)}-${Math.abs(hashCode(e.title))}@interview-manager`;
+    return [
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${stampUTC(start)}`,
+      `DTSTART:${stampUTC(start)}`,
+      `DTEND:${stampUTC(end)}`,
+      `SUMMARY:${esc(e.title)}`,
+      e.details ? `DESCRIPTION:${esc(e.details)}` : "",
+      e.location ? `LOCATION:${esc(e.location)}` : "",
+      "END:VEVENT",
+    ].filter(Boolean);
+  });
+  return [...head, ...body, "END:VCALENDAR"].join("\r\n");
+}
+
 /** Trigger a browser download of an .ics file for the given invite. */
 export function downloadIcs(input: InviteInput, filename = "interview.ics"): void {
   const blob = new Blob([icsContent(input)], { type: "text/calendar;charset=utf-8" });
