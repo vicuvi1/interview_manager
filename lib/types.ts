@@ -101,6 +101,15 @@ export interface InterviewRequest {
   caller_notes?: string | null;
   job_desc_url?: string | null;
   job_desc_path?: string | null;
+  // Snapshot of the candidate's materials as submitted for THIS interview.
+  resume_path?: string | null;
+  resume_url?: string | null;
+  portfolio_url?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  applicant_phone?: string | null;
+  // When the admin last sent the meeting link + time to the candidate.
+  details_sent_at?: string | null;
   preferred_at: string | null;
   scheduled_at: string | null;
   proposed_at?: string | null;

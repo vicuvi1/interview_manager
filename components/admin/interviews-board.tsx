@@ -143,13 +143,31 @@ export function InterviewsBoard({
     const { error } = await supabase
       .from("notifications")
       .insert({ user_id: r.candidate_id, title: "Meeting details", detail: parts.join(" "), type: "info" });
-    setSending(null);
     if (error) {
+      setSending(null);
       toast({ title: "Couldn't send", description: error.message, variant: "error" });
       return;
     }
+    // Record the send so the row can show "details sent … ago".
+    await supabase.from("interview_requests").update({ details_sent_at: new Date().toISOString() }).eq("id", r.id);
+    setSending(null);
     toast({ title: "Details sent to candidate", description: "Also forwarded by Telegram / email.", variant: "success" });
     notifyChanged("interviews");
+  }
+
+  async function viewResume(r: InterviewRequest) {
+    if (r.resume_url) {
+      window.open(r.resume_url, "_blank", "noopener");
+      return;
+    }
+    if (!r.resume_path) return;
+    const supabase = createClient();
+    const { data, error } = await supabase.storage.from("resumes").createSignedUrl(r.resume_path, 60);
+    if (error || !data) {
+      toast({ title: "Couldn't open résumé", description: error?.message, variant: "error" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener");
   }
 
   const paymentBadge = (r: InterviewRequest) => {
@@ -216,6 +234,11 @@ export function InterviewsBoard({
               <Button size="sm" variant="secondary" className="h-7 px-2 text-[12px]" onClick={() => setManage(r)}>
                 <Settings2 className="h-3.5 w-3.5" /> Manage
               </Button>
+              {r.details_sent_at ? (
+                <span className="text-[11px] text-white/35" title={`Meeting details sent ${relativeTime(r.details_sent_at)}`}>
+                  sent {relativeTime(r.details_sent_at)}
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => toggleExpand(r.id)}
@@ -254,6 +277,42 @@ export function InterviewsBoard({
               <div className="text-[12.5px]">
                 <span className="text-[11px] uppercase tracking-wide text-white/40">Notes</span>
                 <p className="whitespace-pre-wrap text-white/70">{r.notes}</p>
+              </div>
+            ) : null}
+            {r.resume_path || r.resume_url || r.portfolio_url || r.linkedin_url || r.github_url || r.applicant_phone ? (
+              <div>
+                <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                  <FileText className="h-3.5 w-3.5" /> Submitted materials
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                  {r.resume_path || r.resume_url ? (
+                    <button
+                      type="button"
+                      onClick={() => viewResume(r)}
+                      className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[#a5b4fc] hover:bg-white/[0.08]"
+                    >
+                      Résumé <ExternalLink className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                  {r.portfolio_url ? (
+                    <a href={r.portfolio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[#a5b4fc] hover:bg-white/[0.08]">
+                      Portfolio <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {r.linkedin_url ? (
+                    <a href={r.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[#a5b4fc] hover:bg-white/[0.08]">
+                      LinkedIn <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {r.github_url ? (
+                    <a href={r.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[#a5b4fc] hover:bg-white/[0.08]">
+                      GitHub <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {r.applicant_phone ? (
+                    <span className="rounded-md bg-white/[0.05] px-2 py-1 text-white/60">☎ {r.applicant_phone}</span>
+                  ) : null}
+                </div>
               </div>
             ) : null}
             <div>

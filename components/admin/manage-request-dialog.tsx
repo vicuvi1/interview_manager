@@ -840,26 +840,39 @@ export function ManageRequestDialog({
           </Button>
         </div>
 
-        <div className="space-y-2 border-t border-white/[0.06] pt-4">
-          <p className="text-[13px] font-medium text-white/80">History</p>
-          {lastReminder ? (
-            <p className="text-[12px] text-[#6ee7b7]">✓ Reminder sent {relativeTime(lastReminder)}</p>
-          ) : null}
-          {history.length ? (
-            <ul className="space-y-1.5">
+        <div className="space-y-2.5 border-t border-white/[0.06] pt-4">
+          <p className="text-[13px] font-medium text-white/80">Activity timeline</p>
+          {history.length || lastReminder || request.details_sent_at ? (
+            <div className="relative ml-1 space-y-3 border-l border-white/10 pl-4">
+              {request.details_sent_at ? (
+                <div className="relative">
+                  <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-[#6ee7b7] ring-2 ring-[#13131a]" />
+                  <p className="text-[12px] text-white/70">Meeting details sent to candidate</p>
+                  <p className="text-[11px] text-white/35">{relativeTime(request.details_sent_at)}</p>
+                </div>
+              ) : null}
+              {lastReminder ? (
+                <div className="relative">
+                  <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-[#6ee7b7] ring-2 ring-[#13131a]" />
+                  <p className="text-[12px] text-white/70">Reminder sent</p>
+                  <p className="text-[11px] text-white/35">{relativeTime(lastReminder)}</p>
+                </div>
+              ) : null}
               {history.map((h) => (
-                <li key={h.id} className="flex items-start gap-2 text-[12px]">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-white/25" />
-                  <span className="min-w-0 flex-1">
-                    <span className="break-words text-white/70">{h.summary}</span>
-                    <span className="ml-1.5 whitespace-nowrap text-white/30">{relativeTime(h.created_at)}</span>
-                  </span>
-                  {/^Meeting link set: /.test(h.summary) ? (
-                    <CopyButton value={h.summary.replace(/^Meeting link set: /, "")} title="Copy link" className="h-6 w-6" />
-                  ) : null}
-                </li>
+                <div key={h.id} className="relative">
+                  <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-[#6366f1] ring-2 ring-[#13131a]" />
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-[12px] text-white/70">{h.summary}</p>
+                      <p className="text-[11px] text-white/35">{relativeTime(h.created_at)}</p>
+                    </div>
+                    {/^Meeting link set: /.test(h.summary) ? (
+                      <CopyButton value={h.summary.replace(/^Meeting link set: /, "")} title="Copy link" className="h-6 w-6" />
+                    ) : null}
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
             <p className="text-[12px] text-white/40">No changes recorded yet.</p>
           )}

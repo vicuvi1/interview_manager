@@ -235,6 +235,13 @@ export function InterviewRequestForm({
         preferred_at: fixedStart ? fixedStart.iso : wallTimeToUtcISO(when, tz),
         job_desc_url: jobDescUrl.trim() || null,
         job_desc_path: jobDescPath,
+        // Snapshot the materials as submitted for this specific interview.
+        resume_path: resumePath,
+        resume_url: resumeUrl.trim() || null,
+        portfolio_url: portfolioUrl.trim() || null,
+        linkedin_url: linkedinUrl.trim() || null,
+        github_url: githubUrl.trim() || null,
+        applicant_phone: phone.trim() || null,
         caller_notes: callerNotes.trim() || null,
         notes: notes.trim() || null,
         meeting_link: meetingLink.trim() || null,

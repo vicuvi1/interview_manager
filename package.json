@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:push": "supabase db push",
+    "db:apply": "psql \"$DATABASE_URL\" -f apply_all_migrations.sql"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.21",
