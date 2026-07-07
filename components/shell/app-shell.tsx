@@ -61,6 +61,7 @@ const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
       { label: "Requests", href: "/admin/requests", icon: Inbox, badge: "pending", tone: "amber" },
+      { label: "Interviews", href: "/admin/interviews", icon: CalendarRange },
       { label: "Calendar", href: "/admin/calendar", icon: CalendarDays },
     ],
   },
