@@ -26,5 +26,20 @@ export default async function CandidateInterviewPage({ params }: { params: { id:
   const interview = data as InterviewRequest | null;
   if (!interview || interview.candidate_id !== user.id) notFound();
 
-  return <CandidateInterviewView interview={interview} timezone={timezone} />;
+  // Activity trail (RLS lets candidates read their own interview's audit rows,
+  // migration 0072). Empty until that migration is applied — degrades gracefully.
+  const { data: auditRows } = await supabase
+    .from("audit_log")
+    .select("id, summary, created_at")
+    .eq("entity_type", "interview")
+    .eq("entity_id", params.id)
+    .order("created_at", { ascending: true });
+
+  return (
+    <CandidateInterviewView
+      interview={interview}
+      timezone={timezone}
+      activity={(auditRows as { id: string; summary: string; created_at: string }[] | null) ?? []}
+    />
+  );
 }

@@ -1166,6 +1166,13 @@ export function ManageRequestDialog({
             <p className="-mt-1 text-[12px] text-white/40">
               Send the candidate the meeting link, how long it lasted, and any notes.
             </p>
+            {request.scheduled_at ? (
+              <p className="flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3 py-2 text-[12px] text-white/60">
+                <CalendarClock className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                Meeting time:{" "}
+                <span className="font-medium text-white/80">{formatInTimeZone(request.scheduled_at, adminTimezone)}</span>
+              </p>
+            ) : null}
             <Field label="Meeting link (URL only)" htmlFor="mr-recording">
               <Input
                 id="mr-recording"

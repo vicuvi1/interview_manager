@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { OnboardingChecklist } from "@/components/candidate/onboarding-checklist";
 import { WalletPayDialog } from "@/components/candidate/wallet-pay-dialog";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -58,6 +59,7 @@ export function CandidateDashboard({
   name,
   timezone,
   stage,
+  hasResume = false,
   initialInterviews,
   initialNotifications,
 }: {
@@ -65,6 +67,7 @@ export function CandidateDashboard({
   name: string;
   timezone: string;
   stage?: string | null;
+  hasResume?: boolean;
   initialInterviews: InterviewRequest[];
   initialNotifications: Notification[];
 }) {
@@ -193,6 +196,8 @@ export function CandidateDashboard({
           </div>
         </div>
       </Card>
+
+      <OnboardingChecklist hasResume={hasResume} hasInterview={rows.length > 0} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

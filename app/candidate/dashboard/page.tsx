@@ -44,6 +44,7 @@ export default async function CandidateDashboardPage() {
       name={name}
       timezone={timezone}
       stage={profile?.stage ?? null}
+      hasResume={Boolean(profile?.resume_url || profile?.resume_path)}
       initialInterviews={(interviewsResult.data as InterviewRequest[] | null) ?? []}
       initialNotifications={(notificationsResult.data as Notification[] | null) ?? []}
     />

@@ -10,8 +10,14 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { SectionCard } from "@/components/ui/card";
 import { FORMAT_LABEL } from "@/lib/interview";
 import { statusHint } from "@/lib/status";
-import { formatInTimeZone } from "@/lib/time";
+import { formatInTimeZone, relativeTime } from "@/lib/time";
 import type { InterviewRequest } from "@/lib/types";
+
+interface ActivityEntry {
+  id: string;
+  summary: string;
+  created_at: string;
+}
 
 /**
  * Read-only candidate view of a single interview: the time in their zone, the
@@ -21,9 +27,11 @@ import type { InterviewRequest } from "@/lib/types";
 export function CandidateInterviewView({
   interview: r,
   timezone,
+  activity = [],
 }: {
   interview: InterviewRequest;
   timezone: string;
+  activity?: ActivityEntry[];
 }) {
   const completed = r.status === "completed";
   const hasResults = completed && (r.actual_minutes || r.completion_notes || r.recording_url);
@@ -150,6 +158,21 @@ export function CandidateInterviewView({
               <p className="mt-2 text-[12px] text-white/40">
                 Passed this round? Request the next stage and propose a time — your interviewer will confirm it.
               </p>
+            </div>
+          ) : null}
+
+          {activity.length ? (
+            <div className="border-t border-white/[0.06] pt-4">
+              <p className="mb-2.5 text-[11px] uppercase tracking-wide text-white/40">Activity</p>
+              <ol className="relative ml-1 space-y-3 border-l border-white/10 pl-4">
+                {activity.map((a) => (
+                  <li key={a.id} className="relative">
+                    <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-[#6366f1] ring-2 ring-[#13131a]" />
+                    <p className="text-[12.5px] text-white/70">{a.summary}</p>
+                    <p className="text-[11px] text-white/35">{relativeTime(a.created_at)}</p>
+                  </li>
+                ))}
+              </ol>
             </div>
           ) : null}
         </div>
