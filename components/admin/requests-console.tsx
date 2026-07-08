@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Plus, Search, Slash, X } from "lucide-react";
 
 import { CandidatePeek } from "@/components/admin/candidate-peek";
+import { CopyButton } from "@/components/ui/copy-button";
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { ScheduleDialog } from "@/components/admin/schedule-dialog";
@@ -371,7 +372,7 @@ export function RequestsConsole({
                 {filtered.map((r) => (
                   <tr
                     key={r.id}
-                    className={cn("transition-colors hover:bg-white/[0.03]", selected.has(r.id) && "bg-[#6366f1]/[0.04]")}
+                    className={cn("group transition-colors hover:bg-white/[0.03]", selected.has(r.id) && "bg-[#6366f1]/[0.04]")}
                   >
                     <td className="px-5 py-3 sm:px-6">
                       <input
@@ -383,17 +384,24 @@ export function RequestsConsole({
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setPeek(r.candidate_id)}
-                        className="flex items-center gap-2.5 text-left hover:opacity-90"
-                        title="Quick view"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[10px] font-semibold text-white">
-                          {initials(candidates[r.candidate_id]?.full_name, candidates[r.candidate_id]?.email)}
-                        </span>
-                        <span className="truncate font-medium text-[#f0f0f5]">{candName(r.candidate_id)}</span>
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setPeek(r.candidate_id)}
+                          className="flex min-w-0 items-center gap-2.5 text-left hover:opacity-90"
+                          title="Quick view"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[10px] font-semibold text-white">
+                            {initials(candidates[r.candidate_id]?.full_name, candidates[r.candidate_id]?.email)}
+                          </span>
+                          <span className="truncate font-medium text-[#f0f0f5]">{candName(r.candidate_id)}</span>
+                        </button>
+                        <CopyButton
+                          value={candidates[r.candidate_id]?.email}
+                          title="Copy email"
+                          className="h-6 w-6 shrink-0 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">

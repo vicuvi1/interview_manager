@@ -5,6 +5,7 @@ import { ArrowUpDown, Search, Users } from "lucide-react";
 
 import { CandidatePeek } from "@/components/admin/candidate-peek";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -181,7 +182,8 @@ export function CandidatesList({
                 {filtered.map((r) => (
                   <tr key={r.profile.id} className="group transition-colors hover:bg-white/[0.03]">
                     <td className="px-5 py-3 sm:px-6">
-                      <button type="button" onClick={() => setPeek(r.profile.id)} className="flex items-center gap-2.5 text-left" title="Quick view">
+                      <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => setPeek(r.profile.id)} className="flex min-w-0 items-center gap-2.5 text-left" title="Quick view">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[11px] font-semibold text-white">
                           {initials(r.profile.full_name, r.profile.email)}
                         </span>
@@ -205,6 +207,12 @@ export function CandidatesList({
                           ) : null}
                         </div>
                       </button>
+                        <CopyButton
+                          value={r.profile.email}
+                          title="Copy email"
+                          className="h-6 w-6 shrink-0 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-3 tabular-nums text-white/80">
                       {r.interviews}

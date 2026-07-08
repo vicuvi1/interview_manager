@@ -272,7 +272,7 @@ export function InterviewsBoard({
     const t = effTime(r);
     const hasMinutes = r.status === "completed" && (r.actual_minutes || r.completion_notes || r.recording_url);
     return (
-      <div key={r.id} className="border-b border-white/[0.06] last:border-b-0">
+      <div key={r.id} className="group border-b border-white/[0.06] last:border-b-0">
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3 sm:px-5">
           <input
             type="checkbox"
@@ -291,10 +291,17 @@ export function InterviewsBoard({
               <span className="truncate font-medium text-[#f0f0f5]">{r.role}</span>
               {r.interview_type ? <Badge tone="slate">{r.interview_type}</Badge> : null}
             </div>
-            <p className="mt-0.5 truncate text-[12px] text-white/45">
-              {candName(r.candidate_id)}
-              <span className="text-white/30"> · {candidates[r.candidate_id]?.email}</span>
-            </p>
+            <div className="mt-0.5 flex items-center gap-1 text-[12px] text-white/45">
+              <span className="truncate">
+                {candName(r.candidate_id)}
+                <span className="text-white/30"> · {candidates[r.candidate_id]?.email}</span>
+              </span>
+              <CopyButton
+                value={candidates[r.candidate_id]?.email}
+                title="Copy email"
+                className="h-5 w-5 shrink-0 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+              />
+            </div>
             <p className="mt-1 flex items-center gap-1.5 text-[12px] text-white/60">
               <Clock className="h-3.5 w-3.5 text-white/35" />
               {t ? formatInTimeZone(t, adminTimezone) : "Not scheduled"}
