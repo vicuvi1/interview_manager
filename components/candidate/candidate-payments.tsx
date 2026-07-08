@@ -60,7 +60,9 @@ export function CandidatePayments({
 
   const { unpaid, dueCents } = useMemo(() => {
     const active = rows.filter((r) => isPayableStatus(r.status));
-    const unpaid = active.filter((r) => r.payment_status !== "paid");
+    // Only surface once the admin has sent an invoice (a price is set) — that's
+    // when there's actually an amount for the candidate to pay.
+    const unpaid = active.filter((r) => r.payment_status !== "paid" && (r.price_cents ?? 0) > 0);
     const dueCents = unpaid.reduce((sum, r) => sum + (r.price_cents ?? 0), 0);
     return { unpaid, dueCents };
   }, [rows]);

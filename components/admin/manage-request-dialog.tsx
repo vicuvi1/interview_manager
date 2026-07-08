@@ -26,7 +26,7 @@ import {
   utcToLocalInput,
   wallTimeToUtcISO,
 } from "@/lib/time";
-import { formatMoney } from "@/lib/utils";
+import { cn, formatMoney } from "@/lib/utils";
 import type { CandidateLite, InterviewRequest, InterviewStatus } from "@/lib/types";
 
 type ActionKind = "approve" | "reject" | "complete" | "cancel";
@@ -81,6 +81,8 @@ export function ManageRequestDialog({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Grouped into tabs so this dense dialog isn't one long scroll.
+  const [tab, setTab] = useState("overview");
 
   const [schedAt, setSchedAt] = useState(
     request.scheduled_at
@@ -654,6 +656,14 @@ export function ManageRequestDialog({
 
   const canSchedule = request.status === "approved" || request.status === "scheduled";
 
+  const TABS = [
+    { key: "overview", label: "Overview" },
+    ...(canSchedule ? [{ key: "schedule", label: "Schedule" }] : []),
+    { key: "payment", label: "Payment" },
+    { key: "notes", label: "Details & notes" },
+    { key: "actions", label: "Actions" },
+  ];
+
   return (
     <Dialog open onClose={onClose} title="Manage request" description={request.role}>
       <div className="space-y-4">
@@ -666,6 +676,27 @@ export function ManageRequestDialog({
             Schedule it to make an exception (it becomes a confirmed meeting), or reject to decline.
           </div>
         ) : null}
+
+        {/* Tabs — no more one long scroll. */}
+        <div className="flex gap-1 overflow-x-auto scrollbar-thin border-b border-white/[0.08]">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "-mb-px shrink-0 border-b-2 px-3 py-2 text-[13px] font-medium transition-colors",
+                tab === t.key ? "border-[#6366f1] text-[#f0f0f5]" : "border-transparent text-white/45 hover:text-white/75",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
+
+        {tab === "overview" ? (
+        <>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[13px]">
           <div className="col-span-2">
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Candidate</dt>
@@ -862,7 +893,11 @@ export function ManageRequestDialog({
             ) : null}
           </div>
         ) : null}
+        </>
+        ) : null}
 
+        {tab === "notes" ? (
+        <>
         <div className="space-y-3 rounded-lg border border-white/[0.08] bg-white/[0.02] p-3.5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[13px] font-medium text-[#f0f0f5]">Edit details</p>
@@ -959,7 +994,11 @@ export function ManageRequestDialog({
             <p className="text-[12px] text-white/40">No changes recorded yet.</p>
           )}
         </div>
+        </>
+        ) : null}
 
+        {tab === "overview" ? (
+        <>
         {request.status === "pending" && request.preferred_at ? (
           <div className="rounded-lg border border-[#6366f1]/25 bg-[#6366f1]/[0.08] p-3.5">
             <p className="text-[11px] uppercase tracking-wide text-white/40">Candidate requested</p>
@@ -985,8 +1024,10 @@ export function ManageRequestDialog({
             </div>
           </div>
         ) : null}
+        </>
+        ) : null}
 
-        {canSchedule ? (
+        {tab === "schedule" && canSchedule ? (
           <div className="space-y-3 border-t border-white/[0.06] pt-4">
             <p className="text-[13px] font-medium text-white/80">
               {request.status === "scheduled" ? "Reschedule" : "Schedule a time"}
@@ -1082,6 +1123,7 @@ export function ManageRequestDialog({
           </div>
         ) : null}
 
+        {tab === "payment" ? (
         <div className="space-y-3 border-t border-white/[0.06] pt-4">
           <p className="text-[13px] font-medium text-white/80">Payment</p>
           {request.payment_status === "paid" ? (
@@ -1135,12 +1177,16 @@ export function ManageRequestDialog({
                 </Button>
               </div>
               <p className="text-[11px] text-white/40">
-                The candidate can already pay once accepted — &ldquo;Send payment request&rdquo; just pings them (re-send anytime).
+                Sending the invoice makes it payable in the candidate&rsquo;s Payments page. &ldquo;Send payment
+                request&rdquo; just pings them again (re-send anytime).
               </p>
             </>
           )}
         </div>
+        ) : null}
 
+        {tab === "notes" ? (
+        <>
         <div className="space-y-2 border-t border-white/[0.06] pt-4">
           <p className="text-[13px] font-medium text-white/80">
             Stage / type {savingStage ? <span className="text-white/40">· saving…</span> : null}
@@ -1162,7 +1208,11 @@ export function ManageRequestDialog({
           <p className="text-[12px] text-white/40">Sets the background color of this event on the calendar.</p>
           <ColorPicker value={color} onChange={saveColor} disabled={savingColor} />
         </div>
+        </>
+        ) : null}
 
+        {tab === "actions" ? (
+        <>
         {actions.includes("complete") ? (
           <div className="space-y-3 border-t border-white/[0.06] pt-4">
             <p className="text-[13px] font-medium text-white/80">Complete this interview</p>
@@ -1207,7 +1257,6 @@ export function ManageRequestDialog({
                 className="min-h-[64px]"
               />
             </Field>
-            {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
             <Button variant="primary" size="sm" loading={busy === "complete"} disabled={busy !== null} onClick={completeInterview}>
               Mark completed &amp; send
             </Button>
@@ -1222,7 +1271,6 @@ export function ManageRequestDialog({
               placeholder="Optional message to the candidate…"
               className="min-h-[64px]"
             />
-            {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
               {actions.filter((k) => k !== "complete").map((kind) => (
                 <Button
@@ -1250,6 +1298,8 @@ export function ManageRequestDialog({
             <Trash2 className="h-4 w-4" /> Delete request
           </Button>
         </div>
+        </>
+        ) : null}
       </div>
     </Dialog>
   );
