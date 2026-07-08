@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, FileText } from "lucide-react";
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
+import { EditInterviewButton } from "@/components/candidate/edit-interview-button";
 import { RequestNextStage } from "@/components/candidate/request-next-stage";
 import { CalendarInvite } from "@/components/calendar-invite";
 import { InterviewProgress } from "@/components/interview-progress";
@@ -20,9 +21,10 @@ interface ActivityEntry {
 }
 
 /**
- * Read-only candidate view of a single interview: the time in their zone, the
- * join link, prep notes, and — once completed — the results/minutes. Nothing
- * here is editable; details are set by the admin.
+ * Candidate view of a single interview: the time in their zone, the join link,
+ * prep notes, and — once completed — the results/minutes. While it's still
+ * upcoming the candidate can edit their own details (role, focus, links, notes…)
+ * via the "Edit details" button.
  */
 export function CandidateInterviewView({
   interview: r,
@@ -35,6 +37,7 @@ export function CandidateInterviewView({
 }) {
   const completed = r.status === "completed";
   const hasResults = completed && (r.actual_minutes || r.completion_notes || r.recording_url);
+  const editable = r.status === "pending" || r.status === "approved" || r.status === "scheduled";
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -53,6 +56,11 @@ export function CandidateInterviewView({
             {r.format ? <Badge tone="slate">{FORMAT_LABEL[r.format] ?? r.format}</Badge> : null}
             {r.level ? <Badge tone="slate">{r.level}</Badge> : null}
             <Badge tone={r.payment_status === "paid" ? "green" : "amber"}>{r.payment_status}</Badge>
+            {editable ? (
+              <div className="ml-auto">
+                <EditInterviewButton request={r} userId={r.candidate_id} />
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3.5">

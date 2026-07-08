@@ -16,7 +16,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
 import { ACTION_META, ACTIONS_BY_STATUS } from "@/lib/interview-lifecycle";
-import { FORMAT_LABEL, INTERVIEW_TYPES, durationOptions } from "@/lib/interview";
+import { FORMAT_LABEL, FORMATS, INTERVIEW_TYPES, LEVELS, durationOptions } from "@/lib/interview";
 import { useDurationSettings } from "@/lib/use-duration-settings";
 import { autoMeetingLink } from "@/lib/meeting";
 import { createClient } from "@/lib/supabase/client";
@@ -105,6 +105,9 @@ export function ManageRequestDialog({
   const [editInterviewerName, setEditInterviewerName] = useState(request.interviewer_name ?? "");
   const [editNotes, setEditNotes] = useState(request.notes ?? "");
   const [editLink, setEditLink] = useState(request.meeting_link ?? "");
+  const [editLevel, setEditLevel] = useState(request.level ?? "");
+  const [editFormat, setEditFormat] = useState(request.format ?? "");
+  const [editFocus, setEditFocus] = useState((request.focus_areas ?? []).join(", "));
   const [savingDetails, setSavingDetails] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
   const [bufferMin, setBufferMin] = useState(0);
@@ -321,12 +324,16 @@ export function ManageRequestDialog({
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    const focusAreas = editFocus.split(",").map((s) => s.trim()).filter(Boolean);
     const { error: upErr } = await supabase
       .from("interview_requests")
       .update({
         role: editRole.trim(),
         company: editCompany.trim() || null,
         interviewer_name: editInterviewerName.trim() || null,
+        level: editLevel || null,
+        format: editFormat || null,
+        focus_areas: focusAreas.length ? focusAreas : null,
         notes: editNotes.trim() || null,
         meeting_link: editLink.trim() || null,
         last_edited_at: new Date().toISOString(),
@@ -921,6 +928,27 @@ export function ManageRequestDialog({
               <Input id="ed-interviewer" value={editInterviewerName} onChange={(e) => setEditInterviewerName(e.target.value)} placeholder="e.g. Jordan Lee" />
             </Field>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Level" htmlFor="ed-level">
+              <Select id="ed-level" value={editLevel} onChange={(e) => setEditLevel(e.target.value)}>
+                <option value="">—</option>
+                {LEVELS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Format" htmlFor="ed-format">
+              <Select id="ed-format" value={editFormat} onChange={(e) => setEditFormat(e.target.value)}>
+                <option value="">—</option>
+                {FORMATS.map((f) => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <Field label="Focus areas / skills" htmlFor="ed-focus" hint="Comma separated.">
+            <Input id="ed-focus" value={editFocus} onChange={(e) => setEditFocus(e.target.value)} placeholder="e.g. React, System design" />
+          </Field>
           <Field label="Notes" htmlFor="ed-notes" hint="Shared with the candidate.">
             <Textarea id="ed-notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional" />
           </Field>
