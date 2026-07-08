@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   CalendarCheck,
   CalendarClock,
@@ -155,6 +156,19 @@ export function CandidatePeek({
     return { total: requests.length, completed, upcoming, paid, outstanding };
   }, [requests, payments]);
 
+  // Roles this candidate has more than one *pending* request for — likely dupes.
+  const dupRoles = useMemo(() => {
+    const m = new Map<string, { n: number; label: string }>();
+    for (const r of requests) {
+      if (r.status !== "pending") continue;
+      const key = (r.role ?? "").trim().toLowerCase();
+      const cur = m.get(key);
+      if (cur) cur.n += 1;
+      else m.set(key, { n: 1, label: r.role ?? "" });
+    }
+    return Array.from(m.values()).filter((v) => v.n > 1);
+  }, [requests]);
+
   const name = profile?.full_name || seed?.full_name || profile?.email || seed?.email || "Candidate";
   const email = profile?.email ?? seed?.email ?? null;
   const timezone = profile?.timezone ?? seed?.timezone ?? "UTC";
@@ -271,6 +285,16 @@ export function CandidatePeek({
             <p className="py-10 text-center text-[12px] text-white/35">Loading…</p>
           ) : (
             <>
+              {dupRoles.length > 0 ? (
+                <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/25 bg-[#f59e0b]/[0.08] px-3.5 py-2.5 text-[12px] text-[#fbbf24]">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Possible duplicate — {dupRoles[0].n} pending requests for{" "}
+                    {dupRoles.length === 1 ? `“${dupRoles[0].label}”` : "the same role"}.
+                  </span>
+                </div>
+              ) : null}
+
               {/* KPIs */}
               <div className="grid grid-cols-2 gap-2">
                 <Stat icon={CalendarCheck} tone="indigo" label="Interviews" value={String(kpis.total)} />

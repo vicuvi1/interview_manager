@@ -157,6 +157,24 @@ export function RequestsConsole({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests, filter, query, candidates]);
 
+  // Candidates with more than one pending request for the same role — likely a
+  // double-submit. Keyed by candidate + normalised role.
+  const dupKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of requests) {
+      if (r.status !== "pending") continue;
+      const k = `${r.candidate_id}::${(r.role ?? "").trim().toLowerCase()}`;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    const dup = new Set<string>();
+    counts.forEach((n, k) => {
+      if (n > 1) dup.add(k);
+    });
+    return dup;
+  }, [requests]);
+  const isDuplicate = (r: InterviewRequest) =>
+    r.status === "pending" && dupKeys.has(`${r.candidate_id}::${(r.role ?? "").trim().toLowerCase()}`);
+
   const allSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
   const toggleAll = () => {
     setSelected((prev) => {
@@ -390,6 +408,11 @@ export function RequestsConsole({
                         ) : null}
                         {r.format ? (
                           <span className="rounded-full bg-white/[0.05] px-1.5 py-0.5 text-[10px] text-white/50">{FORMAT_LABEL[r.format] ?? r.format}</span>
+                        ) : null}
+                        {isDuplicate(r) ? (
+                          <span title="This candidate has more than one pending request for this role">
+                            <Badge tone="amber">duplicate</Badge>
+                          </span>
                         ) : null}
                       </div>
                       {r.company ? (

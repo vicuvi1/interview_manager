@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CalendarClock, Check, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -83,30 +83,37 @@ export function ScheduleDialog({
     });
   }, [adminTimezone]);
 
+  // Availability + blocked intervals for any given day (reused for both the
+  // selected-day grid and the cross-day "soonest openings" suggestions).
+  const intervalsForDay = useCallback(
+    (dk: string) => {
+      const dayStart = new Date(wallTimeToUtcISO(`${dk}T00:00`, adminTimezone)).getTime();
+      const dayEnd = dayStart + 86400000;
+      const availableIvals: Array<{ s: number; e: number }> = [];
+      const blockedIvals: Array<{ s: number; e: number }> = [];
+      for (const sl of slots) {
+        const occ = expandRecurring(
+          new Date(sl.starts_at).getTime(),
+          new Date(sl.ends_at).getTime(),
+          sl.repeat_rule,
+          dayStart,
+          dayEnd,
+        );
+        if (sl.slot_type === "available") availableIvals.push(...occ);
+        else if (sl.slot_type === "busy") blockedIvals.push(...occ);
+      }
+      for (const r of requests) {
+        if (r.id === request.id || r.status !== "scheduled" || !r.scheduled_at) continue;
+        const s = new Date(r.scheduled_at).getTime();
+        blockedIvals.push({ s, e: s + (r.duration_minutes ?? 30) * 60000 });
+      }
+      return { availableIvals, blockedIvals };
+    },
+    [slots, requests, request.id, adminTimezone],
+  );
+
   // Intervals for the selected day.
-  const { availableIvals, blockedIvals } = useMemo(() => {
-    const dayStart = new Date(wallTimeToUtcISO(`${dayKey}T00:00`, adminTimezone)).getTime();
-    const dayEnd = dayStart + 86400000;
-    const availableIvals: Array<{ s: number; e: number }> = [];
-    const blockedIvals: Array<{ s: number; e: number }> = [];
-    for (const sl of slots) {
-      const occ = expandRecurring(
-        new Date(sl.starts_at).getTime(),
-        new Date(sl.ends_at).getTime(),
-        sl.repeat_rule,
-        dayStart,
-        dayEnd,
-      );
-      if (sl.slot_type === "available") availableIvals.push(...occ);
-      else if (sl.slot_type === "busy") blockedIvals.push(...occ);
-    }
-    for (const r of requests) {
-      if (r.id === request.id || r.status !== "scheduled" || !r.scheduled_at) continue;
-      const s = new Date(r.scheduled_at).getTime();
-      blockedIvals.push({ s, e: s + (r.duration_minutes ?? 30) * 60000 });
-    }
-    return { availableIvals, blockedIvals };
-  }, [slots, requests, request.id, dayKey, adminTimezone]);
+  const { availableIvals, blockedIvals } = useMemo(() => intervalsForDay(dayKey), [intervalsForDay, dayKey]);
 
   const constrained = availableIvals.length > 0;
 
@@ -131,6 +138,34 @@ export function ScheduleDialog({
     }
     return out;
   }, [dayKey, duration, adminTimezone, constrained, availableIvals, blockedIvals]);
+
+  // The soonest few open slots across the upcoming days — one-tap shortcuts so
+  // the admin doesn't have to hunt through the grid. At most one per hour to
+  // keep the three options spread out.
+  const suggestions = useMemo(() => {
+    const now = Date.now();
+    const out: Array<{ iso: string; label: string }> = [];
+    for (const d of days) {
+      const { availableIvals: avail, blockedIvals: blocked } = intervalsForDay(d.key);
+      const dayConstrained = avail.length > 0;
+      for (let h = START_HOUR; h < END_HOUR; h++) {
+        for (let m = 0; m < 60; m += STEP_MIN) {
+          const iso = wallTimeToUtcISO(`${d.key}T${pad(h)}:${pad(m)}`, adminTimezone);
+          const startMs = new Date(iso).getTime();
+          const endMs = startMs + duration * 60000;
+          if (startMs < now) continue;
+          if (dayConstrained && !within(startMs, endMs, avail)) continue;
+          if (blocked.some((iv) => overlaps(startMs, endMs, iv.s, iv.e))) continue;
+          const time = formatInTimeZone(iso, adminTimezone).split(", ").pop() ?? "";
+          out.push({ iso, label: `${d.weekday} ${d.day} · ${time}` });
+          break;
+        }
+        if (out.length >= 3) break;
+      }
+      if (out.length >= 3) break;
+    }
+    return out;
+  }, [days, intervalsForDay, adminTimezone, duration]);
 
   async function confirm() {
     if (!selected) {
@@ -199,6 +234,35 @@ export function ScheduleDialog({
             ) : (
               <span className="shrink-0 text-[11px] text-white/35">{preferredFuture ? "outside range" : "in the past"}</span>
             )}
+          </div>
+        ) : null}
+
+        {/* Soonest openings */}
+        {suggestions.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-1 text-[12px] text-white/50">
+              <Sparkles className="h-3.5 w-3.5 text-[#6ee7b7]" /> Soonest openings
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((s) => (
+                <button
+                  key={s.iso}
+                  type="button"
+                  onClick={() => {
+                    setDayKey(dateKeyInTimeZone(s.iso, adminTimezone));
+                    setSelected(s.iso);
+                  }}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+                    selected === s.iso
+                      ? "border-[#6366f1] bg-[#6366f1]/[0.15] text-[#c7d2fe]"
+                      : "border-white/10 text-white/70 hover:border-white/20 hover:text-white/90",
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
 
