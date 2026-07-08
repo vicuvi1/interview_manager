@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, Check, FileText, Send, Upload, User, X } from "lucide-react";
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
+import { BookAgainBar } from "@/components/candidate/book-again-bar";
 import { BookingProfilesBar } from "@/components/candidate/booking-profiles-bar";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import { useDurationSettings } from "@/lib/use-duration-settings";
 import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
-import type { Attachment, BookingProfile, CandidateMaterials, ResumeItem } from "@/lib/types";
+import type { Attachment, BookingProfile, CandidateMaterials, InterviewRequest, ResumeItem } from "@/lib/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const DOC_ACCEPT = ".pdf,.doc,.docx,application/pdf";
@@ -156,6 +157,41 @@ export function InterviewRequestForm({
     }
   }
 
+  // Repeat a past request — fill the interview details and the person snapshot
+  // that was submitted with it. We deliberately leave the time blank so the
+  // candidate picks a fresh one.
+  function applyPastRequest(r: InterviewRequest) {
+    setRole(r.role ?? "");
+    setCompany(r.company ?? "");
+    setInterviewerName(r.interviewer_name ?? "");
+    if (r.interview_type) setInterviewType(r.interview_type);
+    setLevel(r.level ?? "Not sure");
+    setFocus((r.focus_areas ?? []).join(", "));
+    setFormat(r.format ?? "video");
+    setColor(r.color ?? null);
+    setMeetingLink(r.meeting_link ?? "");
+    setCallerNotes(r.caller_notes ?? "");
+    setNotes(r.notes ?? "");
+    setJobDescUrl(r.job_desc_url ?? "");
+    setJobDescPath(r.job_desc_path ?? null);
+    // Carry the duration and stop the interview-type effect from resetting it.
+    durManual.current = true;
+    setCustomDuration(false);
+    setDuration(r.duration_minutes || 30);
+    // Person snapshot as submitted for that request.
+    if (r.applicant_phone) setPhone(r.applicant_phone);
+    if (r.linkedin_url) setLinkedinUrl(r.linkedin_url);
+    if (r.github_url) setGithubUrl(r.github_url);
+    if (r.portfolio_url) setPortfolioUrl(r.portfolio_url);
+    if (r.resume_path) {
+      setResumePath(r.resume_path);
+      setResumeUrl("");
+    } else if (r.resume_url) {
+      setResumeUrl(r.resume_url);
+      setResumePath(null);
+    }
+  }
+
   // Fill the person fields from a saved profile.
   function applyProfile(p: BookingProfile) {
     setName(p.full_name ?? "");
@@ -288,6 +324,8 @@ export function InterviewRequestForm({
 
   const content = (
     <div className="space-y-6">
+        <BookAgainBar userId={userId} onApply={applyPastRequest} />
+
         <BookingProfilesBar
           userId={userId}
           current={{
