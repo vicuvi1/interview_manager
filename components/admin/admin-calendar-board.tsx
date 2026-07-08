@@ -84,10 +84,6 @@ const LEGEND: Array<{ key: string; kind: "status" | "slot"; color?: string; labe
 
 const DAY = 86400000;
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
 /** A short GMT-offset label for a timezone (e.g. "GMT+3"), like Google Calendar. */
 function tzLabel(tz: string): string {
   try {
@@ -99,9 +95,10 @@ function tzLabel(tz: string): string {
   }
 }
 
-/** Format a JS Date as a datetime-local input value in the browser's timezone. */
-function dateToLocalInput(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** Shift a datetime-local wall-clock string by N minutes while staying in `tz`. */
+function shiftWall(wall: string, minutes: number, tz: string): string {
+  const ms = new Date(wallTimeToUtcISO(wall, tz)).getTime() + minutes * 60000;
+  return utcToLocalInput(new Date(ms).toISOString(), tz);
 }
 
 /** Google-Calendar-style event body: the role title, then who, then the time.
@@ -457,10 +454,10 @@ export function AdminCalendarBoard({
   };
 
   const openAdd = (type: string) => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0);
-    const end = new Date(start.getTime() + 60 * 60000);
-    setAdd({ type, start: dateToLocalInput(start), end: dateToLocalInput(end) });
+    // Default to the top of the next hour, expressed in the calendar's zone.
+    const nowWall = utcToLocalInput(new Date().toISOString(), realTz);
+    const start = shiftWall(`${nowWall.slice(0, 13)}:00`, 60, realTz);
+    setAdd({ type, start, end: shiftWall(start, 60, realTz) });
   };
 
   // FullCalendar callbacks — args typed loosely to avoid version-coupled type imports.
@@ -472,13 +469,16 @@ export function AdminCalendarBoard({
     if (d) setCurrentDate(d);
   };
   const onSelect = (arg: { start: Date; end: Date; allDay: boolean }) => {
-    let start = arg.start;
-    let end = arg.end;
+    // FullCalendar hands us real instants; express them as wall-clock in the
+    // calendar's display zone so the Add dialog matches the cell that was clicked.
+    let start = utcToLocalInput(arg.start.toISOString(), realTz);
+    let end = utcToLocalInput(arg.end.toISOString(), realTz);
     if (arg.allDay) {
-      start = new Date(arg.start.getFullYear(), arg.start.getMonth(), arg.start.getDate(), 9, 0);
-      end = new Date(start.getTime() + 60 * 60000);
+      // An all-day selection carries no time — default to a 9am, one-hour slot.
+      start = `${start.slice(0, 10)}T09:00`;
+      end = shiftWall(start, 60, realTz);
     }
-    setAdd({ type: "available", start: dateToLocalInput(start), end: dateToLocalInput(end) });
+    setAdd({ type: "available", start, end });
     api()?.unselect();
   };
   const onEventClick = (arg: { event: { extendedProps: Record<string, unknown> } }) => {
@@ -927,6 +927,7 @@ export function AdminCalendarBoard({
           adminId={adminId}
           profiles={profiles}
           preset={add}
+          tz={realTz}
           onClose={() => setAdd(null)}
           onDone={load}
         />
@@ -1019,12 +1020,14 @@ function AddSlotDialog({
   adminId,
   profiles,
   preset,
+  tz,
   onClose,
   onDone,
 }: {
   adminId: string;
   profiles: ProfileLite[];
   preset: { type: string; start: string; end: string };
+  tz: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -1056,8 +1059,8 @@ function AddSlotDialog({
     const { error: insertError } = await supabase.from("availability_slots").insert({
       title: titleText.trim() || null,
       slot_type: type,
-      starts_at: new Date(start).toISOString(),
-      ends_at: new Date(end).toISOString(),
+      starts_at: wallTimeToUtcISO(start, tz),
+      ends_at: wallTimeToUtcISO(end, tz),
       repeat_rule: repeat,
       is_booked: type === "busy",
       candidate_id: type === "event" ? candidateId || null : null,
@@ -1102,6 +1105,7 @@ function AddSlotDialog({
             <Input id="slot-end" type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
           </Field>
         </div>
+        <p className="-mt-2 text-[11px] text-white/35">Times in {tz}.</p>
         <Field label="Repeat" htmlFor="slot-repeat">
           <Select id="slot-repeat" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
             <option value="none">Does not repeat</option>
