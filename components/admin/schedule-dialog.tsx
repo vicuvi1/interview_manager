@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { notifyChanged } from "@/lib/bus";
-import { MONTH_NAMES, WEEKDAYS, todayKeyInTimeZone } from "@/lib/calendar";
+import { MONTH_NAMES, WEEKDAYS, dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
 import { durationOptions } from "@/lib/interview";
 import { useDurationSettings } from "@/lib/use-duration-settings";
 import { expandRecurring, overlaps, within } from "@/lib/slots";
@@ -58,9 +58,17 @@ export function ScheduleDialog({
   const { options: durOpts } = useDurationSettings();
   const candTz = candidate?.timezone ?? adminTimezone;
 
-  const [dayKey, setDayKey] = useState(() => todayKeyInTimeZone(adminTimezone));
+  // The time the candidate originally asked for — used to land the picker on the
+  // right day (and pre-select it) instead of making the admin re-navigate there.
+  const today = todayKeyInTimeZone(adminTimezone);
+  const preferredKey = request.preferred_at ? dateKeyInTimeZone(request.preferred_at, adminTimezone) : null;
+  const preferredInWindow = !!preferredKey && preferredKey >= today && preferredKey <= addDaysKey(today, 13);
+  const preferredFuture = !!request.preferred_at && new Date(request.preferred_at).getTime() > Date.now();
+  const canUsePreferred = preferredInWindow && preferredFuture;
+
+  const [dayKey, setDayKey] = useState(() => (preferredInWindow ? (preferredKey as string) : today));
   const [duration, setDuration] = useState(request.duration_minutes || 30);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(() => (canUsePreferred ? request.preferred_at : null));
   const [link, setLink] = useState(request.meeting_link ?? "");
   const [interviewerId, setInterviewerId] = useState(request.interviewer_id ?? "");
   const [busy, setBusy] = useState(false);
@@ -168,6 +176,32 @@ export function ScheduleDialog({
       className="max-w-xl"
     >
       <div className="space-y-4">
+        {/* What the candidate asked for */}
+        {request.preferred_at ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-[#6366f1]/25 bg-[#6366f1]/[0.08] px-3.5 py-2.5">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-wide text-white/40">Candidate asked for</p>
+              <p className="truncate text-[13px] font-medium text-[#f0f0f5]">{formatInTimeZone(request.preferred_at, candTz)}</p>
+            </div>
+            {canUsePreferred ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  setDayKey(preferredKey as string);
+                  setSelected(request.preferred_at);
+                }}
+              >
+                Use this
+              </Button>
+            ) : (
+              <span className="shrink-0 text-[11px] text-white/35">{preferredFuture ? "outside range" : "in the past"}</span>
+            )}
+          </div>
+        ) : null}
+
         {/* Duration */}
         <div className="flex items-center justify-between gap-3">
           <p className="text-[12px] text-white/50">

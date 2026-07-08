@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   CalendarClock,
+  Check,
   Clock,
   ExternalLink,
   Eye,
@@ -225,6 +226,25 @@ export function AdminDashboard({
       notifyChanged("interviews");
     } else {
       toast({ title: "Action failed", description: error.message, variant: "error" });
+    }
+    setBusyId(null);
+  }
+
+  async function markComplete(r: InterviewRequest) {
+    setBusyId(r.id);
+    const supabase = createClient();
+    const { error } = await supabase.from("interview_requests").update({ status: "completed" }).eq("id", r.id);
+    if (!error) {
+      await supabase.from("notifications").insert({
+        user_id: r.candidate_id,
+        title: "Interview completed",
+        detail: `Your interview for "${r.role}" is marked complete.`,
+        type: "success",
+      });
+      toast({ title: "Marked complete", variant: "success" });
+      notifyChanged("interviews");
+    } else {
+      toast({ title: "Couldn't update", description: error.message, variant: "error" });
     }
     setBusyId(null);
   }
@@ -643,6 +663,17 @@ export function AdminDashboard({
                           </a>
                           <CopyButton value={r.meeting_link} title="Copy meeting link" className="h-7 w-7" />
                         </div>
+                      ) : null}
+                      {ended ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={busyId === r.id}
+                          disabled={busyId !== null}
+                          onClick={() => markComplete(r)}
+                        >
+                          <Check className="h-4 w-4" /> Complete
+                        </Button>
                       ) : null}
                     </li>
                   );
