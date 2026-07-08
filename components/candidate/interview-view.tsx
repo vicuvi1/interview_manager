@@ -3,6 +3,7 @@ import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, FileText } from "
 
 import { AttachmentsField } from "@/components/candidate/attachments-field";
 import { EditInterviewButton } from "@/components/candidate/edit-interview-button";
+import { OpenFileButton } from "@/components/candidate/open-file-button";
 import { RequestNextStage } from "@/components/candidate/request-next-stage";
 import { CalendarInvite } from "@/components/calendar-invite";
 import { InterviewProgress } from "@/components/interview-progress";
@@ -118,6 +119,93 @@ export function CandidateInterviewView({
             <p className="rounded-lg bg-white/[0.03] px-3.5 py-2.5 text-[12px] text-white/50">
               Waiting for your interviewer to confirm a time. You&apos;ll be notified once it&apos;s scheduled.
             </p>
+          ) : null}
+
+          {r.focus_areas?.length ||
+          r.goals ||
+          r.caller_notes ||
+          r.job_desc_url ||
+          r.job_desc_path ||
+          r.resume_url ||
+          r.resume_path ||
+          r.portfolio_url ||
+          r.linkedin_url ||
+          r.github_url ||
+          r.applicant_phone ? (
+            <div className="space-y-3 border-t border-white/[0.06] pt-4">
+              <p className="text-[11px] uppercase tracking-wide text-white/40">What you submitted</p>
+              {r.focus_areas?.length ? (
+                <div>
+                  <p className="mb-1 text-[12px] text-white/45">Focus areas</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {r.focus_areas.map((f) => (
+                      <span key={f} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[12px] text-white/70">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {r.goals ? (
+                <div>
+                  <p className="mb-1 text-[12px] text-white/45">Goals</p>
+                  <p className="whitespace-pre-wrap text-white/75">{r.goals}</p>
+                </div>
+              ) : null}
+              {r.caller_notes ? (
+                <div>
+                  <p className="mb-1 text-[12px] text-white/45">Notes for your interviewer</p>
+                  <p className="whitespace-pre-wrap text-white/75">{r.caller_notes}</p>
+                </div>
+              ) : null}
+              {r.job_desc_url || r.job_desc_path ? (
+                <div>
+                  <p className="mb-1 text-[12px] text-white/45">Job description</p>
+                  {r.job_desc_url ? (
+                    <a
+                      href={r.job_desc_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]"
+                    >
+                      Open link <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <OpenFileButton path={r.job_desc_path as string} label="Open file" />
+                  )}
+                </div>
+              ) : null}
+              {r.resume_url || r.resume_path || r.portfolio_url || r.linkedin_url || r.github_url || r.applicant_phone ? (
+                <div>
+                  <p className="mb-1 text-[12px] text-white/45">Your materials</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {r.resume_url ? (
+                      <a href={r.resume_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                        Résumé <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : r.resume_path ? (
+                      <OpenFileButton path={r.resume_path} label="Résumé" />
+                    ) : null}
+                    {r.portfolio_url ? (
+                      <a href={r.portfolio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                        Portfolio <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                    {r.linkedin_url ? (
+                      <a href={r.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                        LinkedIn <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                    {r.github_url ? (
+                      <a href={r.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                        GitHub <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                    {r.applicant_phone ? <span className="text-[13px] text-white/70">☎ {r.applicant_phone}</span> : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {r.notes ? (
