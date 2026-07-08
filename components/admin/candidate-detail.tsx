@@ -53,7 +53,7 @@ import { OUTCOME_LABEL, OUTCOME_TONE } from "@/lib/feedback";
 import { METHOD_LABEL, PAYMENT_METHODS, PAYMENT_STATUS_TONE, formatAmount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
-import { initials } from "@/lib/utils";
+import { cn, formatMoney, initials } from "@/lib/utils";
 import type {
   CandidateLite,
   CandidateMaterials,
@@ -65,6 +65,12 @@ import type {
 } from "@/lib/types";
 
 const isOutstanding = (s: string) => s === "pending" || s === "overdue" || s === "partial";
+
+function fmtDur(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
+}
 
 export function CandidateDetail({
   candidate,
@@ -100,6 +106,9 @@ export function CandidateDetail({
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [busyPayId, setBusyPayId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pricing, setPricing] = useState<Record<string, number>>({});
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [blocked, setBlocked] = useState<boolean>(!!candidate.blocked);
   const [blocking, setBlocking] = useState(false);
   const [accountBusy, setAccountBusy] = useState<string | null>(null);
@@ -150,6 +159,18 @@ export function CandidateDetail({
   }, [candidate.id, reload]);
   useDataChanged("interviews", load);
 
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("interview_pricing").select("interview_type, price_cents");
+      const map: Record<string, number> = {};
+      for (const row of (data as { interview_type: string; price_cents: number }[] | null) ?? []) {
+        map[row.interview_type] = row.price_cents;
+      }
+      setPricing(map);
+    })();
+  }, []);
+
   const kpis = useMemo(() => {
     const now = Date.now();
     let completed = 0, upcoming = 0, paid = 0, outstanding = 0;
@@ -178,6 +199,88 @@ export function CandidateDetail({
     }
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 14);
   }, [requests, payments]);
+
+  // Multi-select over the interview history: total time + total due, and bulk
+  // billing so an admin can invoice / request payment for several at once.
+  const selectedRows = useMemo(() => requests.filter((r) => selected.has(r.id)), [requests, selected]);
+  const selSummary = useMemo(() => {
+    let minutes = 0;
+    let cents = 0;
+    let unpaid = 0;
+    for (const r of selectedRows) {
+      minutes += r.actual_minutes ?? r.duration_minutes ?? 0;
+      if (r.payment_status !== "paid") {
+        cents += r.price_cents ?? (r.interview_type ? pricing[r.interview_type] ?? 0 : 0);
+        unpaid += 1;
+      }
+    }
+    return { minutes, cents, unpaid, count: selectedRows.length };
+  }, [selectedRows, pricing]);
+  const allSelected = requests.length > 0 && requests.every((r) => selected.has(r.id));
+  const toggleAll = () =>
+    setSelected((prev) => (requests.every((r) => prev.has(r.id)) ? new Set() : new Set(requests.map((r) => r.id))));
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  async function bulkSendPayment() {
+    const rows = selectedRows.filter((r) => r.payment_status !== "paid");
+    if (rows.length === 0) return;
+    setBulkBusy(true);
+    const supabase = createClient();
+    // Invoice any that aren't priced yet, using the interview type's default.
+    let total = 0;
+    for (const r of rows) {
+      let cents = r.price_cents ?? 0;
+      if (!cents && r.interview_type && pricing[r.interview_type]) {
+        cents = pricing[r.interview_type];
+        await supabase.from("interview_requests").update({ price_cents: cents, currency: "USD" }).eq("id", r.id);
+      }
+      total += cents;
+    }
+    const detail =
+      `You have ${rows.length} interview${rows.length === 1 ? "" : "s"} awaiting payment` +
+      (total ? ` totaling ${formatMoney(total, "USD")}` : "") +
+      `. Open Payments to pay by crypto.`;
+    await supabase.from("notifications").insert({ user_id: candidate.id, title: "Payment requested", detail, type: "alert" });
+    setBulkBusy(false);
+    setSelected(new Set());
+    toast({ title: `Payment request sent for ${rows.length}`, variant: "success" });
+    notifyChanged("interviews");
+    load();
+  }
+
+  async function bulkMarkPaid() {
+    const rows = selectedRows.filter((r) => r.payment_status !== "paid");
+    if (rows.length === 0) return;
+    setBulkBusy(true);
+    const supabase = createClient();
+    const ids = rows.map((r) => r.id);
+    const { error } = await supabase
+      .from("interview_requests")
+      .update({ payment_status: "paid", paid_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) {
+      toast({ title: "Couldn't update", description: error.message, variant: "error" });
+      setBulkBusy(false);
+      return;
+    }
+    await supabase.from("notifications").insert({
+      user_id: candidate.id,
+      title: "Payment confirmed",
+      detail: `Payment received for ${rows.length} interview${rows.length === 1 ? "" : "s"}. Thank you!`,
+      type: "success",
+    });
+    setBulkBusy(false);
+    setSelected(new Set());
+    toast({ title: `Marked ${ids.length} paid`, variant: "success" });
+    notifyChanged("interviews");
+    load();
+  }
 
   async function markPaid(p: Payment) {
     setBusyPayId(p.id);
@@ -340,6 +443,28 @@ export function CandidateDetail({
         <div className="space-y-5 lg:col-span-2">
           {/* Interview history */}
           <SectionCard title="Interview history" description="Every request from this candidate." icon={CalendarCheck} bodyClassName="p-0 sm:p-0">
+            {selected.size > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-[#6366f1]/[0.05] px-5 py-2.5 sm:px-6">
+                <span className="text-[12px] font-medium text-[#c7d2fe]">{selSummary.count} selected</span>
+                <span className="text-[11px] text-white/50">· {fmtDur(selSummary.minutes)} total</span>
+                {selSummary.cents ? <span className="text-[11px] text-white/50">· {formatMoney(selSummary.cents, "USD")} due</span> : null}
+                <div className="mx-1 h-4 w-px bg-white/10" />
+                <Button size="sm" variant="secondary" loading={bulkBusy} disabled={bulkBusy || selSummary.unpaid === 0} onClick={bulkSendPayment}>
+                  <Send className="h-4 w-4" /> Send payment request
+                </Button>
+                <Button size="sm" variant="secondary" loading={bulkBusy} disabled={bulkBusy || selSummary.unpaid === 0} onClick={bulkMarkPaid}>
+                  Mark paid
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="ml-auto rounded-md p-1 text-white/40 hover:bg-white/[0.06] hover:text-white/70"
+                  aria-label="Clear selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
             {requests.length === 0 ? (
               <div className="p-5 sm:p-6">
                 <EmptyState icon={CalendarCheck} title="No interviews yet" />
@@ -349,7 +474,16 @@ export function CandidateDetail({
                 <table className="w-full min-w-[560px] text-left text-[13px]">
                   <thead>
                     <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wide text-white/40">
-                      <th className="px-5 py-2.5 font-medium sm:px-6">Role</th>
+                      <th className="w-10 px-5 py-2.5 sm:px-6">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleAll}
+                          className="h-3.5 w-3.5 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+                          aria-label="Select all"
+                        />
+                      </th>
+                      <th className="px-3 py-2.5 font-medium">Role</th>
                       <th className="px-3 py-2.5 font-medium">Status</th>
                       <th className="px-3 py-2.5 font-medium">When</th>
                       <th className="px-3 py-2.5 font-medium">Payment</th>
@@ -358,8 +492,17 @@ export function CandidateDetail({
                   </thead>
                   <tbody className="divide-y divide-white/[0.06]">
                     {requests.map((r) => (
-                      <tr key={r.id} className="transition-colors hover:bg-white/[0.03]">
-                        <td className="px-5 py-3 font-medium text-[#f0f0f5] sm:px-6">{r.role}</td>
+                      <tr key={r.id} className={cn("transition-colors hover:bg-white/[0.03]", selected.has(r.id) && "bg-[#6366f1]/[0.04]")}>
+                        <td className="px-5 py-3 sm:px-6">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.id)}
+                            onChange={() => toggleOne(r.id)}
+                            className="h-3.5 w-3.5 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+                            aria-label={`Select ${r.role}`}
+                          />
+                        </td>
+                        <td className="px-3 py-3 font-medium text-[#f0f0f5]">{r.role}</td>
                         <td className="px-3 py-3">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <StatusBadge status={r.status} />
