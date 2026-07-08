@@ -54,6 +54,13 @@ interface MyRow {
   notes: string | null;
   attachments: Attachment[] | null;
   last_edited_at: string | null;
+  // Also carried so the edit dialog opens pre-filled (not blank) for these.
+  company: string | null;
+  interviewer_name: string | null;
+  level: string | null;
+  format: string | null;
+  focus_areas: string[] | null;
+  caller_notes: string | null;
 }
 
 const ms = (iso: string) => new Date(iso).getTime();
@@ -172,7 +179,7 @@ export function BookingCalendar({
       }),
       supabase
         .from("interview_requests")
-        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type, notes, attachments, last_edited_at")
+        .select("id, role, status, scheduled_at, preferred_at, duration_minutes, meeting_link, interview_type, notes, attachments, last_edited_at, company, interviewer_name, level, format, focus_areas, caller_notes")
         .eq("candidate_id", userId),
     ]);
     setAvail((data as Availability) ?? { available: [], busy: [], taken: [] });
