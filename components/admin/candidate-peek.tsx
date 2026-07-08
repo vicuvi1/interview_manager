@@ -30,6 +30,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { openSignedAdminFile } from "@/lib/admin-file";
 import { formatAmount } from "@/lib/payments";
 import { REJECTED, STAGES, STAGE_LABEL } from "@/lib/stages";
 import { createClient } from "@/lib/supabase/client";
@@ -94,7 +95,6 @@ export function CandidatePeek({
   const [requests, setRequests] = useState<InterviewRequest[]>([]);
   const [payments, setPayments] = useState<PeekPayment[]>([]);
   const [notes, setNotes] = useState<CandidateNote[]>([]);
-  const [resumeSignedUrl, setResumeSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -119,13 +119,13 @@ export function CandidatePeek({
     setPayments((pays as PeekPayment[] | null) ?? []);
     setNotes((n as CandidateNote[] | null) ?? []);
     setLoading(false);
-    // Try to sign the uploaded résumé so admins can open it. Storage policy may
-    // disallow it for other users' files — fall back to a plain label if so.
-    if (p?.resume_path) {
-      const { data: signed } = await supabase.storage.from("resumes").createSignedUrl(p.resume_path, 300);
-      setResumeSignedUrl(signed?.signedUrl ?? null);
-    }
   }, [candidateId]);
+
+  async function openResume() {
+    if (!profile?.resume_path) return;
+    const err = await openSignedAdminFile(profile.resume_path);
+    if (err) toast({ title: "Couldn't open résumé", description: err, variant: "error" });
+  }
 
   useEffect(() => {
     load();
@@ -357,7 +357,7 @@ export function CandidatePeek({
               </Section>
 
               {/* Links & contact */}
-              {profile?.phone || resumeSignedUrl || (profile?.resume_path && !resumeSignedUrl) || links.length > 0 ? (
+              {profile?.phone || profile?.resume_path || links.length > 0 ? (
                 <Section icon={FileText} title="Links & contact">
                   <ul className="space-y-2">
                     {profile?.phone ? (
@@ -370,13 +370,9 @@ export function CandidatePeek({
                     {profile?.resume_path ? (
                       <li className="flex items-center gap-2.5 text-[13px]">
                         <FileText className="h-4 w-4 shrink-0 text-[#a5b4fc]" />
-                        {resumeSignedUrl ? (
-                          <a href={resumeSignedUrl} target="_blank" rel="noreferrer" className="truncate text-[#a5b4fc] hover:text-[#c7d2fe]">
-                            Résumé (uploaded)
-                          </a>
-                        ) : (
-                          <span className="truncate text-white/70">Résumé (uploaded)</span>
-                        )}
+                        <button type="button" onClick={openResume} className="truncate text-[#a5b4fc] hover:text-[#c7d2fe]">
+                          Résumé (uploaded)
+                        </button>
                       </li>
                     ) : null}
                     {links.map((l) => {

@@ -12,6 +12,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { openSignedAdminFile } from "@/lib/admin-file";
 import { notifyChanged, useDataChanged } from "@/lib/bus";
 import { createClient } from "@/lib/supabase/client";
 import { dateKeyInTimeZone, todayKeyInTimeZone } from "@/lib/calendar";
@@ -251,13 +252,8 @@ export function InterviewsBoard({
       return;
     }
     if (!r.resume_path) return;
-    const supabase = createClient();
-    const { data, error } = await supabase.storage.from("resumes").createSignedUrl(r.resume_path, 60);
-    if (error || !data) {
-      toast({ title: "Couldn't open résumé", description: error?.message, variant: "error" });
-      return;
-    }
-    window.open(data.signedUrl, "_blank", "noopener");
+    const err = await openSignedAdminFile(r.resume_path);
+    if (err) toast({ title: "Couldn't open résumé", description: err, variant: "error" });
   }
 
   const paymentBadge = (r: InterviewRequest) => {

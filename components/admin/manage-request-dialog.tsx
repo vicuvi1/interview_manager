@@ -19,6 +19,7 @@ import { ACTION_META, ACTIONS_BY_STATUS } from "@/lib/interview-lifecycle";
 import { FORMAT_LABEL, FORMATS, INTERVIEW_TYPES, LEVELS, durationOptions } from "@/lib/interview";
 import { useDurationSettings } from "@/lib/use-duration-settings";
 import { autoMeetingLink } from "@/lib/meeting";
+import { openSignedAdminFile } from "@/lib/admin-file";
 import { createClient } from "@/lib/supabase/client";
 import {
   formatInTimeZone,
@@ -657,26 +658,25 @@ export function ManageRequestDialog({
   }
 
   async function openJobDesc() {
+    if (request.job_desc_url) {
+      window.open(request.job_desc_url, "_blank", "noopener");
+      return;
+    }
     if (!request.job_desc_path) return;
-    const supabase = createClient();
-    const { data } = await supabase.storage.from("resumes").createSignedUrl(request.job_desc_path, 60);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+    const err = await openSignedAdminFile(request.job_desc_path);
+    if (err) toast({ title: "Couldn't open job description", description: err, variant: "error" });
   }
 
   async function openResume() {
-    // Prefer the pasted link; otherwise sign the uploaded file so it opens.
+    // Prefer the pasted link; otherwise sign the uploaded file server-side so it
+    // opens even when storage RLS blocks client-side signing for admins.
     if (request.resume_url) {
       window.open(request.resume_url, "_blank", "noopener");
       return;
     }
     if (!request.resume_path) return;
-    const supabase = createClient();
-    const { data, error: signErr } = await supabase.storage.from("resumes").createSignedUrl(request.resume_path, 60);
-    if (signErr || !data) {
-      toast({ title: "Couldn't open résumé", description: signErr?.message, variant: "error" });
-      return;
-    }
-    window.open(data.signedUrl, "_blank", "noopener");
+    const err = await openSignedAdminFile(request.resume_path);
+    if (err) toast({ title: "Couldn't open résumé", description: err, variant: "error" });
   }
 
   const canSchedule = request.status === "approved" || request.status === "scheduled";
@@ -730,15 +730,10 @@ export function ManageRequestDialog({
               <span className="text-white/40">· {candidate?.email}</span>
             </dd>
           </div>
-          {request.resume_url || request.resume_path || request.portfolio_url || request.linkedin_url || request.github_url || request.applicant_phone ? (
+          {request.portfolio_url || request.linkedin_url || request.github_url || request.applicant_phone ? (
             <div className="col-span-2">
               <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Candidate materials</dt>
               <dd className="flex flex-wrap items-center gap-3">
-                {request.resume_url || request.resume_path ? (
-                  <button type="button" onClick={openResume} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
-                    <FileText className="h-3.5 w-3.5" /> Open résumé
-                  </button>
-                ) : null}
                 {request.portfolio_url ? (
                   <a href={request.portfolio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
                     Portfolio <ExternalLink className="h-3.5 w-3.5" />
@@ -874,22 +869,25 @@ export function ManageRequestDialog({
               <dd className="whitespace-pre-wrap text-white/80">{request.caller_notes}</dd>
             </div>
           ) : null}
-          {request.job_desc_url || request.job_desc_path ? (
+          {request.resume_url || request.resume_path || request.job_desc_url || request.job_desc_path ? (
             <div className="col-span-2">
-              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Job description</dt>
-              <dd className="flex flex-wrap gap-3">
-                {request.job_desc_url ? (
+              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Documents</dt>
+              <dd className="flex flex-wrap items-center gap-4">
+                {request.resume_url || request.resume_path ? (
                   <span className="inline-flex items-center gap-0.5">
-                    <a href={request.job_desc_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
-                      Open link <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                    <CopyButton value={request.job_desc_url} title="Copy link" />
+                    <button type="button" onClick={openResume} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                      <FileText className="h-3.5 w-3.5" /> Open résumé
+                    </button>
+                    {request.resume_url ? <CopyButton value={request.resume_url} title="Copy résumé link" /> : null}
                   </span>
                 ) : null}
-                {request.job_desc_path ? (
-                  <button type="button" onClick={openJobDesc} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
-                    Open file <FileText className="h-3.5 w-3.5" />
-                  </button>
+                {request.job_desc_url || request.job_desc_path ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    <button type="button" onClick={openJobDesc} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                      <FileText className="h-3.5 w-3.5" /> Open job description
+                    </button>
+                    {request.job_desc_url ? <CopyButton value={request.job_desc_url} title="Copy job description link" /> : null}
+                  </span>
                 ) : null}
               </dd>
             </div>
