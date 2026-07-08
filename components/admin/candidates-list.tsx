@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Search, Users } from "lucide-react";
 
+import { CandidatePeek } from "@/components/admin/candidate-peek";
 import { Badge } from "@/components/ui/badge";
 import { SectionCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,7 +27,7 @@ interface Row {
 }
 
 export function CandidatesList({
-  adminTimezone: _adminTimezone,
+  adminTimezone,
   initialProfiles,
   initialRequests,
   initialPayments,
@@ -42,6 +42,7 @@ export function CandidatesList({
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "activity", dir: -1 });
+  const [peek, setPeek] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -133,7 +134,7 @@ export function CandidatesList({
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-medium text-[#f0f0f5]">Candidates</h1>
-        <p className="text-[12px] text-white/40">Everyone who has signed up — click a row for the full profile.</p>
+        <p className="text-[12px] text-white/40">Everyone who has signed up — click a candidate for a quick view.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -180,7 +181,7 @@ export function CandidatesList({
                 {filtered.map((r) => (
                   <tr key={r.profile.id} className="group transition-colors hover:bg-white/[0.03]">
                     <td className="px-5 py-3 sm:px-6">
-                      <Link href={`/admin/candidates/${r.profile.id}`} className="flex items-center gap-2.5">
+                      <button type="button" onClick={() => setPeek(r.profile.id)} className="flex items-center gap-2.5 text-left" title="Quick view">
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[11px] font-semibold text-white">
                           {initials(r.profile.full_name, r.profile.email)}
                         </span>
@@ -203,7 +204,7 @@ export function CandidatesList({
                             </div>
                           ) : null}
                         </div>
-                      </Link>
+                      </button>
                     </td>
                     <td className="px-3 py-3 tabular-nums text-white/80">
                       {r.interviews}
@@ -225,6 +226,10 @@ export function CandidatesList({
           </div>
         )}
       </SectionCard>
+
+      {peek ? (
+        <CandidatePeek candidateId={peek} adminTimezone={adminTimezone} onClose={() => setPeek(null)} />
+      ) : null}
     </div>
   );
 }

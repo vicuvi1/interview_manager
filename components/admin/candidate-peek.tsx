@@ -16,6 +16,7 @@ import {
   MessageSquarePlus,
   Phone,
   StickyNote,
+  Tags,
   Wallet,
   X,
 } from "lucide-react";
@@ -25,9 +26,11 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { formatAmount } from "@/lib/payments";
+import { REJECTED, STAGES, STAGE_LABEL } from "@/lib/stages";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, relativeTime } from "@/lib/time";
 import { cn, initials } from "@/lib/utils";
@@ -57,6 +60,12 @@ interface PeekPayment {
   currency: string;
   status: string;
 }
+
+// Stage options for the quick-edit select — the pipeline stages plus Rejected.
+const STAGE_OPTIONS: { value: string; label: string }[] = [
+  ...STAGES,
+  { value: REJECTED, label: STAGE_LABEL[REJECTED] ?? "Rejected" },
+];
 
 /**
  * A right-side slide-over that shows a candidate's full context — links,
@@ -88,6 +97,8 @@ export function CandidatePeek({
   const [loading, setLoading] = useState(true);
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [stageBusy, setStageBusy] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -175,6 +186,43 @@ export function CandidatePeek({
     load();
   }
 
+  async function changeStage(next: string) {
+    if (!profile || next === profile.stage) return;
+    const prev = profile.stage;
+    setProfile({ ...profile, stage: next });
+    setStageBusy(true);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("set_candidate_stage", { p_user: candidateId, p_stage: next });
+    setStageBusy(false);
+    if (error) {
+      setProfile((p) => (p ? { ...p, stage: prev } : p));
+      toast({ title: "Couldn't update stage", description: error.message, variant: "error" });
+    }
+  }
+
+  async function persistTags(next: string[]) {
+    if (!profile) return;
+    const prev = profile.tags ?? [];
+    setProfile({ ...profile, tags: next });
+    const supabase = createClient();
+    const { error } = await supabase.rpc("set_candidate_tags", { p_user: candidateId, p_tags: next });
+    if (error) {
+      setProfile((p) => (p ? { ...p, tags: prev } : p));
+      toast({ title: "Couldn't update tags", description: error.message, variant: "error" });
+    }
+  }
+
+  function addTag() {
+    const t = tagInput.trim();
+    const cur = profile?.tags ?? [];
+    if (!t || cur.includes(t)) {
+      setTagInput("");
+      return;
+    }
+    persistTags([...cur, t]);
+    setTagInput("");
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" onClick={onClose} role="presentation">
       <div
@@ -206,15 +254,6 @@ export function CandidatePeek({
               {timezone}
               {profile ? ` · joined ${relativeTime(profile.created_at)}` : ""}
             </p>
-            {profile?.tags && profile.tags.length > 0 ? (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {profile.tags.map((t) => (
-                  <span key={t} className="rounded-full bg-[#6366f1]/[0.12] px-2 py-0.5 text-[11px] text-[#c7d2fe]">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
           <button
             type="button"
@@ -239,6 +278,59 @@ export function CandidatePeek({
                 <Stat icon={Wallet} tone="green" label="Paid" value={formatAmount(kpis.paid)} />
                 <Stat icon={Clock} tone="amber" label="Outstanding" value={formatAmount(kpis.outstanding)} />
               </div>
+
+              {/* Pipeline stage + tags — editable inline. */}
+              <Section icon={Tags} title="Pipeline & tags">
+                <div className="space-y-3">
+                  <Select
+                    value={profile?.stage ?? "applied"}
+                    disabled={stageBusy}
+                    onChange={(e) => changeStage(e.target.value)}
+                    aria-label="Pipeline stage"
+                  >
+                    {STAGE_OPTIONS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(profile?.tags ?? []).length === 0 ? (
+                        <span className="text-[12px] text-white/30">No tags yet.</span>
+                      ) : null}
+                      {(profile?.tags ?? []).map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#6366f1]/[0.12] px-2 py-0.5 text-[12px] text-[#c7d2fe]"
+                        >
+                          {t}
+                          <button
+                            type="button"
+                            onClick={() => persistTags((profile?.tags ?? []).filter((x) => x !== t))}
+                            aria-label={`Remove ${t}`}
+                          >
+                            <X className="h-3 w-3 opacity-70 hover:opacity-100" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addTag();
+                        }
+                      }}
+                      onBlur={addTag}
+                      placeholder="Add a tag and press Enter"
+                      className="mt-2 h-9"
+                    />
+                  </div>
+                </div>
+              </Section>
 
               {/* Links & contact */}
               {profile?.phone || resumeSignedUrl || (profile?.resume_path && !resumeSignedUrl) || links.length > 0 ? (
