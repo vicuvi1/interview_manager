@@ -108,6 +108,7 @@ export function ManageRequestDialog({
   const [editLevel, setEditLevel] = useState(request.level ?? "");
   const [editFormat, setEditFormat] = useState(request.format ?? "");
   const [editFocus, setEditFocus] = useState((request.focus_areas ?? []).join(", "));
+  const [editResumeUrl, setEditResumeUrl] = useState(request.resume_url ?? "");
   const [savingDetails, setSavingDetails] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
   const [bufferMin, setBufferMin] = useState(0);
@@ -334,6 +335,7 @@ export function ManageRequestDialog({
         level: editLevel || null,
         format: editFormat || null,
         focus_areas: focusAreas.length ? focusAreas : null,
+        resume_url: editResumeUrl.trim() || null,
         notes: editNotes.trim() || null,
         meeting_link: editLink.trim() || null,
         last_edited_at: new Date().toISOString(),
@@ -661,6 +663,22 @@ export function ManageRequestDialog({
     if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
   }
 
+  async function openResume() {
+    // Prefer the pasted link; otherwise sign the uploaded file so it opens.
+    if (request.resume_url) {
+      window.open(request.resume_url, "_blank", "noopener");
+      return;
+    }
+    if (!request.resume_path) return;
+    const supabase = createClient();
+    const { data, error: signErr } = await supabase.storage.from("resumes").createSignedUrl(request.resume_path, 60);
+    if (signErr || !data) {
+      toast({ title: "Couldn't open résumé", description: signErr?.message, variant: "error" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener");
+  }
+
   const canSchedule = request.status === "approved" || request.status === "scheduled";
 
   const TABS = [
@@ -712,6 +730,39 @@ export function ManageRequestDialog({
               <span className="text-white/40">· {candidate?.email}</span>
             </dd>
           </div>
+          {request.resume_url || request.resume_path || request.portfolio_url || request.linkedin_url || request.github_url || request.applicant_phone ? (
+            <div className="col-span-2">
+              <dt className="mb-1 text-[11px] uppercase tracking-wide text-white/40">Candidate materials</dt>
+              <dd className="flex flex-wrap items-center gap-3">
+                {request.resume_url || request.resume_path ? (
+                  <button type="button" onClick={openResume} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                    <FileText className="h-3.5 w-3.5" /> Open résumé
+                  </button>
+                ) : null}
+                {request.portfolio_url ? (
+                  <a href={request.portfolio_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                    Portfolio <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                {request.linkedin_url ? (
+                  <a href={request.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                    LinkedIn <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                {request.github_url ? (
+                  <a href={request.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium text-[#a5b4fc] hover:text-[#c7d2fe]">
+                    GitHub <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                {request.applicant_phone ? (
+                  <span className="inline-flex items-center gap-1 text-white/70">
+                    ☎ {request.applicant_phone}
+                    <CopyButton value={request.applicant_phone} title="Copy phone" className="h-6 w-6" />
+                  </span>
+                ) : null}
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-white/40">Preferred</dt>
             <dd className="text-white/80">{formatInTimeZone(request.preferred_at, candTz)}</dd>
@@ -948,6 +999,9 @@ export function ManageRequestDialog({
           </div>
           <Field label="Focus areas / skills" htmlFor="ed-focus" hint="Comma separated.">
             <Input id="ed-focus" value={editFocus} onChange={(e) => setEditFocus(e.target.value)} placeholder="e.g. React, System design" />
+          </Field>
+          <Field label="Résumé link" htmlFor="ed-resume" hint="Paste a link to the candidate's résumé (or they can upload one).">
+            <Input id="ed-resume" placeholder="https://…" value={editResumeUrl} onChange={(e) => setEditResumeUrl(e.target.value)} />
           </Field>
           <Field label="Notes" htmlFor="ed-notes" hint="Shared with the candidate.">
             <Textarea id="ed-notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional" />
