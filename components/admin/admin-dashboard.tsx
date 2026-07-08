@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -15,8 +14,10 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 
+import { CandidatePeek } from "@/components/admin/candidate-peek";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { Calendar, type CalendarEvent } from "@/components/calendar/calendar";
 import { Badge, paymentTone, type Tone } from "@/components/ui/badge";
@@ -77,6 +78,8 @@ export function AdminDashboard({
   const [profiles, setProfiles] = useState<ProfileLite[]>(initialProfiles);
   const [managed, setManaged] = useState<InterviewRequest | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [peek, setPeek] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const candidates = useMemo(() => {
     const map: Record<string, CandidateLite> = {};
@@ -244,6 +247,48 @@ export function AdminDashboard({
       notifyChanged("interviews");
     } else {
       toast({ title: "Couldn't update", description: error.message, variant: "error" });
+    }
+    setBusyId(null);
+  }
+
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allSelected = requests.length > 0 && requests.every((r) => selected.has(r.id));
+  const toggleAll = () =>
+    setSelected((prev) => (requests.every((r) => prev.has(r.id)) ? new Set() : new Set(requests.map((r) => r.id))));
+  const pendingSelected = useMemo(
+    () => requests.filter((r) => selected.has(r.id) && r.status === "pending"),
+    [requests, selected],
+  );
+
+  async function bulkApprove() {
+    const rows = pendingSelected;
+    if (rows.length === 0) return;
+    setBusyId("bulk");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("interview_requests")
+      .update({ status: "approved" })
+      .in("id", rows.map((r) => r.id));
+    if (!error) {
+      await supabase.from("notifications").insert(
+        rows.map((r) => ({
+          user_id: r.candidate_id,
+          title: "Interview approved",
+          detail: `Your request for "${r.role}" was approved. A time will follow shortly.`,
+          type: "approved",
+        })),
+      );
+      toast({ title: `Approved ${rows.length} request${rows.length === 1 ? "" : "s"}`, variant: "success" });
+      notifyChanged("interviews");
+      setSelected(new Set());
+    } else {
+      toast({ title: "Bulk approve failed", description: error.message, variant: "error" });
     }
     setBusyId(null);
   }
@@ -416,6 +461,29 @@ export function AdminDashboard({
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <SectionCard title="Requests" description="Every candidate's request." icon={Inbox} bodyClassName="p-0 sm:p-0">
+            {selected.size > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] bg-[#6366f1]/[0.05] px-5 py-2.5 sm:px-6">
+                <span className="text-[12px] font-medium text-[#c7d2fe]">{selected.size} selected</span>
+                <span className="text-[11px] text-white/40">{pendingSelected.length} pending</span>
+                <div className="mx-1 h-4 w-px bg-white/10" />
+                <Button
+                  size="sm"
+                  loading={busyId === "bulk"}
+                  disabled={busyId !== null || pendingSelected.length === 0}
+                  onClick={bulkApprove}
+                >
+                  Approve{pendingSelected.length > 0 ? ` ${pendingSelected.length}` : ""}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="ml-auto rounded-md p-1 text-white/40 hover:bg-white/[0.06] hover:text-white/70"
+                  aria-label="Clear selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
             {requests.length === 0 ? (
               <div className="p-5 sm:p-6">
                 <EmptyState icon={Inbox} title="No requests yet" description="New requests will appear here." />
@@ -425,7 +493,16 @@ export function AdminDashboard({
                 <table className="w-full min-w-[640px] text-left text-[13px]">
                   <thead className="sticky top-0 bg-[#13131a]">
                     <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wide text-white/40">
-                      <th className="px-5 py-2.5 font-medium sm:px-6">Candidate</th>
+                      <th className="w-10 px-5 py-2.5 sm:px-6">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleAll}
+                          className="h-3.5 w-3.5 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+                          aria-label="Select all"
+                        />
+                      </th>
+                      <th className="px-3 py-2.5 font-medium">Candidate</th>
                       <th className="px-3 py-2.5 font-medium">Role</th>
                       <th className="px-3 py-2.5 font-medium">Preferred</th>
                       <th className="px-3 py-2.5 font-medium">Status</th>
@@ -436,9 +513,26 @@ export function AdminDashboard({
                     {requests.map((r) => {
                       const c = candidates[r.candidate_id];
                       return (
-                        <tr key={r.id} className="transition-colors hover:bg-white/[0.03]">
+                        <tr
+                          key={r.id}
+                          className={cn("transition-colors hover:bg-white/[0.03]", selected.has(r.id) && "bg-[#6366f1]/[0.04]")}
+                        >
                           <td className="px-5 py-3 sm:px-6">
-                            <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(r.id)}
+                              onChange={() => toggleOne(r.id)}
+                              className="h-3.5 w-3.5 rounded border-white/20 bg-[#1a1a24] accent-[#6366f1]"
+                              aria-label={`Select ${c?.full_name || "candidate"}`}
+                            />
+                          </td>
+                          <td className="px-3 py-3">
+                            <button
+                              type="button"
+                              onClick={() => setPeek(r.candidate_id)}
+                              className="flex items-center gap-2.5 text-left hover:opacity-90"
+                              title="Quick view"
+                            >
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[11px] font-semibold text-white">
                                 {initials(c?.full_name, c?.email)}
                               </span>
@@ -446,7 +540,7 @@ export function AdminDashboard({
                                 <p className="truncate font-medium text-[#f0f0f5]">{c?.full_name || "Unknown"}</p>
                                 <p className="truncate text-[11px] text-white/40">{c?.email}</p>
                               </div>
-                            </div>
+                            </button>
                           </td>
                           <td className="px-3 py-3 text-white/80">{r.role}</td>
                           <td className="px-3 py-3 text-white/60">
@@ -470,13 +564,14 @@ export function AdminDashboard({
                               <Button variant="secondary" size="sm" onClick={() => setManaged(r)}>
                                 Manage
                               </Button>
-                              <Link
-                                href="/admin/candidates"
+                              <button
+                                type="button"
+                                onClick={() => setPeek(r.candidate_id)}
                                 className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/[0.06] hover:text-white/70"
-                                aria-label="View candidate"
+                                aria-label="Quick view candidate"
                               >
                                 <Eye className="h-4 w-4" />
-                              </Link>
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -642,6 +737,14 @@ export function AdminDashboard({
           adminTimezone={adminTimezone}
           requests={requests}
           onClose={() => setManaged(null)}
+        />
+      ) : null}
+      {peek ? (
+        <CandidatePeek
+          candidateId={peek}
+          seed={candidates[peek]}
+          adminTimezone={adminTimezone}
+          onClose={() => setPeek(null)}
         />
       ) : null}
     </div>

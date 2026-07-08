@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, CalendarClock, CalendarPlus, CheckCheck, ClipboardCheck, Plus, Search, Slash, X } from "lucide-react";
 
+import { CandidatePeek } from "@/components/admin/candidate-peek";
 import { FeedbackDialog } from "@/components/admin/feedback-dialog";
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { ScheduleDialog } from "@/components/admin/schedule-dialog";
@@ -72,6 +72,7 @@ export function RequestsConsole({
   const [manage, setManage] = useState<InterviewRequest | null>(null);
   const [schedule, setSchedule] = useState<InterviewRequest | null>(null);
   const [feedback, setFeedback] = useState<InterviewRequest | null>(null);
+  const [peek, setPeek] = useState<string | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [views, setViews] = useState<{ name: string; filter: string; query: string }[]>([]);
 
@@ -364,12 +365,17 @@ export function RequestsConsole({
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <Link href={`/admin/candidates/${r.candidate_id}`} className="flex items-center gap-2.5 hover:opacity-90">
+                      <button
+                        type="button"
+                        onClick={() => setPeek(r.candidate_id)}
+                        className="flex items-center gap-2.5 text-left hover:opacity-90"
+                        title="Quick view"
+                      >
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-[10px] font-semibold text-white">
                           {initials(candidates[r.candidate_id]?.full_name, candidates[r.candidate_id]?.email)}
                         </span>
                         <span className="truncate font-medium text-[#f0f0f5]">{candName(r.candidate_id)}</span>
-                      </Link>
+                      </button>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -458,6 +464,15 @@ export function RequestsConsole({
           adminId={adminId}
           onClose={() => setFeedback(null)}
           onDone={load}
+        />
+      ) : null}
+      {peek ? (
+        <CandidatePeek
+          candidateId={peek}
+          seed={candidates[peek]}
+          adminId={adminId}
+          adminTimezone={adminTimezone}
+          onClose={() => setPeek(null)}
         />
       ) : null}
       {bookingOpen ? (
