@@ -442,9 +442,9 @@ export function ManageRequestDialog({
     }
     await supabase.from("notifications").insert({
       user_id: request.candidate_id,
-      title: "Payment requested",
-      detail: `A payment of ${formatMoney(cents, "USD")} is due for "${request.role}".`,
-      type: "alert",
+      title: "New invoice from admin",
+      detail: `A payment of ${formatMoney(cents, "USD")} is due for "${request.role}". Please pay.`,
+      type: "invoice",
     });
     toast({ title: "Invoice sent", variant: "success" });
     setInvoicing(false);

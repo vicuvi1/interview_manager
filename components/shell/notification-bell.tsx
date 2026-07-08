@@ -52,7 +52,8 @@ export function NotificationBell({ userId, notifHref }: { userId: string; notifH
         (payload) => {
           if (payload.eventType === "INSERT" && seeded.current) {
             const n = payload.new as Notification;
-            toast({ title: n.title, description: n.detail ?? undefined, variant: "info" });
+            // Invoices get a full-screen popup instead of a corner toast.
+            if (n.type !== "invoice") toast({ title: n.title, description: n.detail ?? undefined, variant: "info" });
           }
           refresh();
         },

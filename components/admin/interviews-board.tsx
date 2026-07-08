@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Clock, Download, ExternalLink, FileText, History, Inbox, Search, Send, Settings2 } from "lucide-react";
+import { Check, ChevronDown, Clock, Download, ExternalLink, FileText, History, Inbox, Receipt, Search, Send, Settings2, X } from "lucide-react";
 
 import { ManageRequestDialog } from "@/components/admin/manage-request-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,94 @@ const isPast = (r: InterviewRequest) => {
   return !!t && new Date(t).getTime() < Date.now();
 };
 
+/**
+ * Inline-editable "length I recorded" for a row. Shows the admin-set
+ * `actual_minutes` when present, otherwise the candidate's planned
+ * `duration_minutes` (dimmed, marked "planned"). Clicking lets the admin type
+ * the real length and saves it straight to the row.
+ */
+function MinutesCell({ r, onSaved }: { r: InterviewRequest; onSaved: () => void }) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const eff = r.actual_minutes ?? r.duration_minutes;
+  const isActual = r.actual_minutes != null;
+
+  async function save() {
+    const n = parseInt(draft, 10);
+    if (!Number.isFinite(n) || n <= 0) {
+      toast({ title: "Enter a valid number of minutes", variant: "error" });
+      return;
+    }
+    setBusy(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("interview_requests").update({ actual_minutes: n }).eq("id", r.id);
+    setBusy(false);
+    if (error) {
+      toast({ title: "Couldn't update minutes", description: error.message, variant: "error" });
+      return;
+    }
+    setEditing(false);
+    notifyChanged("interviews");
+    onSaved();
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <input
+          type="number"
+          min={1}
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="h-6 w-16 rounded border border-white/15 bg-[#1a1a24] px-1.5 text-[12px] text-white outline-none focus:border-[#6366f1]"
+          aria-label="Minutes"
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy}
+          className="rounded p-0.5 text-[#34d399] hover:bg-white/[0.06] disabled:opacity-50"
+          aria-label="Save minutes"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="rounded p-0.5 text-white/40 hover:bg-white/[0.06]"
+          aria-label="Cancel"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setDraft(String(eff));
+        setEditing(true);
+      }}
+      title={isActual ? "Recorded length — click to edit" : "Planned length — click to record the actual minutes"}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1 hover:bg-white/[0.06]",
+        isActual ? "text-white/70" : "text-white/40",
+      )}
+    >
+      {eff} min{!isActual ? <span className="text-white/25">(planned)</span> : null}
+    </button>
+  );
+}
+
 export function InterviewsBoard({
   adminTimezone,
   initialRequests,
@@ -59,6 +147,11 @@ export function InterviewsBoard({
   const [sending, setSending] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Inline billing: which row's invoice/payment bar is open, the shared amount
+  // (dollars) it's editing, and which action is in flight.
+  const [billingRow, setBillingRow] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [billingBusy, setBillingBusy] = useState<"" | "send" | "confirm">("");
 
   const candidates = useMemo(() => {
     const map: Record<string, CandidateLite> = {};
@@ -180,7 +273,7 @@ export function InterviewsBoard({
       r.interview_type ?? "",
       effTime(r) ? formatInTimeZone(effTime(r), adminTimezone) : "",
       r.scheduled_at ? "scheduled" : r.preferred_at ? "requested" : "",
-      r.duration_minutes,
+      r.actual_minutes ?? r.duration_minutes,
       r.status,
       r.payment_status,
       r.price_cents ? formatMoney(r.price_cents, r.currency) : "",
@@ -246,6 +339,81 @@ export function InterviewsBoard({
     toast({ title: `Marked ${ids.length} paid`, variant: "success" });
   }
 
+  function toggleBilling(r: InterviewRequest) {
+    if (billingRow === r.id) {
+      setBillingRow(null);
+      return;
+    }
+    setBillingRow(r.id);
+    setAmount(r.price_cents ? (r.price_cents / 100).toString() : "");
+  }
+
+  // Send (or update & resend) an invoice for a row. Sets the price and fires the
+  // candidate's full-screen "New invoice" popup via a `type: "invoice"` notice.
+  async function sendInvoice(r: InterviewRequest) {
+    const cents = Math.round(parseFloat(amount) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) {
+      toast({ title: "Enter an amount", description: "Type the invoice amount in USD.", variant: "error" });
+      return;
+    }
+    setBillingBusy("send");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("interview_requests")
+      .update({ price_cents: cents, currency: "USD" })
+      .eq("id", r.id);
+    if (!error) {
+      await supabase.from("notifications").insert({
+        user_id: r.candidate_id,
+        title: "New invoice from admin",
+        detail: `A payment of ${formatMoney(cents, "USD")} is due for "${r.role}". Please pay.`,
+        type: "invoice",
+      });
+    }
+    setBillingBusy("");
+    if (error) {
+      toast({ title: "Couldn't send invoice", description: error.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Invoice sent", description: "The candidate gets a payment popup.", variant: "success" });
+    notifyChanged("interviews");
+  }
+
+  // Confirm payment for a row at the entered value (falls back to the existing
+  // invoiced price if the field is blank).
+  async function confirmPayment(r: InterviewRequest) {
+    const cents = amount ? Math.round(parseFloat(amount) * 100) : r.price_cents;
+    if (cents != null && (!Number.isFinite(cents) || cents <= 0)) {
+      toast({ title: "Enter a valid amount", variant: "error" });
+      return;
+    }
+    setBillingBusy("confirm");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("interview_requests")
+      .update({
+        payment_status: "paid",
+        paid_at: new Date().toISOString(),
+        ...(cents ? { price_cents: cents, currency: "USD" } : {}),
+      })
+      .eq("id", r.id);
+    if (!error) {
+      await supabase.from("notifications").insert({
+        user_id: r.candidate_id,
+        title: "Payment confirmed",
+        detail: `Your payment${cents ? ` of ${formatMoney(cents, "USD")}` : ""} for "${r.role}" is confirmed. Thank you!`,
+        type: "success",
+      });
+    }
+    setBillingBusy("");
+    if (error) {
+      toast({ title: "Couldn't confirm payment", description: error.message, variant: "error" });
+      return;
+    }
+    toast({ title: "Payment confirmed", variant: "success" });
+    notifyChanged("interviews");
+  }
+
   async function viewResume(r: InterviewRequest) {
     if (r.resume_url) {
       window.open(r.resume_url, "_blank", "noopener");
@@ -302,7 +470,8 @@ export function InterviewsBoard({
               <Clock className="h-3.5 w-3.5 text-white/35" />
               {t ? formatInTimeZone(t, adminTimezone) : "Not scheduled"}
               {!r.scheduled_at && r.preferred_at ? <span className="text-white/35">(requested)</span> : null}
-              <span className="text-white/30">· {r.duration_minutes} min</span>
+              <span className="text-white/30">·</span>
+              <MinutesCell r={r} onSaved={load} />
             </p>
           </div>
           <div className="flex w-full flex-col items-start gap-1.5 sm:w-auto sm:items-end">
@@ -331,6 +500,14 @@ export function InterviewsBoard({
               >
                 <Send className="h-3.5 w-3.5" /> Send
               </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className={cn("h-7 px-2 text-[12px]", billingRow === r.id && "bg-white/[0.1]")}
+                onClick={() => toggleBilling(r)}
+              >
+                <Receipt className="h-3.5 w-3.5" /> Invoice
+              </Button>
               <Button size="sm" variant="secondary" className="h-7 px-2 text-[12px]" onClick={() => setManage(r)}>
                 <Settings2 className="h-3.5 w-3.5" /> Manage
               </Button>
@@ -350,6 +527,54 @@ export function InterviewsBoard({
             </div>
           </div>
         </div>
+        {billingRow === r.id ? (
+          <div className="flex flex-wrap items-end gap-3 border-t border-white/[0.06] bg-[#6366f1]/[0.05] px-4 py-3 sm:px-5">
+            <div>
+              <label htmlFor={`amt-${r.id}`} className="mb-1 block text-[11px] font-medium text-white/50">
+                Amount (USD)
+              </label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/40">$</span>
+                <Input
+                  id={`amt-${r.id}`}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  inputMode="decimal"
+                  className="h-8 w-28"
+                />
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="h-8"
+              loading={billingBusy === "send"}
+              disabled={!!billingBusy}
+              onClick={() => sendInvoice(r)}
+            >
+              <Send className="h-3.5 w-3.5" /> {r.price_cents ? "Update & resend" : "Send invoice"}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8"
+              loading={billingBusy === "confirm"}
+              disabled={!!billingBusy || r.payment_status === "paid"}
+              onClick={() => confirmPayment(r)}
+            >
+              <Check className="h-3.5 w-3.5" /> Confirm payment
+            </Button>
+            {r.payment_status === "paid" ? (
+              <span className="text-[12px] font-medium text-[#34d399]">
+                Paid{r.paid_at ? ` · ${relativeTime(r.paid_at)}` : ""}
+              </span>
+            ) : (r.price_cents ?? 0) > 0 ? (
+              <span className="text-[12px] text-[#fbbf24]">Invoiced · {formatMoney(r.price_cents!, r.currency)} · unpaid</span>
+            ) : (
+              <span className="text-[12px] text-white/35">No invoice yet</span>
+            )}
+          </div>
+        ) : null}
         {open ? (
           <div className="space-y-3 bg-white/[0.015] px-4 pb-4 pt-1 sm:px-5">
             {hasMinutes ? (

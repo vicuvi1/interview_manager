@@ -34,6 +34,7 @@ import {
 
 import { MigrationBanner } from "@/components/admin/migration-banner";
 import { FeedbackWidget } from "@/components/candidate/feedback-widget";
+import { InvoicePopup } from "@/components/candidate/invoice-popup";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { UpdateBanner } from "@/components/shell/update-banner";
@@ -259,6 +260,7 @@ export function AppShell({ variant, user, userId, isAdmin = false, counts, child
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} variant={variant} userId={userId} />
       {variant === "candidate" ? <FeedbackWidget userId={userId} name={user.name} email={user.email} /> : null}
+      {variant === "candidate" ? <InvoicePopup userId={userId} /> : null}
     </div>
   );
 }
