@@ -20,6 +20,7 @@ import { useDurationSettings } from "@/lib/use-duration-settings";
 import { type FieldConfig, fieldLevel, levelSuffix } from "@/lib/request-fields";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import type { Attachment, BookingProfile, CandidateMaterials, InterviewRequest, ResumeItem } from "@/lib/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -39,6 +40,23 @@ const TZ_LIST: string[] = (() => {
     "Asia/Hong_Kong", "Asia/Tokyo", "Australia/Sydney",
   ];
 })();
+
+// Which tab each required field lives in, so a failed validation can jump the
+// user to the right tab instead of leaving them on the wrong one.
+const FIELD_TAB: Record<string, string> = {
+  role: "details",
+  company: "details",
+  interviewer_name: "details",
+  focus: "details",
+  cv: "about",
+  phone: "about",
+  portfolio: "about",
+  linkedin: "about",
+  github: "about",
+  job_desc: "jd",
+  caller_notes: "notes",
+  notes: "notes",
+};
 
 function GroupLabel({ icon: Icon, children }: { icon: typeof User; children: React.ReactNode }) {
   return (
@@ -105,6 +123,9 @@ export function InterviewRequestForm({
   const [callerNotes, setCallerNotes] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // Which tab is showing — sections are grouped into tabs so there's no long
+  // scroll on every request.
+  const [tab, setTab] = useState("details");
 
   const [uploading, setUploading] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -228,21 +249,29 @@ export function InterviewRequestForm({
   async function submit() {
     // Enforce whatever the admin marked as required.
     const req = (k: string) => lvl(k) === "required";
-    const missing: string[] = [];
-    if (req("cv") && !resumePath && !resumeUrl.trim()) missing.push("Résumé / CV");
-    if (req("role") && role.trim().length < 2) missing.push("Role / topic");
-    if (req("company") && !company.trim()) missing.push("Company name");
-    if (req("interviewer_name") && !interviewerName.trim()) missing.push("Interviewer name");
-    if (req("focus") && !focus.trim()) missing.push("Focus areas / skills");
-    if (req("job_desc") && !jobDescUrl.trim() && !jobDescPath) missing.push("Job description");
-    if (req("caller_notes") && !callerNotes.trim()) missing.push("Notes for the caller");
-    if (req("notes") && !notes.trim()) missing.push("Anything else");
-    if (req("phone") && !phone.trim()) missing.push("Phone");
-    if (req("portfolio") && !portfolioUrl.trim()) missing.push("Portfolio");
-    if (req("linkedin") && !linkedinUrl.trim()) missing.push("LinkedIn");
-    if (req("github") && !githubUrl.trim()) missing.push("GitHub");
-    if (missing.length) return setError(`Please complete: ${missing.join(", ")}.`);
-    if (!fixedStart && !when) return setError("Pick a preferred date & time.");
+    const missing: { key: string; label: string }[] = [];
+    if (req("cv") && !resumePath && !resumeUrl.trim()) missing.push({ key: "cv", label: "Résumé / CV" });
+    if (req("role") && role.trim().length < 2) missing.push({ key: "role", label: "Role / topic" });
+    if (req("company") && !company.trim()) missing.push({ key: "company", label: "Company name" });
+    if (req("interviewer_name") && !interviewerName.trim()) missing.push({ key: "interviewer_name", label: "Interviewer name" });
+    if (req("focus") && !focus.trim()) missing.push({ key: "focus", label: "Focus areas / skills" });
+    if (req("job_desc") && !jobDescUrl.trim() && !jobDescPath) missing.push({ key: "job_desc", label: "Job description" });
+    if (req("caller_notes") && !callerNotes.trim()) missing.push({ key: "caller_notes", label: "Notes for the caller" });
+    if (req("notes") && !notes.trim()) missing.push({ key: "notes", label: "Anything else" });
+    if (req("phone") && !phone.trim()) missing.push({ key: "phone", label: "Phone" });
+    if (req("portfolio") && !portfolioUrl.trim()) missing.push({ key: "portfolio", label: "Portfolio" });
+    if (req("linkedin") && !linkedinUrl.trim()) missing.push({ key: "linkedin", label: "LinkedIn" });
+    if (req("github") && !githubUrl.trim()) missing.push({ key: "github", label: "GitHub" });
+    if (missing.length) {
+      setError(`Please complete: ${missing.map((m) => m.label).join(", ")}.`);
+      setTab(FIELD_TAB[missing[0].key] ?? "details");
+      return;
+    }
+    if (!fixedStart && !when) {
+      setError("Pick a preferred date & time.");
+      setTab("schedule");
+      return;
+    }
     setBusy(true);
     setError(null);
     const supabase = createClient();
@@ -322,8 +351,18 @@ export function InterviewRequestForm({
     else router.push("/candidate/interviews");
   }
 
+  const jdVisible = lvl("job_desc") !== "hidden";
+  const notesGroupVisible = lvl("caller_notes") !== "hidden" || lvl("notes") !== "hidden";
+  const TABS: { key: string; label: string }[] = [
+    { key: "details", label: "Interview" },
+    { key: "schedule", label: "Schedule" },
+    { key: "about", label: "About you" },
+    ...(jdVisible ? [{ key: "jd", label: "Job description" }] : []),
+    { key: "notes", label: "Notes & files" },
+  ];
+
   const content = (
-    <div className="space-y-6">
+    <div className="space-y-5">
         <BookAgainBar userId={userId} onApply={applyPastRequest} />
 
         <BookingProfilesBar
@@ -340,7 +379,26 @@ export function InterviewRequestForm({
           onApply={applyProfile}
         />
 
+        {/* Tabs — grouped so there's no long scroll each time. */}
+        <div className="flex gap-1 overflow-x-auto scrollbar-thin border-b border-white/[0.08]">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "-mb-px shrink-0 border-b-2 px-3 py-2 text-[13px] font-medium transition-colors",
+                tab === t.key ? "border-[#6366f1] text-[#f0f0f5]" : "border-transparent text-white/45 hover:text-white/75",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-[240px]">
         {/* Interview */}
+        {tab === "details" ? (
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>The interview</GroupLabel>
           {lvl("role") !== "hidden" ? (
@@ -407,8 +465,10 @@ export function InterviewRequestForm({
             </Field>
           </div>
         </div>
+        ) : null}
 
         {/* When */}
+        {tab === "schedule" ? (
         <div className="space-y-4">
           <GroupLabel icon={CalendarPlus}>Preferred time</GroupLabel>
           {fixedStart ? (
@@ -483,8 +543,10 @@ export function InterviewRequestForm({
             />
           </Field>
         </div>
+        ) : null}
 
         {/* About you */}
+        {tab === "about" ? (
         <div className="space-y-4">
           <GroupLabel icon={User}>About you</GroupLabel>
           <p className="-mt-1 text-[12px] text-white/40">Saved to your profile so you don&apos;t retype it next time.</p>
@@ -545,9 +607,10 @@ export function InterviewRequestForm({
             ) : null}
           </div>
         </div>
+        ) : null}
 
         {/* Job description */}
-        {lvl("job_desc") !== "hidden" ? (
+        {tab === "jd" && jdVisible ? (
           <div className="space-y-4">
             <GroupLabel icon={FileText}>Job description{levelSuffix(lvl("job_desc")) === " — required" ? " — required" : ""}</GroupLabel>
             <DocField
@@ -567,8 +630,10 @@ export function InterviewRequestForm({
           </div>
         ) : null}
 
-        {/* Context */}
-        {lvl("caller_notes") !== "hidden" || lvl("notes") !== "hidden" ? (
+        {/* Notes & files */}
+        {tab === "notes" ? (
+        <div className="space-y-6">
+        {notesGroupVisible ? (
           <div className="space-y-4">
             <GroupLabel icon={FileText}>Notes</GroupLabel>
             {lvl("caller_notes") !== "hidden" ? (
@@ -589,6 +654,9 @@ export function InterviewRequestForm({
           <GroupLabel icon={FileText}>Attachments</GroupLabel>
           <p className="-mt-1 text-[12px] text-white/40">Add files or images as context (portfolio samples, screenshots, docs…).</p>
           <AttachmentsField userId={userId} value={attachments} onChange={setAttachments} />
+        </div>
+        </div>
+        ) : null}
         </div>
 
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
