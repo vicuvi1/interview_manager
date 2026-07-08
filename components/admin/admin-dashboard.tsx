@@ -40,6 +40,14 @@ function prevMonth(ym: string): string {
   const pm = m === 1 ? 12 : m - 1;
   return `${py}-${String(pm).padStart(2, "0")}`;
 }
+function untilLabel(deltaMs: number): string {
+  const mins = Math.round(deltaMs / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `in ${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `in ${h}h ${m}m` : `in ${h}h`;
+}
 function pct(cur: number, prev: number): { text: string; dir: "up" | "down" | "flat" } {
   if (prev === 0) return { text: cur > 0 ? "New" : "—", dir: cur > 0 ? "up" : "flat" };
   const change = Math.round(((cur - prev) / prev) * 100);
@@ -240,7 +248,22 @@ export function AdminDashboard({
     setBusyId(null);
   }
 
-  const nowMs = Date.now();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    // Keep the "live now / next up" states fresh without a full reload.
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // The interview happening right now, or the next one still to come today.
+  const liveOrNext = useMemo(() => {
+    for (const r of todayEvents) {
+      const startMs = new Date(r.scheduled_at as string).getTime();
+      const endMs = startMs + (r.duration_minutes ?? 30) * 60000;
+      if (now < endMs) return { r, startMs, live: now >= startMs };
+    }
+    return null;
+  }, [todayEvents, now]);
 
   return (
     <div className="space-y-5">
@@ -248,6 +271,63 @@ export function AdminDashboard({
         <h1 className="text-xl font-medium text-[#f0f0f5]">Dashboard</h1>
         <p className="text-[12px] text-white/40">Triage requests, schedule calls, and track revenue.</p>
       </div>
+
+      {/* Live now / next up — pinned so today's call and its join link are always in reach. */}
+      {liveOrNext ? (() => {
+        const { r, startMs, live } = liveOrNext;
+        const c = candidates[r.candidate_id];
+        return (
+          <div
+            className={cn(
+              "sticky top-0 z-20 flex items-center gap-3 rounded-xl border px-4 py-3 backdrop-blur",
+              live ? "border-[#ef4444]/30 bg-[#ef4444]/[0.1]" : "border-[#6366f1]/25 bg-[#13131a]/90",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide",
+                live ? "bg-[#ef4444]/15 text-[#f87171]" : "bg-[#6366f1]/15 text-[#a5b4fc]",
+              )}
+            >
+              {live ? (
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#f87171]" />
+              ) : (
+                <Clock className="h-3 w-3" />
+              )}
+              {live ? "Live now" : "Next up"}
+            </span>
+            <span className="text-[13px] font-medium tabular-nums text-[#f0f0f5]">
+              {timeInTimeZone(r.scheduled_at as string, adminTimezone)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] text-[#f0f0f5]">
+                {c?.full_name || "Candidate"} <span className="text-white/45">· {r.role}</span>
+              </p>
+              <p className="truncate text-[11px] text-white/40">{live ? "In progress" : untilLabel(startMs - now)}</p>
+            </div>
+            {r.meeting_link ? (
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={r.meeting_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-[12px] font-medium text-white",
+                    live ? "bg-[#ef4444]/90 hover:bg-[#ef4444]" : "bg-[#6366f1] hover:bg-[#6366f1]/90",
+                  )}
+                >
+                  <ExternalLink className="mr-1 inline h-3.5 w-3.5" /> Join
+                </a>
+                <CopyButton value={r.meeting_link} title="Copy meeting link" className="h-8 w-8" />
+              </div>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => setManaged(r)}>
+                Add link
+              </Button>
+            )}
+          </div>
+        );
+      })() : null}
 
       {/* Needs attention */}
       {attention.length > 0 ? (
@@ -422,28 +502,46 @@ export function AdminDashboard({
               <ul className="divide-y divide-white/[0.06]">
                 {todayEvents.map((r) => {
                   const startMs = new Date(r.scheduled_at as string).getTime();
-                  const soon = startMs - nowMs >= 0 && startMs - nowMs <= 10 * 60000;
+                  const endMs = startMs + (r.duration_minutes ?? 30) * 60000;
+                  const live = now >= startMs && now < endMs;
+                  const ended = now >= endMs;
+                  const soon = !live && !ended && startMs - now <= 10 * 60000;
                   return (
-                    <li key={r.id} className="flex items-center gap-3 px-5 py-3 sm:px-6">
-                      <span className="text-[12px] font-medium tabular-nums text-[#a5b4fc]">
-                        {timeInTimeZone(r.scheduled_at as string, adminTimezone)}
+                    <li key={r.id} className={cn("flex items-center gap-3 px-5 py-3 sm:px-6", ended && "opacity-45")}>
+                      <span className="flex w-12 shrink-0 flex-col">
+                        <span className="text-[12px] font-medium tabular-nums text-[#a5b4fc]">
+                          {timeInTimeZone(r.scheduled_at as string, adminTimezone)}
+                        </span>
+                        <span className="text-[10px] text-white/35">
+                          {live ? "" : ended ? "ended" : untilLabel(startMs - now)}
+                        </span>
                       </span>
-                      <span className="h-8 w-px bg-gradient-to-b from-[#6366f1] to-[#8b5cf6]" />
+                      <span
+                        className={cn("h-8 w-px", live ? "bg-[#f87171]" : "bg-gradient-to-b from-[#6366f1] to-[#8b5cf6]")}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] text-[#f0f0f5]">
                           {candidates[r.candidate_id]?.full_name || "Candidate"}
                         </p>
                         <p className="truncate text-[11px] text-white/40">{r.role}</p>
                       </div>
-                      {r.meeting_link ? (
+                      {live ? (
+                        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[#f87171]">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#f87171]" /> Live
+                        </span>
+                      ) : null}
+                      {r.meeting_link && !ended ? (
                         <div className="flex items-center gap-1">
                           <a
                             href={r.meeting_link}
                             target="_blank"
                             rel="noreferrer"
                             className={cn(
-                              "rounded-md bg-[#6366f1]/15 px-2 py-1 text-[12px] font-medium text-[#a5b4fc] hover:bg-[#6366f1]/25",
-                              soon && "animate-pulse",
+                              "rounded-md px-2 py-1 text-[12px] font-medium",
+                              live
+                                ? "bg-[#ef4444]/15 text-[#f87171] hover:bg-[#ef4444]/25"
+                                : "bg-[#6366f1]/15 text-[#a5b4fc] hover:bg-[#6366f1]/25",
+                              (live || soon) && "animate-pulse",
                             )}
                           >
                             Join

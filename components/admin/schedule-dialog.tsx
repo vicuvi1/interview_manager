@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, Check, Sparkles, Wand2 } from "lucide-react";
+import { CalendarClock, Check, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -16,7 +16,7 @@ import { useDurationSettings } from "@/lib/use-duration-settings";
 import { expandRecurring, overlaps, within } from "@/lib/slots";
 import { createClient } from "@/lib/supabase/client";
 import { formatInTimeZone, wallTimeToUtcISO } from "@/lib/time";
-import { cn, initials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { AvailabilitySlot, CandidateLite, InterviewRequest, ProfileLite } from "@/lib/types";
 
 const START_HOUR = 8;
@@ -123,15 +123,6 @@ export function ScheduleDialog({
     }
     return out;
   }, [dayKey, duration, adminTimezone, constrained, availableIvals, blockedIvals]);
-
-  function generateLink() {
-    const rand =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID().replace(/-/g, "").slice(0, 10)
-        : Math.round(Date.now() % 1e10).toString(36);
-    const who = initials(candidate?.full_name, candidate?.email).toLowerCase();
-    setLink(`https://meet.jit.si/InterviewPro-${who}-${rand}`);
-  }
 
   async function confirm() {
     if (!selected) {
@@ -290,13 +281,8 @@ export function ScheduleDialog({
         ) : null}
 
         {/* Meeting link */}
-        <Field label="Meeting link" htmlFor="sd-link" hint="Optional — shared with the candidate.">
-          <div className="flex gap-2">
-            <Input id="sd-link" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
-            <Button type="button" variant="secondary" size="sm" onClick={generateLink} className="shrink-0">
-              <Wand2 className="h-4 w-4" /> Generate
-            </Button>
-          </div>
+        <Field label="Meeting link" htmlFor="sd-link" hint="The candidate's link, if they shared one — you can edit it.">
+          <Input id="sd-link" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
         </Field>
 
         {error ? <p className="text-[12px] text-[#f87171]">{error}</p> : null}
