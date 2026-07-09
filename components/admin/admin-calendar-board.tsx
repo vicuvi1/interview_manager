@@ -771,18 +771,19 @@ export function AdminCalendarBoard({
               .gcal-cal .fc-timegrid-slot{height:var(--slh)!important}
               .gcal-cal .fc-pending-req{border-style:dashed!important;border-width:2px!important;}
               /* Fill the full slot: no inset gap on the right, snug to the grid lines. */
-              .gcal-cal .fc-timegrid-event-harness{inset-inline-end:1px!important}
+              .gcal-cal .fc-timegrid-event-harness{inset-inline-end:0!important}
               .gcal-cal .fc-timegrid-event{margin:0!important}
-              .gcal-cal .fc-iv{border-left-width:3px;padding:3px 8px}
-              .gcal-cal .fc-iv-content{display:flex;flex-direction:column;gap:1px;line-height:1.2;overflow:hidden;height:100%;justify-content:flex-start}
-              .gcal-cal .fc-iv-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
-              .gcal-cal .fc-iv-person{font-size:11.5px;font-weight:500;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-              .gcal-cal .fc-iv-time{font-size:11px;font-weight:600;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              /* Tight chrome so narrow week-view blocks keep as much text width as possible. */
+              .gcal-cal .fc-iv{border-left-width:2px;padding:2px 5px}
+              .gcal-cal .fc-iv-content{display:flex;flex-direction:column;gap:1px;line-height:1.18;overflow:hidden;height:100%;justify-content:flex-start}
+              .gcal-cal .fc-iv-title{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+              .gcal-cal .fc-iv-person{font-size:11px;font-weight:500;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              .gcal-cal .fc-iv-time{font-size:10.5px;font-weight:600;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
               /* Admin-set custom minutes — its own line right under the title so
                  it's always visible; content is top-aligned (see fc-iv-content)
                  so any overflow trims the lower person/time lines, never the
                  title or minutes. */
-              .gcal-cal .fc-iv-mins{font-size:11px;font-weight:700;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              .gcal-cal .fc-iv-mins{font-size:10.5px;font-weight:700;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
               /* Cramped events: keep only the title + minutes; drop person & time. */
               .gcal-cal .fc-timegrid-event-short .fc-iv-content{gap:0}
               .gcal-cal .fc-timegrid-event-short .fc-iv-title{-webkit-line-clamp:1}
@@ -813,6 +814,10 @@ export function AdminCalendarBoard({
             slotMaxTime={hourStr(hourBounds.hi)}
             scrollTime={hourStr(prefs.dayStart)}
             eventTimeFormat={timeFormat(prefs.hour12)}
+            /* Show only the start time on blocks — the end-time range was long and
+               truncated ("9:30 PM -…") in narrow week columns; the minutes line
+               and block height already convey the length. */
+            displayEventEnd={false}
             slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
             datesSet={onDatesSet}

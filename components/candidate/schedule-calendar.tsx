@@ -265,6 +265,7 @@ export function ScheduleCalendar({
             slotMaxTime={hourStr(prefs.dayEnd)}
             scrollTime={hourStr(prefs.dayStart)}
             eventTimeFormat={timeFormat(prefs.hour12)}
+            displayEventEnd={false}
             slotLabelFormat={timeFormat(prefs.hour12)}
             events={events}
             eventContent={(arg) => {
