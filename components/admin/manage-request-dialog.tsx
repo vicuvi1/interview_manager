@@ -106,6 +106,10 @@ export function ManageRequestDialog({
   const [editInterviewerName, setEditInterviewerName] = useState(request.interviewer_name ?? "");
   const [editNotes, setEditNotes] = useState(request.notes ?? "");
   const [editLink, setEditLink] = useState(request.meeting_link ?? "");
+  // Custom per-interview minutes the admin tracks manually (shown on the
+  // calendar block). 0 until the admin sets it. Same field as the recorded
+  // "how long it lasted" value, so both stay in sync.
+  const [editMinutes, setEditMinutes] = useState<number>(request.actual_minutes ?? 0);
   const [editLevel, setEditLevel] = useState(request.level ?? "");
   const [editFormat, setEditFormat] = useState(request.format ?? "");
   const [editFocus, setEditFocus] = useState((request.focus_areas ?? []).join(", "));
@@ -339,6 +343,7 @@ export function ManageRequestDialog({
         resume_url: editResumeUrl.trim() || null,
         notes: editNotes.trim() || null,
         meeting_link: editLink.trim() || null,
+        actual_minutes: editMinutes,
         last_edited_at: new Date().toISOString(),
         last_edited_by: user?.id ?? null,
       })
@@ -1006,6 +1011,24 @@ export function ManageRequestDialog({
           </Field>
           <Field label="Meeting link" htmlFor="ed-link" hint="Optional — Zoom / Meet / Teams.">
             <Input id="ed-link" placeholder="https://…" value={editLink} onChange={(e) => setEditLink(e.target.value)} />
+          </Field>
+          <Field
+            label="Duration (minutes)"
+            htmlFor="ed-minutes"
+            hint="Custom time you set for this interview — shown on the calendar block. 0 until you set it."
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                id="ed-minutes"
+                type="number"
+                min={0}
+                max={1440}
+                value={editMinutes}
+                onChange={(e) => setEditMinutes(Math.max(0, Number(e.target.value) || 0))}
+                className="w-28"
+              />
+              <span className="text-[13px] text-white/40">minutes</span>
+            </div>
           </Field>
           <Button
             size="sm"

@@ -108,7 +108,13 @@ function renderEventContent(arg: {
   event: { extendedProps: Record<string, unknown> };
   view?: { type?: string };
 }) {
-  const p = arg.event.extendedProps as { kind?: string; emoji?: string; role?: string; person?: string };
+  const p = arg.event.extendedProps as {
+    kind?: string;
+    emoji?: string;
+    role?: string;
+    person?: string;
+    adminMinutes?: number;
+  };
   // Only customize the grid views; the Agenda (list) view has its own layout.
   if (p.kind !== "interview" || arg.view?.type?.startsWith("list")) return undefined;
   return (
@@ -116,6 +122,7 @@ function renderEventContent(arg: {
       <div className="fc-iv-title">
         {p.emoji ?? ""} {p.role}
       </div>
+      <div className="fc-iv-mins">⏱ {p.adminMinutes ?? 0} min</div>
       <div className="fc-iv-person">{p.person}</div>
       {arg.timeText ? <div className="fc-iv-time">{arg.timeText}</div> : null}
     </div>
@@ -188,6 +195,7 @@ export function AdminCalendarBoard({
     emoji: string;
     when: string;
     durationMin: number;
+    adminMinutes: number;
     statusLabel: string;
     interviewType: string | null;
     hasLink: boolean;
@@ -387,6 +395,8 @@ export function AdminCalendarBoard({
           emoji: ts.emoji,
           statusLabel: statusLabel(effStatus, statusLabels),
           durationMin: r.duration_minutes ?? 30,
+          // Admin-set custom minutes shown on the block — 0 until the admin sets it.
+          adminMinutes: r.actual_minutes ?? 0,
           startMs: start.getTime(),
           interviewType: r.interview_type ?? null,
           hasLink: Boolean(r.meeting_link),
@@ -768,7 +778,9 @@ export function AdminCalendarBoard({
               .gcal-cal .fc-iv-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
               .gcal-cal .fc-iv-person{font-size:11.5px;font-weight:500;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
               .gcal-cal .fc-iv-time{font-size:11px;font-weight:600;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-              /* Cramped events: collapse to title + time so nothing clips. */
+              /* Admin-set custom minutes — kept visible even in cramped blocks. */
+              .gcal-cal .fc-iv-mins{font-size:11px;font-weight:700;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+              /* Cramped events: collapse to title + minutes + time so nothing clips. */
               .gcal-cal .fc-timegrid-event-short .fc-iv-content{gap:0}
               .gcal-cal .fc-timegrid-event-short .fc-iv-title{-webkit-line-clamp:1}
               .gcal-cal .fc-timegrid-event-short .fc-iv-person{display:none}
@@ -816,6 +828,7 @@ export function AdminCalendarBoard({
                 emoji: p.emoji,
                 when: formatInTimeZone(new Date(p.startMs).toISOString(), realTz),
                 durationMin: p.durationMin,
+                adminMinutes: p.adminMinutes ?? 0,
                 statusLabel: p.statusLabel,
                 interviewType: p.interviewType,
                 hasLink: p.hasLink,
@@ -902,6 +915,7 @@ export function AdminCalendarBoard({
             <p className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-white/40" />
               {hover.when} · {hover.durationMin} min
+              <span className="text-white/45">· set {hover.adminMinutes} min</span>
             </p>
             <p className="flex items-center gap-1.5">
               <span
