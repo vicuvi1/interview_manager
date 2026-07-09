@@ -277,7 +277,6 @@ export function ScheduleCalendar({
               const st = p.statusLabel ?? "";
               const pillColor = (COLORS[st] ?? COLORS.pending).border;
               const pillText = STATUS_TEXT[st] ?? st;
-              const sub = [arg.timeText, p.typeLabel].filter(Boolean).join(" · ");
               return (
                 <div className="fc-chip">
                   <div className="fc-chip-title">
@@ -289,8 +288,11 @@ export function ScheduleCalendar({
                     {p.emoji ? `${p.emoji} ` : ""}
                     {arg.event.title}
                   </div>
-                  <div className="fc-chip-mins">⏱ {p.adminMinutes ?? 0} min</div>
-                  {sub ? <div className="fc-chip-time">{sub}</div> : null}
+                  <div className="fc-chip-time">
+                    {arg.timeText ? `${arg.timeText} · ` : ""}
+                    <span className="fc-chip-mins">⏱ {p.adminMinutes ?? 0} min</span>
+                    {p.typeLabel ? ` · ${p.typeLabel}` : ""}
+                  </div>
                 </div>
               );
             }}

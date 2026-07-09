@@ -368,13 +368,11 @@
   line-height: 1.1;
   opacity: 0.82;
 }
-/* Minutes the interviewer set for this interview (0 until they set it). */
+/* Minutes the interviewer set for this interview (0 until they set it).
+   Rendered inline inside .fc-chip-time so short blocks don't clip. */
 .cand-cal .fc-chip-mins {
-  font-size: 11px;
-  line-height: 1.1;
   font-weight: 700;
   opacity: 0.95;
-  white-space: nowrap;
 }
 /* Status pill on each block — makes accepted/pending/refused unmistakable
    regardless of the block's type/custom fill color. */
