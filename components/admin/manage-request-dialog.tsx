@@ -18,7 +18,6 @@ import { notifyChanged } from "@/lib/bus";
 import { ACTION_META, ACTIONS_BY_STATUS } from "@/lib/interview-lifecycle";
 import { FORMAT_LABEL, FORMATS, INTERVIEW_TYPES, LEVELS, durationOptions } from "@/lib/interview";
 import { useDurationSettings } from "@/lib/use-duration-settings";
-import { autoMeetingLink } from "@/lib/meeting";
 import { openSignedAdminFile } from "@/lib/admin-file";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -143,7 +142,7 @@ export function ManageRequestDialog({
   }, [request.candidate_id]);
 
   const defaultCents = stage ? pricing[stage] : undefined;
-  const [schedLink, setSchedLink] = useState(request.meeting_link ?? autoMeetingLink(request.id));
+  const [schedLink, setSchedLink] = useState(request.meeting_link ?? "");
   const [scheduling, setScheduling] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [proposedBusy, setProposedBusy] = useState<string | null>(null);
@@ -382,7 +381,7 @@ export function ManageRequestDialog({
       p_interview_id: request.id,
       p_scheduled_at: scheduledUtc,
       p_duration: schedDuration,
-      p_meeting_link: schedLink.trim() || autoMeetingLink(request.id),
+      p_meeting_link: schedLink.trim(),
       p_interviewer_id: request.interviewer_id,
     });
     if (updateError) {
@@ -400,7 +399,7 @@ export function ManageRequestDialog({
         .eq("id", request.id);
       invoiced = !invoiceError;
     }
-    const scheduledLink = schedLink.trim() || autoMeetingLink(request.id);
+    const scheduledLink = schedLink.trim();
     await supabase.from("notifications").insert({
       user_id: request.candidate_id,
       title: "Interview scheduled",
@@ -585,7 +584,7 @@ export function ManageRequestDialog({
       p_interview_id: request.id,
       p_scheduled_at: request.preferred_at,
       p_duration: request.duration_minutes,
-      p_meeting_link: request.meeting_link || autoMeetingLink(request.id),
+      p_meeting_link: request.meeting_link,
       p_interviewer_id: request.interviewer_id,
     });
     if (updateError) {
@@ -617,7 +616,7 @@ export function ManageRequestDialog({
       p_interview_id: request.id,
       p_scheduled_at: request.proposed_at,
       p_duration: request.duration_minutes,
-      p_meeting_link: request.meeting_link || autoMeetingLink(request.id),
+      p_meeting_link: request.meeting_link,
       p_interviewer_id: request.interviewer_id,
     });
     if (updateError) {
@@ -1197,11 +1196,11 @@ export function ManageRequestDialog({
                 </div>
               </Field>
             </div>
-            <Field label="Meeting link" htmlFor="schedLink" hint="Auto-created (free video room) — or paste your own.">
+            <Field label="Meeting link" htmlFor="schedLink" hint="Optional — paste your Zoom / Meet / Teams link.">
               <div className="flex items-center gap-1.5">
                 <Input
                   id="schedLink"
-                  placeholder="https://meet.google.com/…"
+                  placeholder="https://…"
                   value={schedLink}
                   onChange={(e) => setSchedLink(e.target.value)}
                 />
