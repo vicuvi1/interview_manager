@@ -156,6 +156,8 @@ export function ScheduleCalendar({
           emoji: ts.emoji,
           typeLabel: r.interview_type ?? null,
           statusLabel: r.status,
+          // Minutes the interviewer set for this interview — 0 until they set it.
+          adminMinutes: r.actual_minutes ?? 0,
         },
       });
     }
@@ -270,6 +272,7 @@ export function ScheduleCalendar({
                 emoji?: string;
                 typeLabel?: string | null;
                 statusLabel?: string;
+                adminMinutes?: number;
               };
               const st = p.statusLabel ?? "";
               const pillColor = (COLORS[st] ?? COLORS.pending).border;
@@ -286,6 +289,7 @@ export function ScheduleCalendar({
                     {p.emoji ? `${p.emoji} ` : ""}
                     {arg.event.title}
                   </div>
+                  <div className="fc-chip-mins">⏱ {p.adminMinutes ?? 0} min</div>
                   {sub ? <div className="fc-chip-time">{sub}</div> : null}
                 </div>
               );
@@ -384,6 +388,7 @@ export function ScheduleCalendar({
                 : `${formatInTimeZone(detail.preferred_at, timezone)} (requested)`}
               {" · "}
               {detail.duration_minutes} min
+              <span className="text-white/40">· ⏱ {detail.actual_minutes ?? 0} min set</span>
             </p>
             {detail.status === "scheduled" && detail.meeting_link ? (
               <a href={detail.meeting_link} target="_blank" rel="noreferrer">
