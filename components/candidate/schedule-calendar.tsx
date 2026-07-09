@@ -226,7 +226,7 @@ export function ScheduleCalendar({
             height={calHeight}
             expandRows
             slotEventOverlap={false}
-            eventMinHeight={28}
+            eventMinHeight={46}
             eventShortHeight={40}
             allDaySlot={false}
             nowIndicator

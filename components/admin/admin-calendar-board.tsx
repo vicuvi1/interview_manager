@@ -804,7 +804,9 @@ export function AdminCalendarBoard({
             editable
             eventResizableFromStart
             slotEventOverlap={false}
-            eventMinHeight={54}
+            /* Give short interviews enough height for title + minutes + person +
+               time so they don't clip (the block's "length", per the request). */
+            eventMinHeight={74}
             eventShortHeight={48}
             slotDuration="00:30:00"
             snapDuration="00:05:00"
